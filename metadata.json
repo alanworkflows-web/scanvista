@@ -1,0 +1,6 @@
+{
+  "name": "ScanVista",
+  "description": "A zero-friction, multi-tenant hospitality menu app with allergen tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

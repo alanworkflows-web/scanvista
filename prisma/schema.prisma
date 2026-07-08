@@ -1,0 +1,122 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  name          String?
+  picture       String?
+  googleId      String?   @unique
+  role          String    @default("MANAGER") // MANAGER, ADMIN
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  properties    Property[]
+}
+
+model Subscription {
+  id                  String    @id @default(uuid())
+  propertyId          String    @unique
+  paddleCustomerId    String?
+  paddleSubscriptionId String?
+  status              String    @default("inactive") // active, past_due, canceled, inactive
+  planId              String?
+  currentPeriodEnd    DateTime?
+  cancelAtPeriodEnd   Boolean   @default(false)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  property            Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+}
+
+model Property {
+  id           String     @id @default(uuid())
+  ownerId      String
+  slug         String     @unique
+  name         String
+  description  String?
+  bannerUrl    String?
+  propertyType String     @default("HOTEL") // HOTEL, HOMESTAY, RESORT, RETREAT
+
+  // Dynamic fields based on propertyType
+  wifiNetwork       String?
+  wifiPassword      String?
+  hostInfo          String?
+  houseRules        String?
+  experiences       String?
+  receptionPhone    String?
+  housekeepingPhone String?
+  emergencyPhone    String?
+  roomServicePhone  String?
+  
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  owner        User       @relation(fields: [ownerId], references: [id])
+  categories   MenuCategory[]
+  amenities    Amenity[]
+  subscription Subscription?
+}
+
+model MenuCategory {
+  id           String     @id @default(uuid())
+  propertyId   String
+  name         String
+  displayOrder Int        @default(0)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  property     Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  dishes       Dish[]
+}
+
+model Dish {
+  id               String     @id @default(uuid())
+  categoryId       String
+  name             String
+  description      String?
+  price            Float
+  imageUrl         String?
+  dietaryCategory  String?    // e.g., "Vegan", "Vegetarian", "Gluten-Free"
+  allergens        String     @default("[]") // JSON string array of 14 EU allergens
+  healthTips       String?    // Toggles for admin
+  isPopular        Boolean    @default(false)
+  isChefRec        Boolean    @default(false)
+  isOutOfStock     Boolean    @default(false)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  category         MenuCategory   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+}
+
+model Amenity {
+  id           String     @id @default(uuid())
+  propertyId   String
+  name         String
+  description         String?
+  icon                String?
+  openTime            String?
+  closeTime           String?
+  requiresReservation Boolean    @default(false)
+  createdAt           DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  property     Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+}
+
+model Session {
+  id        String   @id
+  sid       String   @unique
+  data      String
+  expiresAt DateTime
+}
+
+model WebhookEvent {
+  id        String   @id
+  type      String
+  createdAt DateTime @default(now())
+}

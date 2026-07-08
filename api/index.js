@@ -1,11 +1,16 @@
-const { startServer } = require('../dist/server.cjs');
+import serverModule from '../dist/server.cjs';
+const { startServer } = serverModule;
 
 let cachedApp = null;
 
-module.exports = async (req, res) => {
-  if (!cachedApp) {
-    // startServer() returns the Express app instance
-    cachedApp = await startServer();
+export default async function handler(req, res) {
+  try {
+    if (!cachedApp) {
+      cachedApp = await startServer();
+    }
+    return cachedApp(req, res);
+  } catch (err) {
+    console.error("Serverless Initialization Error:", err);
+    res.status(500).json({ error: "Server configuration error", details: err.message });
   }
-  return cachedApp(req, res);
-};
+}

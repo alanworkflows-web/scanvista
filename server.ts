@@ -21,7 +21,7 @@ async function startServer() {
       process.env.SESSION_SECRET = crypto.randomBytes(32).toString('hex');
     } else {
       console.error("SESSION_SECRET must be set in production");
-      process.exit(1);
+      throw new Error("SESSION_SECRET must be set in production");
     }
   }
 
@@ -171,10 +171,19 @@ async function startServer() {
   });
 
   // OAuth Setup
+  let googleCallbackUrl = process.env.GOOGLE_CALLBACK_URL;
+  if (!googleCallbackUrl) {
+    if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
+      throw new Error("GOOGLE_CALLBACK_URL must be set in production");
+    } else {
+      googleCallbackUrl = "http://localhost:3000/auth/google/callback";
+    }
+  }
+
   const oauth2Client = new OAuth2Client(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    process.env.APP_URL ? `${process.env.APP_URL}/auth/google/callback` : "http://localhost:3000/auth/google/callback"
+    googleCallbackUrl
   );
 
   
@@ -496,7 +505,7 @@ async function startServer() {
     });
   }
 
-  if (process.env.NODE_ENV !== 'test') {
+  if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`Server running on port ${PORT}`);
     });
@@ -505,7 +514,7 @@ async function startServer() {
   return app;
 }
 
-if (process.env.NODE_ENV !== 'test') {
+if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
   startServer();
 }
 

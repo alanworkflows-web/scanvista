@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "npx cross-env DATABASE_URL=file:./test.db npx prisma db push --force-reset --accept-data-loss && npx cross-env DATABASE_URL=file:./test.db vitest run"
+    "test": "node scripts/run-tests.cjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

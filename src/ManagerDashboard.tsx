@@ -10,6 +10,7 @@ export function ManagerDashboard() {
   const [saving, setSaving] = useState(false);
   const [propertySlug, setPropertySlug] = useState("ocean-hotel"); // default
   const [isReadOnly, setIsReadOnly] = useState(false);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<string>("none");
   
   const [formData, setFormData] = useState({
     name: "",
@@ -63,12 +64,9 @@ export function ManagerDashboard() {
             emergencyPhone: data.property.emergencyPhone || ""
           });
 
-          if (data.property.subscription && data.property.subscription.status !== 'active') {
-             // Basic lockout logic based on status
-             setIsReadOnly(true);
-          } else {
-             setIsReadOnly(false);
-          }
+          const subStatus = data.property.subscription?.status || 'none';
+          setSubscriptionStatus(subStatus);
+          setIsReadOnly(subStatus !== 'active');
         }
         setLoading(false);
       })
@@ -109,52 +107,6 @@ export function ManagerDashboard() {
       });
   };
 
-  const handlePaddleCheckout = () => {
-    const loadPaddleAndCheckout = () => {
-      // @ts-ignore
-      if (window.Paddle) {
-        let managerEmail = "manager@example.com";
-        // In real app, you would pass the actual logged in user's email
-
-        // @ts-ignore
-        window.Paddle.Initialize({ 
-          token: import.meta.env.VITE_PADDLE_CLIENT_TOKEN || "live_caac7ae17428c47d0eb266823c4", 
-          environment: "sandbox" // Change to "production" when launching live
-        });
-
-        // @ts-ignore
-        window.Paddle.Checkout.open({
-          settings: {
-            displayMode: "overlay",
-            theme: "light",
-            locale: "en"
-          },
-          items: [{
-            priceId: "pro_01kwxk9wd47vc7fxt8axgx7vrx", 
-            quantity: 1
-          }],
-          customer: {
-            email: managerEmail
-          },
-          customData: {
-            slug: propertySlug
-          }
-        });
-      }
-    };
-
-    // @ts-ignore
-    if (!window.Paddle) {
-      const script = document.createElement('script');
-      script.src = 'https://cdn.paddle.com/paddle/v2/paddle.js';
-      script.crossOrigin = 'anonymous';
-      script.onload = loadPaddleAndCheckout;
-      document.body.appendChild(script);
-    } else {
-      loadPaddleAndCheckout();
-    }
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -171,11 +123,9 @@ export function ManagerDashboard() {
             ⚠️ Subscription Expired: Your workspace is now locked in Read-Only Mode. Please renew your $10 flat plan to unblock real-time edits.
           </p>
           <button 
-            onClick={handlePaddleCheckout}
-            disabled={saving}
-            className="mt-2 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+            onClick={(e) => { e.preventDefault(); navigate('/manager/plan'); }}
+            className="mt-2 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
           >
-            {saving ? <Loader2 size={16} className="animate-spin mr-2" /> : null}
             Renew Subscription ($10/mo)
           </button>
         </div>
@@ -195,16 +145,28 @@ export function ManagerDashboard() {
             </h1>
             {isReadOnly ? (
               <button 
-                onClick={handlePaddleCheckout}
-                disabled={saving}
-                className="ml-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md font-sans text-sm tracking-wide transition-all disabled:opacity-50"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate('/manager/plan');
+                }}
+                className="ml-2 bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold py-2 px-4 rounded-lg shadow-sm font-sans text-sm tracking-wide transition-all"
               >
-                💳 Activate Flat Plan ($10/mo)
+                View Plans
               </button>
             ) : (
-              <span className="ml-2 bg-gray-100 text-gray-600 font-semibold py-2 px-4 rounded-lg font-sans text-sm tracking-wide">
-                🟢 Premium Plan Active
-              </span>
+              <button 
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate('/manager/plan');
+                }}
+                className="ml-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-semibold py-2 px-4 rounded-lg font-sans text-sm tracking-wide flex items-center gap-1.5 transition-all"
+              >
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                Premium Active
+              </button>
             )}
           </div>
           <button 
@@ -222,11 +184,10 @@ export function ManagerDashboard() {
         {isReadOnly && (
           <div className="fixed bottom-6 right-6 z-50">
             <button 
-              onClick={handlePaddleCheckout}
-              disabled={saving}
-              className="flex items-center gap-2 bg-emerald-600 text-white px-6 py-4 rounded-2xl shadow-xl hover:bg-emerald-700 transition-all font-bold text-lg animate-pulse disabled:opacity-50 disabled:animate-none"
+              onClick={(e) => { e.preventDefault(); navigate('/manager/plan'); }}
+              className="flex items-center gap-2 bg-emerald-600 text-white px-6 py-4 rounded-2xl shadow-xl hover:bg-emerald-700 transition-all font-bold text-lg animate-pulse"
             >
-              {saving ? <Loader2 size={24} className="animate-spin" /> : <span>🟢</span>}
+              <span>🟢</span>
               Renew Subscription ($10/mo)
             </button>
           </div>
@@ -236,18 +197,20 @@ export function ManagerDashboard() {
           {/* Media & Assets */}
           <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100">
             <h2 className="text-lg font-bold text-gray-900 mb-6">Media & Assets</h2>
-            <div className="space-y-6">
-              <ImageUploader 
-                label="Header Hero Image" 
-                currentImage={formData.bannerUrl}
-                onImageSelected={(url) => setFormData(prev => ({ ...prev, bannerUrl: url }))} 
-              />
-              <ImageUploader 
-                label="Brand Logo (Optional)" 
-                currentImage={formData.logoUrl}
-                onImageSelected={(url) => setFormData(prev => ({ ...prev, logoUrl: url }))} 
-              />
-            </div>
+              <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 text-center">
+                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 text-gray-400">
+                  <span role="img" aria-label="image">🖼️</span>
+                </div>
+                <h3 className="text-sm font-medium text-gray-900 mb-1">Header Hero Image</h3>
+                <p className="text-xs text-gray-500 max-w-sm mx-auto">Image uploads are temporarily unavailable.</p>
+              </div>
+              <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 text-center">
+                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 text-gray-400">
+                  <span role="img" aria-label="image">🖼️</span>
+                </div>
+                <h3 className="text-sm font-medium text-gray-900 mb-1">Brand Logo (Optional)</h3>
+                <p className="text-xs text-gray-500 max-w-sm mx-auto">Image uploads are temporarily unavailable.</p>
+              </div>
           </div>
 
           {/* Property Details */}

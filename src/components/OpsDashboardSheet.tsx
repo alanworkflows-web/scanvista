@@ -441,10 +441,21 @@ export function OpsDashboardSheet({ propertySlug, isReadOnly = false }: { proper
               <div className="qr-container mb-10 p-4 bg-white rounded-2xl shadow-sm border border-gray-100">
                 <QRCodeSVG 
                   value={(() => {
-                    if (import.meta.env.PROD && !import.meta.env.VITE_APP_URL) {
-                      return `https://CONFIG-ERROR-MISSING-APP-URL/p/${propertySlug}?scanned=true&device=mobile`;
+                    const isProd = import.meta.env.PROD || import.meta.env.MODE === 'production';
+                    let appUrl = import.meta.env.VITE_APP_URL;
+                    
+                    if (isProd) {
+                      if (!appUrl || appUrl.includes('localhost')) {
+                        return `https://CONFIG-ERROR-MISSING-APP-URL/p/${propertySlug}?scanned=true&device=mobile`;
+                      }
+                    } else {
+                      appUrl = appUrl || window.location.origin;
                     }
-                    return `${import.meta.env.VITE_APP_URL || window.location.origin}/p/${propertySlug}?scanned=true&device=mobile`;
+                    
+                    // Safely trim trailing slash
+                    appUrl = appUrl.replace(/\/+$/, '');
+                    
+                    return `${appUrl}/p/${propertySlug}?scanned=true&device=mobile`;
                   })()} 
                   size={180} 
                   level="H"

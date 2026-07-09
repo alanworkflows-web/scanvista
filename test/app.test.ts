@@ -20,7 +20,7 @@ vi.mock("@paddle/paddle-node-sdk", () => {
 
 const prisma = new PrismaClient();
 let app: any;
-let agent: request.SuperAgentTest;
+let agent: any;
 
 beforeAll(async () => {
   app = await startServer();

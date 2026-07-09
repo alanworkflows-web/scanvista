@@ -380,14 +380,23 @@ async function startServer() {
   app.put("/api/manager/properties/:slug", requireAuth, async (req, res) => {
     try {
       const validatedData = PropertySchema.parse(req.body);
-      const property = await prisma.property.update({
+      
+      // Use updateMany for atomic ownership checking (prevents IDOR)
+      // @ts-ignore
+      const result = await prisma.property.updateMany({
         where: { 
           slug: req.params.slug,
           // @ts-ignore
-          ownerId: req.session.userId // prevent IDOR
+          ownerId: req.session.userId
         },
         data: validatedData
       });
+
+      if (result.count === 0) {
+        return res.status(403).json({ error: "Forbidden or property not found" });
+      }
+
+      const property = await prisma.property.findUnique({ where: { slug: req.params.slug } });
       res.json(property);
     } catch (err: any) {
       if (err instanceof z.ZodError) {

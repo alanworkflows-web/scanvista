@@ -30,7 +30,7 @@ async function startServer() {
     contentSecurityPolicy: false, 
   }));
 
-  app.set("trust proxy", true);
+  app.set("trust proxy", 1);
 
   // Rate Limiting
   const apiLimiter = rateLimit({
@@ -225,7 +225,14 @@ async function startServer() {
       state: state
     });
 
-    res.redirect(url);
+    // @ts-ignore
+    req.session.save((err) => {
+      if (err) {
+        console.error("Session save error before redirect:", err);
+        return res.status(500).send("Failed to initialize OAuth session");
+      }
+      res.redirect(url);
+    });
   });
 
 
@@ -238,6 +245,10 @@ async function startServer() {
       if (!savedState || savedState !== req.query.state) {
         return res.status(400).send("Invalid state parameter");
       }
+      
+      // Prevent CSRF replay
+      // @ts-ignore
+      delete req.session.oauthState;
       
       const { tokens } = await oauth2Client.getToken(req.query.code as string);
       oauth2Client.setCredentials(tokens);

@@ -121,3 +121,13 @@ model WebhookEvent {
   type      String
   createdAt DateTime @default(now())
 }
+
+model OAuthState {
+  id          String    @id @default(uuid())
+  stateHash   String    @unique
+  sessionHash String?   // optional session binding
+  returnTo    String
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime  @default(now())
+}

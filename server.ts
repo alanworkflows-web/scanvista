@@ -263,9 +263,8 @@ async function startServer() {
         });
       });
       return;
-    }
-
-    const state = crypto.randomBytes(32).toString('hex');
+    }    const state = crypto.randomBytes(32).toString('hex');
+    const stateHash = crypto.createHash('sha256').update(state).digest('hex');
     const rawReturnTo = req.query.returnTo as string;
     const allowedPrefixes = ['/manager/setup', '/manager/operations', '/manager/qr', '/manager/plan'];
     let safeReturnTo = '/manager/setup';
@@ -273,31 +272,25 @@ async function startServer() {
        safeReturnTo = rawReturnTo;
     }
 
-    // @ts-ignore
-    let states = req.session.oauthStates || {};
-    const now = Date.now();
-    for (const key of Object.keys(states)) {
-      if (now - states[key].createdAt > 10 * 60 * 1000) {
-        delete states[key];
-      }
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 10 * 60 * 1000); // 10 mins TTL
+
+    try {
+      await prisma.oAuthState.create({
+        data: {
+          stateHash,
+          returnTo: safeReturnTo,
+          expiresAt
+        }
+      });
+      // Cleanup expired states opportunistically
+      await prisma.oAuthState.deleteMany({
+        where: { expiresAt: { lt: now } }
+      });
+    } catch (dbErr) {
+      console.error("OAuth init DB error:", dbErr);
+      return res.status(500).send("Failed to initialize OAuth state");
     }
-
-    const stateKeys = Object.keys(states);
-    if (stateKeys.length >= 5) {
-      stateKeys.sort((a, b) => states[a].createdAt - states[b].createdAt);
-      const toRemove = stateKeys.length - 4;
-      for (let i = 0; i < toRemove; i++) {
-        delete states[stateKeys[i]];
-      }
-    }
-
-    states[state] = {
-      returnTo: safeReturnTo,
-      createdAt: now
-    };
-
-    // @ts-ignore
-    req.session.oauthStates = states;
 
     const url = oauth2Client.generateAuthUrl({
       access_type: 'offline',
@@ -305,11 +298,11 @@ async function startServer() {
       state: state
     });
 
-    // @ts-ignore
+    // Session save for other data is not strictly required here if we didn't mutate it,
+    // but just to be safe if express-session updated the cookie expiry:
     req.session.save((err) => {
       if (err) {
         console.error("Session save error before redirect:", err);
-        return res.status(500).send("Failed to initialize OAuth session");
       }
       res.redirect(url);
     });
@@ -319,10 +312,7 @@ async function startServer() {
   app.get("/auth/google/callback", async (req, res) => {
     try {
       const queryState = req.query.state as string;
-      // @ts-ignore
-      const states = req.session.oauthStates || {};
-      const stateData = states[queryState];
-
+      const stateHash = queryState ? crypto.createHash('sha256').update(queryState).digest('hex') : 'none';
       const errorHtml = `
         <div style="font-family: sans-serif; max-width: 400px; margin: 40px auto; text-align: center;">
           <h2>Session Expired</h2>
@@ -333,23 +323,32 @@ async function startServer() {
         </div>
       `;
 
-      if (!queryState || !stateData) {
+      if (!queryState) {
         return res.status(400).send(errorHtml);
       }
 
-      const now = Date.now();
-      if (now - stateData.createdAt > 10 * 60 * 1000) {
-        delete states[queryState];
-        // @ts-ignore
-        req.session.oauthStates = states;
+      const now = new Date();
+      // Atomic consume: update exactly one record that hasn't been consumed and isn't expired
+      const consumeResult = await prisma.oAuthState.updateMany({
+        where: {
+          stateHash,
+          consumedAt: null,
+          expiresAt: { gt: now }
+        },
+        data: {
+          consumedAt: now
+        }
+      });
+
+      if (consumeResult.count !== 1) {
         return res.status(400).send(errorHtml);
       }
 
-      const returnTo = stateData.returnTo;
-      delete states[queryState];
-      // @ts-ignore
-      req.session.oauthStates = states;
-
+      // Fetch the verified state data
+      const stateData = await prisma.oAuthState.findUnique({
+        where: { stateHash }
+      });
+      const returnTo = stateData?.returnTo || "/manager/setup";
       const { tokens } = await oauth2Client.getToken(req.query.code as string);
       oauth2Client.setCredentials(tokens);
 

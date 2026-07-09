@@ -43,14 +43,33 @@ export function ManagerPlan() {
     
     // @ts-ignore
     if (!window.Paddle) {
-      alert("Billing system is currently unavailable.");
+      alert("Payments are temporarily unavailable. Please try again later.");
       return;
+    }
+
+    const env = import.meta.env.VITE_PADDLE_ENV;
+    const clientToken = import.meta.env.VITE_PADDLE_CLIENT_TOKEN;
+    const priceId = import.meta.env.VITE_PADDLE_PRICE_ID;
+    
+    // Fail closed in production if config is invalid
+    const isProd = import.meta.env.PROD || import.meta.env.MODE === 'production';
+    if (isProd) {
+      if (!env || !clientToken || !priceId || (env !== 'production' && env !== 'sandbox')) {
+        alert("Payments are temporarily unavailable. Please try again later.");
+        return;
+      }
+    } else {
+      // In dev, provide safe sandbox defaults if entirely missing, but don't leak into prod
+      if (!env || !clientToken || !priceId) {
+        alert("Local Dev Error: VITE_PADDLE_ENV, VITE_PADDLE_CLIENT_TOKEN or VITE_PADDLE_PRICE_ID missing.");
+        return;
+      }
     }
 
     // @ts-ignore
     window.Paddle.Initialize({ 
-      token: import.meta.env.VITE_PADDLE_CLIENT_TOKEN || "test_token", 
-      environment: import.meta.env.VITE_PADDLE_ENV || "sandbox"
+      token: clientToken, 
+      environment: env
     });
 
     // @ts-ignore
@@ -61,7 +80,7 @@ export function ManagerPlan() {
         locale: "en"
       },
       items: [{
-        priceId: import.meta.env.VITE_PADDLE_PRICE_ID || "pri_01hwqk9wd47vc7fxt8axgx7vrx", 
+        priceId: priceId, 
         quantity: 1
       }],
       customer: {

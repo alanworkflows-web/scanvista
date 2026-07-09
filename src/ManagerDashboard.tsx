@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Save, Loader2, ArrowLeft } from "lucide-react";
 import { ImageUploader } from "./components/ImageUploader";
 import { OpsDashboardSheet } from "./components/OpsDashboardSheet";
@@ -7,11 +7,13 @@ import { ManagerLayout } from "./components/ManagerLayout";
 
 export function ManagerDashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [propertySlug, setPropertySlug] = useState("ocean-hotel"); // default
   const [isReadOnly, setIsReadOnly] = useState(false);
+  const [multiPropertyError, setMultiPropertyError] = useState(false);
   const [entitlement, setEntitlement] = useState<any>(null);
   
   const [formData, setFormData] = useState({
@@ -42,12 +44,16 @@ export function ManagerDashboard() {
           return fetch("/api/manager/properties", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ slug: "prop_" + Date.now(), name: "My Property" })
+            body: JSON.stringify({ name: "My Property" })
           }).then(res => res.json()).then(prop => [prop]);
         }
         return properties;
       })
       .then(properties => {
+        if (properties.length > 1) {
+          setMultiPropertyError(true);
+          throw new Error("Multiple properties found");
+        }
         const targetProperty = properties[0].slug;
         setPropertySlug(targetProperty);
         return fetch(`/api/properties/${targetProperty}`);
@@ -74,13 +80,13 @@ export function ManagerDashboard() {
       })
       .catch(err => {
         if (err.message === "Not authorized") {
-          navigate("/manager");
+          navigate(`/manager?returnTo=${encodeURIComponent(location.pathname)}`);
         } else {
           console.error(err);
         }
         setLoading(false);
       });
-  }, [navigate]);
+  }, [navigate, location]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,6 +124,19 @@ export function ManagerDashboard() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
       </div>
+    );
+  }
+
+  if (multiPropertyError) {
+    return (
+      <ManagerLayout>
+        <div className="bg-amber-50 border border-amber-200 px-4 py-6 text-center sm:px-6 lg:px-8 rounded-xl shadow-sm">
+          <h2 className="text-lg font-bold text-amber-900 mb-2">Multiple Properties Found</h2>
+          <p className="text-amber-800">
+            Multiple properties found. Property switching is not yet available.
+          </p>
+        </div>
+      </ManagerLayout>
     );
   }
 
@@ -179,8 +198,8 @@ export function ManagerDashboard() {
               disabled={saving || isReadOnly}
               className="bg-gray-900 hover:bg-gray-800 text-white font-bold py-2.5 px-6 rounded-xl shadow-sm hover:shadow-md transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-            {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-            Save & Publish
+            {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+            Save Changes
           </button>
         </div>
 

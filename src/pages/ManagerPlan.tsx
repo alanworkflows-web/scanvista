@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { CheckCircle2, ArrowLeft, Loader2, CreditCard } from "lucide-react";
 import { cn } from "../lib/utils";
 import { ManagerLayout } from "../components/ManagerLayout";
 
 export function ManagerPlan() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [property, setProperty] = useState<any>(null);
   const [userEmail, setUserEmail] = useState("");
   const [billingError, setBillingError] = useState<string | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [multiPropertyError, setMultiPropertyError] = useState(false);
 
   useEffect(() => {
     fetch("/api/me")
@@ -24,6 +26,10 @@ export function ManagerPlan() {
       })
       .then(res => res.json())
       .then(properties => {
+        if (properties.length > 1) {
+          setMultiPropertyError(true);
+          throw new Error("Multiple properties found");
+        }
         if (properties.length === 0) {
           throw new Error("No property found");
         }
@@ -35,10 +41,12 @@ export function ManagerPlan() {
         setLoading(false);
       })
       .catch(err => {
-        console.error(err);
-        navigate("/manager");
+        if (err.message === "Not authorized") {
+          navigate(`/manager?returnTo=${encodeURIComponent(location.pathname)}`);
+        }
+        setLoading(false);
       });
-  }, [navigate]);
+  }, [navigate, location]);
 
   const handlePaddleCheckout = () => {
     if (!property) return;
@@ -105,9 +113,24 @@ export function ManagerPlan() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
-      </div>
+      <ManagerLayout>
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+        </div>
+      </ManagerLayout>
+    );
+  }
+
+  if (multiPropertyError) {
+    return (
+      <ManagerLayout>
+        <div className="bg-amber-50 border border-amber-200 px-4 py-6 text-center sm:px-6 lg:px-8 rounded-xl shadow-sm max-w-4xl mx-auto mt-8">
+          <h2 className="text-lg font-bold text-amber-900 mb-2">Multiple Properties Found</h2>
+          <p className="text-amber-800">
+            Multiple properties found. Property switching is not yet available.
+          </p>
+        </div>
+      </ManagerLayout>
     );
   }
 

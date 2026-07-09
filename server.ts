@@ -215,7 +215,7 @@ async function startServer() {
         console.error("CRITICAL: GOOGLE_CLIENT_ID missing in production.");
         return res.status(500).send("Authentication is currently unavailable. Please configure GOOGLE_CLIENT_ID.");
       }
-      console.log("⚠️ GOOGLE_CLIENT_ID not configured, using development bypass login");
+      console.warn("⚠️ GOOGLE_CLIENT_ID not configured, using development bypass login");
       
       const user = await prisma.user.upsert({
         where: { email: "demo@example.com" },
@@ -228,11 +228,23 @@ async function startServer() {
         }
       });
       
+      const rawReturnTo = req.query.returnTo as string;
+      const allowedPrefixes = ['/manager/setup', '/manager/operations', '/manager/qr', '/manager/plan'];
+      let safeReturnTo = '/manager/setup';
+      if (rawReturnTo && allowedPrefixes.some(p => rawReturnTo.startsWith(p))) {
+         safeReturnTo = rawReturnTo;
+      }
+
       // @ts-ignore
-      req.session.userId = user.id;
-      // @ts-ignore
-      req.session.save((err) => {
-        return res.redirect("/manager/setup");
+      req.session.regenerate((err) => {
+        if (err) return res.status(500).send("Session error");
+        // @ts-ignore
+        req.session.userId = user.id;
+        // @ts-ignore
+        req.session.save((saveErr) => {
+          if (saveErr) return res.status(500).send("Session save error");
+          return res.redirect(safeReturnTo);
+        });
       });
       return;
     }
@@ -240,6 +252,13 @@ async function startServer() {
     const state = crypto.randomBytes(32).toString('hex');
     // @ts-ignore
     req.session.oauthState = state;
+
+    const rawReturnTo = req.query.returnTo as string;
+    const allowedPrefixes = ['/manager/setup', '/manager/operations', '/manager/qr', '/manager/plan'];
+    if (rawReturnTo && allowedPrefixes.some(p => rawReturnTo.startsWith(p))) {
+       // @ts-ignore
+       req.session.returnTo = rawReturnTo;
+    }
 
     const url = oauth2Client.generateAuthUrl({
       access_type: 'offline',
@@ -301,10 +320,20 @@ async function startServer() {
       });
 
       // @ts-ignore
-      req.session.userId = user.id;
+      const returnTo = req.session.returnTo || "/manager/setup";
       // @ts-ignore
-      req.session.save((err) => {
-        return res.redirect("/manager/setup");
+      delete req.session.returnTo;
+
+      // @ts-ignore
+      req.session.regenerate((err) => {
+        if (err) return res.status(500).send("Session error");
+        // @ts-ignore
+        req.session.userId = user.id;
+        // @ts-ignore
+        req.session.save((saveErr) => {
+          if (saveErr) return res.status(500).send("Session save error");
+          return res.redirect(returnTo);
+        });
       });
     } catch (err: any) {
       console.error("OAuth Callback Error Diagnostic:");
@@ -356,11 +385,27 @@ async function startServer() {
       const amenities = property.amenities;
       const entitlement = resolveEntitlement(property.subscription);
 
+      const safeProperty = {
+        id: property.id,
+        slug: property.slug,
+        name: property.name,
+        description: property.description,
+        bannerUrl: property.bannerUrl,
+        propertyType: property.propertyType,
+        wifiNetwork: property.wifiNetwork,
+        wifiPassword: property.wifiPassword,
+        hostInfo: property.hostInfo,
+        houseRules: property.houseRules,
+        experiences: property.experiences,
+        receptionPhone: property.receptionPhone,
+        housekeepingPhone: property.housekeepingPhone,
+        emergencyPhone: property.emergencyPhone,
+        roomServicePhone: property.roomServicePhone,
+        entitlement
+      };
+
       res.json({
-        property: {
-          ...property,
-          entitlement
-        },
+        property: safeProperty,
         categories,
         dishes,
         amenities,
@@ -388,13 +433,52 @@ async function startServer() {
       res.status(500).json({ error: "Failed to fetch properties" });
     }
   });
+  async function generateUniqueSlug(baseName: string): Promise<string> {
+    let base = baseName
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9\s-]/g, "")
+      .trim()
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+
+    if (!base || base.length === 0) {
+      base = "property";
+    }
+    
+    base = base.substring(0, 50).replace(/-$/, "");
+
+    let slug = base;
+    let counter = 2;
+    let isUnique = false;
+
+    while (!isUnique && counter < 100) {
+      const existing = await prisma.property.findUnique({ where: { slug } });
+      if (!existing) {
+        isUnique = true;
+      } else {
+        slug = `${base}-${counter}`;
+        counter++;
+      }
+    }
+    
+    if (!isUnique) {
+      slug = `${base}-${crypto.randomBytes(4).toString('hex')}`;
+    }
+
+    return slug;
+  }
+
   app.post("/api/manager/properties", requireAuth, async (req, res) => {
     try {
+      const name = String(req.body.name || 'New Property');
+      const slug = await generateUniqueSlug(name);
       // @ts-ignore
       const property = await prisma.property.create({
         data: {
-          name: String(req.body.name || 'New Property'),
-          slug: String(req.body.slug || 'prop_' + Date.now()),
+          name,
+          slug,
           // @ts-ignore
           ownerId: req.session.userId,
         },
@@ -474,23 +558,34 @@ async function startServer() {
   });
 
   app.put("/api/manager/amenities/:id", requireAuth, async (req, res) => {
-    try {
-      const validatedData = AmenitySchema.parse(req.body);
-      const existing = await prisma.amenity.findUnique({ where: { id: req.params.id }, include: { property: true } });
-      // @ts-ignore
-      if (!existing || existing.property.ownerId !== req.session.userId) return res.status(403).json({ error: "Unauthorized" });
+    // @ts-ignore
+    const { userId } = req.session;
+    const { id } = req.params;
 
-      const amenity = await prisma.amenity.update({
-        where: { id: req.params.id },
-        data: validatedData
-      });
-      res.json(amenity);
-    } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ error: "Validation Error", details: err.issues });
-      }
-      res.status(500).json({ error: "Failed to update amenity" });
-    }
+    const amenity = await prisma.amenity.findUnique({ where: { id }, include: { property: { include: { subscription: true } } } });
+    if (!amenity || amenity.property.ownerId !== userId) return res.status(403).json({ error: "Access denied" });
+
+    const entitlement = resolveEntitlement(amenity.property.subscription);
+    if (!entitlement.canEdit) return res.status(403).json({ error: "Account is read-only." });
+
+    const updated = await prisma.amenity.update({ where: { id }, data: req.body });
+    res.json(updated);
+  });
+
+  app.delete("/api/manager/amenities/:id", requireAuth, async (req, res) => {
+    // @ts-ignore
+    const { userId } = req.session;
+    const { id } = req.params;
+
+    const amenity = await prisma.amenity.findUnique({ where: { id }, include: { property: true } });
+    if (!amenity || amenity.property.ownerId !== userId) return res.status(403).json({ error: "Access denied" });
+
+    const property = await prisma.property.findUnique({ where: { id: amenity.propertyId }, include: { subscription: true } });
+    const entitlement = resolveEntitlement(property?.subscription || null);
+    if (!entitlement.canEdit) return res.status(403).json({ error: "Account is read-only." });
+
+    await prisma.amenity.delete({ where: { id } });
+    res.json({ success: true });
   });
 
   app.post("/api/manager/properties/:slug/dishes", requireAuth, async (req, res) => {
@@ -541,29 +636,39 @@ async function startServer() {
   });
 
   app.put("/api/manager/dishes/:id", requireAuth, async (req, res) => {
-    try {
-      const validatedData = DishSchema.parse(req.body);
-      const existing = await prisma.dish.findUnique({ where: { id: req.params.id }, include: { category: { include: { property: true } } } });
-      // @ts-ignore
-      if (!existing || existing.category.property.ownerId !== req.session.userId) return res.status(403).json({ error: "Unauthorized" });
+    // @ts-ignore
+    const { userId } = req.session;
+    const { id } = req.params;
 
-      const dish = await prisma.dish.update({
-        where: { id: req.params.id },
-        data: {
-          name: validatedData.name,
-          price: validatedData.price,
-          allergens: validatedData.allergens,
-          healthTips: validatedData.healthTips,
-          isOutOfStock: validatedData.isOutOfStock
-        }
-      });
-      res.json(dish);
-    } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ error: "Validation Error", details: err.issues });
-      }
-      res.status(500).json({ error: "Failed to update dish" });
-    }
+    const dish = await prisma.dish.findUnique({ 
+      where: { id }, 
+      include: { category: { include: { property: { include: { subscription: true } } } } } 
+    });
+    if (!dish || dish.category.property.ownerId !== userId) return res.status(403).json({ error: "Access denied" });
+
+    const entitlement = resolveEntitlement(dish.category.property.subscription);
+    if (!entitlement.canEdit) return res.status(403).json({ error: "Account is read-only." });
+
+    const updated = await prisma.dish.update({ where: { id }, data: req.body });
+    res.json(updated);
+  });
+
+  app.delete("/api/manager/dishes/:id", requireAuth, async (req, res) => {
+    // @ts-ignore
+    const { userId } = req.session;
+    const { id } = req.params;
+
+    const dish = await prisma.dish.findUnique({ 
+      where: { id }, 
+      include: { category: { include: { property: { include: { subscription: true } } } } } 
+    });
+    if (!dish || dish.category.property.ownerId !== userId) return res.status(403).json({ error: "Access denied" });
+
+    const entitlement = resolveEntitlement(dish.category.property.subscription);
+    if (!entitlement.canEdit) return res.status(403).json({ error: "Account is read-only." });
+
+    await prisma.dish.delete({ where: { id } });
+    res.json({ success: true });
   });
 
   // Vite middleware for development

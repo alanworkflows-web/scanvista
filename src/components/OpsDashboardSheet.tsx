@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Loader2, Utensils, Wifi, AlertTriangle, Plus } from "lucide-react";
+import { Loader2, Utensils, Wifi, AlertTriangle, Plus, Trash2 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -21,26 +21,26 @@ interface Amenity {
   requiresReservation: boolean;
 }
 
-interface Grievance {
-  id: string;
-  timestamp: string;
-  room: string;
-  category: string;
-  status: string;
-}
-
 const TABS = [
   { id: "menu", label: "Menu Management", icon: <Utensils size={16} /> },
   { id: "amenities", label: "Amenities & Timings", icon: <Wifi size={16} /> },
-  { id: "grievances", label: "Guest Grievances", icon: <AlertTriangle size={16} /> },
   { id: "qr", label: "QR Generator", icon: <span role="img" aria-label="print" className="text-[16px]">🖨️</span> },
 ];
 
-export function OpsDashboardSheet({ propertySlug, isReadOnly = false }: { propertySlug: string, isReadOnly?: boolean }) {
-  const [activeTab, setActiveTab] = useState("menu");
+export function OpsDashboardSheet({ 
+  propertySlug, 
+  isReadOnly = false, 
+  initialTab = "menu", 
+  hiddenTabs = [] 
+}: { 
+  propertySlug: string, 
+  isReadOnly?: boolean,
+  initialTab?: string,
+  hiddenTabs?: string[]
+}) {
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [dishes, setDishes] = useState<Dish[]>([]);
   const [amenities, setAmenities] = useState<Amenity[]>([]);
-  const [grievances, setGrievances] = useState<Grievance[]>([]);
   const [categories, setCategories] = useState<{id: string, name: string}[]>([]);
   const [qrPrintsThisMonth, setQrPrintsThisMonth] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -52,7 +52,6 @@ export function OpsDashboardSheet({ propertySlug, isReadOnly = false }: { proper
       .then(data => {
         setDishes(data.dishes || []);
         setAmenities(data.amenities || []);
-        setGrievances(data.grievances || []);
         setCategories(data.categories || []);
         setQrPrintsThisMonth(data.property?.qrPrintsThisMonth || 0);
         setLoading(false);
@@ -77,10 +76,6 @@ export function OpsDashboardSheet({ propertySlug, isReadOnly = false }: { proper
     });
   };
 
-  const updateGrievance = async (id: string, updates: Partial<Grievance>) => {
-    // Grievances not implemented for backend yet
-    setGrievances(prev => prev.map(g => g.id === id ? { ...g, ...updates } : g));
-  };
 
   const addDish = async () => {
     const newDish = {
@@ -116,8 +111,14 @@ export function OpsDashboardSheet({ propertySlug, isReadOnly = false }: { proper
     setAmenities(prev => [...prev, savedAmenity]);
   };
 
-  const addGrievance = async () => {
-    // Not implemented in DB
+  const deleteDish = async (id: string) => {
+    setDishes(prev => prev.filter(d => d.id !== id));
+    await fetch(`/api/manager/dishes/${id}`, { method: "DELETE" });
+  };
+
+  const deleteAmenity = async (id: string) => {
+    setAmenities(prev => prev.filter(a => a.id !== id));
+    await fetch(`/api/manager/amenities/${id}`, { method: "DELETE" });
   };
 
   const handlePrintQR = async () => {
@@ -140,7 +141,7 @@ export function OpsDashboardSheet({ propertySlug, isReadOnly = false }: { proper
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
       {/* Tabs */}
       <div className="flex border-b border-gray-100 bg-gray-50/50">
-        {TABS.map(tab => (
+        {TABS.filter(t => !hiddenTabs.includes(t.id)).map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
@@ -168,6 +169,7 @@ export function OpsDashboardSheet({ propertySlug, isReadOnly = false }: { proper
                 <th className="px-4 py-3 font-medium">EU Allergens</th>
                 <th className="px-4 py-3 font-medium">Health Tip</th>
                 <th className="px-4 py-3 font-medium text-center">Status</th>
+                <th className="px-4 py-3 font-medium text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -241,11 +243,21 @@ export function OpsDashboardSheet({ propertySlug, isReadOnly = false }: { proper
                       />
                     </button>
                   </td>
+                  <td className="px-4 py-3 flex items-center justify-center">
+                    <button
+                      onClick={() => deleteDish(dish.id)}
+                      disabled={isReadOnly}
+                      className="text-red-500 hover:text-red-700 disabled:opacity-50 transition-colors"
+                      title="Delete Dish"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </td>
                 </tr>
               ))}
               {!isReadOnly && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-3">
+                  <td colSpan={7} className="px-4 py-3">
                     <button onClick={addDish} className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">
                       <Plus size={16} /> Add New Dish
                     </button>
@@ -265,6 +277,7 @@ export function OpsDashboardSheet({ propertySlug, isReadOnly = false }: { proper
                 <th className="px-4 py-3 font-medium">Closing Time</th>
                 <th className="px-4 py-3 font-medium text-center">Status Badge</th>
                 <th className="px-4 py-3 font-medium text-center">Booking Rule</th>
+                <th className="px-4 py-3 font-medium text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -329,12 +342,22 @@ export function OpsDashboardSheet({ propertySlug, isReadOnly = false }: { proper
                         className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900 disabled:opacity-50"
                       />
                     </td>
+                  <td className="px-4 py-3 flex items-center justify-center">
+                    <button
+                      onClick={() => deleteAmenity(am.id)}
+                      disabled={isReadOnly}
+                      className="text-red-500 hover:text-red-700 disabled:opacity-50 transition-colors"
+                      title="Delete Amenity"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </td>
                   </tr>
                 );
               })}
               {!isReadOnly && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-3">
+                  <td colSpan={6} className="px-4 py-3">
                     <button onClick={addAmenity} className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">
                       <Plus size={16} /> Add New Amenity
                     </button>
@@ -345,78 +368,6 @@ export function OpsDashboardSheet({ propertySlug, isReadOnly = false }: { proper
           </table>
         )}
 
-        {activeTab === "grievances" && (
-          <table className="w-full text-sm text-left whitespace-nowrap">
-            <thead className="text-xs text-gray-500 uppercase bg-gray-50/50 border-b border-gray-100">
-              <tr>
-                <th className="px-4 py-3 font-medium">Timestamp</th>
-                <th className="px-4 py-3 font-medium">Room/Table #</th>
-                <th className="px-4 py-3 font-medium">Category</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {grievances.map(g => (
-                <tr key={g.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 text-gray-500">
-                    {new Date(g.timestamp).toLocaleString()}
-                  </td>
-                  <td className="px-4 py-3 font-medium text-gray-900">
-                    <input 
-                      type="text" 
-                      value={g.room}
-                      onChange={e => updateGrievance(g.id, { room: e.target.value })}
-                      disabled={isReadOnly}
-                      className="bg-transparent border-none p-0 focus:ring-0 text-sm font-medium text-gray-900 w-full min-w-[80px] disabled:opacity-50"
-                    />
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">
-                    <input 
-                      type="text" 
-                      value={g.category}
-                      onChange={e => updateGrievance(g.id, { category: e.target.value })}
-                      disabled={isReadOnly}
-                      className="bg-transparent border-none p-0 focus:ring-0 text-sm text-gray-600 w-full min-w-[120px] disabled:opacity-50"
-                    />
-                  </td>
-                  <td className="px-4 py-3">
-                    <select 
-                      value={g.status}
-                      onChange={e => updateGrievance(g.id, { status: e.target.value })}
-                      disabled={isReadOnly}
-                      className={cn(
-                        "border-none p-0 pr-6 focus:ring-0 text-sm font-medium rounded cursor-pointer py-1 px-2 disabled:opacity-50 disabled:cursor-not-allowed",
-                        g.status === "Resolved" ? "bg-emerald-50 text-emerald-700" : 
-                        g.status === "In Progress" ? "bg-blue-50 text-blue-700" : 
-                        "bg-amber-50 text-amber-700"
-                      )}
-                    >
-                      <option value="Pending">Pending</option>
-                      <option value="In Progress">In Progress</option>
-                      <option value="Resolved">Resolved</option>
-                    </select>
-                  </td>
-                </tr>
-              ))}
-              {!isReadOnly && (
-                <tr>
-                  <td colSpan={4} className="px-4 py-3">
-                    <button onClick={addGrievance} className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">
-                      <Plus size={16} /> Add New Grievance
-                    </button>
-                  </td>
-                </tr>
-              )}
-              {grievances.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
-                    No grievances recorded.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        )}
 
         {activeTab === "qr" && (
           <div className="p-8 flex flex-col items-center text-center print:p-0 print:m-0">

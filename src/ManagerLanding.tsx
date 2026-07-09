@@ -1,15 +1,23 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Hotel, ChevronRight, X, AlertCircle } from "lucide-react";
 
 export function ManagerLanding() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const returnTo = searchParams.get('returnTo');
+
   const [propertyType, setPropertyType] = useState("Hotel");
   const [error, setError] = useState("");
 
   const triggerGoogleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    window.location.href = "/auth/google";
+    if (returnTo) {
+      window.location.href = `/auth/google?returnTo=${encodeURIComponent(returnTo)}`;
+    } else {
+      window.location.href = "/auth/google";
+    }
   };
 
   return (

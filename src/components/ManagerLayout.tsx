@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Settings, CreditCard, LogOut, Menu, X, Hotel } from "lucide-react";
+import { Settings, CreditCard, LogOut, Menu, X, Hotel, Utensils, QrCode } from "lucide-react";
 import { cn } from "../lib/utils";
 
 export function ManagerLayout({ children }: { children: React.ReactNode }) {
@@ -9,7 +9,9 @@ export function ManagerLayout({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navigation = [
-    { name: 'Setup & Operations', href: '/manager/setup', icon: Settings },
+    { name: 'Property Setup', href: '/manager/setup', icon: Settings },
+    { name: 'Menu & Amenities', href: '/manager/operations', icon: Utensils },
+    { name: 'QR Generator', href: '/manager/qr', icon: QrCode },
     { name: 'Plan & Billing', href: '/manager/plan', icon: CreditCard },
   ];
 

@@ -50,7 +50,7 @@ async function startServer() {
     contentSecurityPolicy: false,
   }));
 
-  app.set("trust proxy", 1);
+  app.set("trust proxy", true);
 
   // Rate Limiting
   const apiLimiter = rateLimit({

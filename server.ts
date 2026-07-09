@@ -266,15 +266,38 @@ async function startServer() {
     }
 
     const state = crypto.randomBytes(32).toString('hex');
-    // @ts-ignore
-    req.session.oauthState = state;
-
     const rawReturnTo = req.query.returnTo as string;
     const allowedPrefixes = ['/manager/setup', '/manager/operations', '/manager/qr', '/manager/plan'];
+    let safeReturnTo = '/manager/setup';
     if (rawReturnTo && allowedPrefixes.some(p => rawReturnTo.startsWith(p))) {
-       // @ts-ignore
-       req.session.returnTo = rawReturnTo;
+       safeReturnTo = rawReturnTo;
     }
+
+    // @ts-ignore
+    let states = req.session.oauthStates || {};
+    const now = Date.now();
+    for (const key of Object.keys(states)) {
+      if (now - states[key].createdAt > 10 * 60 * 1000) {
+        delete states[key];
+      }
+    }
+
+    const stateKeys = Object.keys(states);
+    if (stateKeys.length >= 5) {
+      stateKeys.sort((a, b) => states[a].createdAt - states[b].createdAt);
+      const toRemove = stateKeys.length - 4;
+      for (let i = 0; i < toRemove; i++) {
+        delete states[stateKeys[i]];
+      }
+    }
+
+    states[state] = {
+      returnTo: safeReturnTo,
+      createdAt: now
+    };
+
+    // @ts-ignore
+    req.session.oauthStates = states;
 
     const url = oauth2Client.generateAuthUrl({
       access_type: 'offline',
@@ -295,17 +318,37 @@ async function startServer() {
 
   app.get("/auth/google/callback", async (req, res) => {
     try {
-
-
+      const queryState = req.query.state as string;
       // @ts-ignore
-      const savedState = req.session.oauthState;
-      if (!savedState || savedState !== req.query.state) {
-        return res.status(400).send("Invalid state parameter");
+      const states = req.session.oauthStates || {};
+      const stateData = states[queryState];
+
+      const errorHtml = `
+        <div style="font-family: sans-serif; max-width: 400px; margin: 40px auto; text-align: center;">
+          <h2>Session Expired</h2>
+          <p style="color: #666; margin-bottom: 24px;">Your sign-in session expired or another sign-in attempt replaced it. Please try again.</p>
+          <a href="/manager" style="display: inline-block; background: #000; color: #fff; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: 500; margin-bottom: 12px; width: 100%; box-sizing: border-box;">Try Google Sign-In Again</a>
+          <br/>
+          <a href="/" style="color: #666; text-decoration: none; font-size: 14px;">Back to Home</a>
+        </div>
+      `;
+
+      if (!queryState || !stateData) {
+        return res.status(400).send(errorHtml);
       }
 
-      // Prevent CSRF replay
+      const now = Date.now();
+      if (now - stateData.createdAt > 10 * 60 * 1000) {
+        delete states[queryState];
+        // @ts-ignore
+        req.session.oauthStates = states;
+        return res.status(400).send(errorHtml);
+      }
+
+      const returnTo = stateData.returnTo;
+      delete states[queryState];
       // @ts-ignore
-      delete req.session.oauthState;
+      req.session.oauthStates = states;
 
       const { tokens } = await oauth2Client.getToken(req.query.code as string);
       oauth2Client.setCredentials(tokens);
@@ -335,10 +378,7 @@ async function startServer() {
         }
       });
 
-      // @ts-ignore
-      const returnTo = req.session.returnTo || "/manager/setup";
-      // @ts-ignore
-      delete req.session.returnTo;
+      // Safe returnTo retrieved from state data
 
       // @ts-ignore
       req.session.regenerate((err) => {

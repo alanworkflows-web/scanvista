@@ -2,13 +2,15 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { CheckCircle2, ArrowLeft, Loader2, CreditCard } from "lucide-react";
 import { cn } from "../lib/utils";
-import { OpsDashboardSheet } from "../components/OpsDashboardSheet";
+import { ManagerLayout } from "../components/ManagerLayout";
 
 export function ManagerPlan() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [property, setProperty] = useState<any>(null);
   const [userEmail, setUserEmail] = useState("");
+  const [billingError, setBillingError] = useState<string | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   useEffect(() => {
     fetch("/api/me")
@@ -41,9 +43,13 @@ export function ManagerPlan() {
   const handlePaddleCheckout = () => {
     if (!property) return;
     
+    setBillingError(null);
+    setCheckoutLoading(true);
+
     // @ts-ignore
     if (!window.Paddle) {
-      alert("Payments are temporarily unavailable. Please try again later.");
+      setBillingError("Payments are temporarily unavailable. Please try again later.");
+      setCheckoutLoading(false);
       return;
     }
 
@@ -55,13 +61,15 @@ export function ManagerPlan() {
     const isProd = import.meta.env.PROD || import.meta.env.MODE === 'production';
     if (isProd) {
       if (!env || !clientToken || !priceId || (env !== 'production' && env !== 'sandbox')) {
-        alert("Payments are temporarily unavailable. Please try again later.");
+        setBillingError("Payments are temporarily unavailable. Please try again later.");
+        setCheckoutLoading(false);
         return;
       }
     } else {
       // In dev, provide safe sandbox defaults if entirely missing, but don't leak into prod
       if (!env || !clientToken || !priceId) {
-        alert("Local Dev Error: VITE_PADDLE_ENV, VITE_PADDLE_CLIENT_TOKEN or VITE_PADDLE_PRICE_ID missing.");
+        setBillingError("Local Dev Error: VITE_PADDLE_ENV, VITE_PADDLE_CLIENT_TOKEN or VITE_PADDLE_PRICE_ID missing.");
+        setCheckoutLoading(false);
         return;
       }
     }
@@ -90,6 +98,9 @@ export function ManagerPlan() {
         slug: property.slug
       }
     });
+    
+    // Release loading lock after checkout opens
+    setTimeout(() => setCheckoutLoading(false), 500);
   };
 
   if (loading) {
@@ -100,18 +111,16 @@ export function ManagerPlan() {
     );
   }
 
-  const subStatus = property?.subscription?.status || "none";
-  const isPremium = subStatus === "active";
+  const entitlement = property?.entitlement;
+  const isPremium = entitlement?.plan === "premium";
+  const isExpired = entitlement?.accessMode === "read_only";
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
-      <OpsDashboardSheet propertySlug={property?.slug || ""} isReadOnly={!isPremium} />
-      
-      <main className="flex-1 ml-16 md:ml-64 p-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center gap-4 mb-8">
-            <h1 className="text-3xl font-serif font-bold text-gray-900">Plan & Billing</h1>
-          </div>
+    <ManagerLayout>
+      <div className="max-w-4xl mx-auto">
+        <div className="flex items-center gap-4 mb-8">
+          <h1 className="text-3xl font-serif font-bold text-gray-900">Plan & Billing</h1>
+        </div>
 
           <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8">
             <div className="flex items-start justify-between mb-8">
@@ -139,11 +148,11 @@ export function ManagerPlan() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {/* Free Plan Card */}
               <div className={cn(
-                "border-2 rounded-2xl p-6 transition-all",
-                !isPremium ? "border-gray-900 bg-gray-50/50 relative" : "border-gray-200 opacity-60"
+                "border rounded-xl p-6 relative transition-all",
+                !isPremium && !isExpired ? "border-gray-900 bg-white ring-1 ring-gray-900 shadow-md" : "border-gray-200 bg-white/50"
               )}>
-                {!isPremium && (
-                  <div className="absolute top-0 right-6 -translate-y-1/2 bg-gray-900 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                {!isPremium && !isExpired && (
+                  <div className="absolute top-0 right-6 -translate-y-1/2 bg-gray-900 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
                     Current
                   </div>
                 )}
@@ -159,11 +168,16 @@ export function ManagerPlan() {
               {/* Premium Plan Card */}
               <div className={cn(
                 "border-2 rounded-2xl p-6 transition-all",
-                isPremium ? "border-emerald-500 bg-emerald-50/30 relative shadow-md" : "border-emerald-200 hover:border-emerald-300"
+                isPremium ? "border-emerald-500 bg-emerald-50/30 relative shadow-md" : isExpired ? "border-red-500 bg-red-50/10 relative shadow-md" : "border-emerald-200 hover:border-emerald-300"
               )}>
                 {isPremium && (
                   <div className="absolute top-0 right-6 -translate-y-1/2 bg-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
                     Current
+                  </div>
+                )}
+                {isExpired && (
+                  <div className="absolute top-0 right-6 -translate-y-1/2 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
+                    Expired
                   </div>
                 )}
                 <h3 className="text-lg font-bold text-gray-900 mb-1">Premium Plan</h3>
@@ -176,20 +190,30 @@ export function ManagerPlan() {
                   <li className="flex items-center gap-2 text-gray-800 font-medium"><CheckCircle2 className="w-5 h-5 text-emerald-500" /> Priority Support</li>
                 </ul>
 
-                {!isPremium && (
-                  <button 
-                    onClick={handlePaddleCheckout}
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2"
-                  >
-                    <CreditCard size={18} />
-                    Upgrade to Premium
-                  </button>
+                {billingError && (
+                  <div role="alert" className="mb-4 bg-red-50 border border-red-200 text-red-800 text-sm font-medium px-4 py-3 rounded-xl flex items-start gap-2">
+                    <span className="text-red-500 mt-0.5">⚠️</span>
+                    <span>{billingError}</span>
+                  </div>
                 )}
+
+                <button 
+                  onClick={handlePaddleCheckout}
+                  disabled={isPremium || checkoutLoading}
+                  className={cn(
+                    "w-full font-bold py-3 px-4 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2",
+                    isPremium 
+                      ? "bg-gray-100 text-gray-400 cursor-not-allowed" 
+                      : "bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-70 disabled:cursor-not-allowed"
+                  )}
+                >
+                  {checkoutLoading ? <Loader2 size={18} className="animate-spin" /> : <CreditCard size={18} />}
+                  {isPremium ? "Active" : isExpired ? "Renew Subscription" : "Upgrade to Premium"}
+                </button>
               </div>
             </div>
           </div>
         </div>
-      </main>
-    </div>
+    </ManagerLayout>
   );
 }

@@ -3,14 +3,16 @@ import { useNavigate } from "react-router-dom";
 import { Save, Loader2, ArrowLeft } from "lucide-react";
 import { ImageUploader } from "./components/ImageUploader";
 import { OpsDashboardSheet } from "./components/OpsDashboardSheet";
+import { ManagerLayout } from "./components/ManagerLayout";
 
 export function ManagerDashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [propertySlug, setPropertySlug] = useState("ocean-hotel"); // default
   const [isReadOnly, setIsReadOnly] = useState(false);
-  const [subscriptionStatus, setSubscriptionStatus] = useState<string>("none");
+  const [entitlement, setEntitlement] = useState<any>(null);
   
   const [formData, setFormData] = useState({
     name: "",
@@ -64,9 +66,9 @@ export function ManagerDashboard() {
             emergencyPhone: data.property.emergencyPhone || ""
           });
 
-          const subStatus = data.property.subscription?.status || 'none';
-          setSubscriptionStatus(subStatus);
-          setIsReadOnly(subStatus !== 'active');
+          const ent = data.property.entitlement;
+          setEntitlement(ent);
+          setIsReadOnly(ent?.accessMode === 'read_only');
         }
         setLoading(false);
       })
@@ -83,18 +85,22 @@ export function ManagerDashboard() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    setSaveError(null);
     try {
-      await fetch(`/api/manager/properties/${propertySlug}`, {
+      const response = await fetch(`/api/manager/properties/${propertySlug}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify(formData)
       });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
       navigate(`/p/${propertySlug}`);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("Failed to save property");
+      setSaveError(err.message || "Failed to save property");
     } finally {
       setSaving(false);
     }
@@ -116,44 +122,26 @@ export function ManagerDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <ManagerLayout>
       {isReadOnly && (
-        <div className="bg-red-50 border-b border-red-200 px-4 py-3 text-center sm:px-6 lg:px-8">
-          <p className="text-sm font-medium text-red-800">
-            ⚠️ Subscription Expired: Your workspace is now locked in Read-Only Mode. Please renew your $10 flat plan to unblock real-time edits.
+        <div className="bg-red-50 border border-red-200 px-4 py-3 text-center sm:px-6 lg:px-8 rounded-xl mb-6 shadow-sm">
+          <p className="text-sm font-medium text-red-800 mb-2">
+            ⚠️ Subscription Expired: Your workspace is now locked in Read-Only Mode. Please renew your plan to unblock edits.
           </p>
           <button 
             onClick={(e) => { e.preventDefault(); navigate('/manager/plan'); }}
-            className="mt-2 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
           >
-            Renew Subscription ($10/mo)
+            Renew Subscription
           </button>
         </div>
       )}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
-        <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={handleLogout}
-              className="text-gray-400 hover:text-gray-900 transition-colors"
-              title="Logout"
-            >
-              <ArrowLeft size={20} />
-            </button>
-            <h1 className="text-xl font-serif font-bold text-gray-900">
-              Complete Your Property Profile
-            </h1>
-            {isReadOnly ? (
-              <button 
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate('/manager/plan');
-                }}
-                className="ml-2 bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold py-2 px-4 rounded-lg shadow-sm font-sans text-sm tracking-wide transition-all"
-              >
-                View Plans
-              </button>
-            ) : (
+
+      <div className="mb-8 flex items-center justify-between">
+        <h1 className="text-2xl font-serif font-bold text-gray-900">
+          Complete Your Property Profile
+        </h1>
+        {entitlement?.plan === 'premium' ? (
               <button 
                 onClick={(e) => {
                   e.preventDefault();
@@ -167,20 +155,35 @@ export function ManagerDashboard() {
                 </span>
                 Premium Active
               </button>
+            ) : (
+              <button 
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate('/manager/plan');
+                }}
+                className="ml-2 bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold py-2 px-4 rounded-lg shadow-sm font-sans text-sm tracking-wide transition-all"
+              >
+                View Plans
+              </button>
             )}
           </div>
-          <button 
-            onClick={handleSave}
-            disabled={saving || isReadOnly}
-            className="flex items-center gap-2 bg-gray-900 text-white px-5 py-2 rounded-xl text-sm font-medium hover:bg-gray-800 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
-          >
+          <div className="flex items-center gap-4">
+            {saveError && (
+              <span className="text-sm font-medium text-red-600 bg-red-50 px-3 py-1.5 rounded-lg border border-red-100">
+                ⚠️ {saveError}
+              </span>
+            )}
+            <button 
+              type="submit"
+              onClick={handleSave}
+              disabled={saving || isReadOnly}
+              className="bg-gray-900 hover:bg-gray-800 text-white font-bold py-2.5 px-6 rounded-xl shadow-sm hover:shadow-md transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
             {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
             Save & Publish
           </button>
         </div>
-      </header>
 
-      <main className="max-w-3xl mx-auto px-4 py-8 relative">
         {isReadOnly && (
           <div className="fixed bottom-6 right-6 z-50">
             <button 
@@ -188,7 +191,7 @@ export function ManagerDashboard() {
               className="flex items-center gap-2 bg-emerald-600 text-white px-6 py-4 rounded-2xl shadow-xl hover:bg-emerald-700 transition-all font-bold text-lg animate-pulse"
             >
               <span>🟢</span>
-              Renew Subscription ($10/mo)
+              Renew Subscription
             </button>
           </div>
         )}
@@ -302,7 +305,6 @@ export function ManagerDashboard() {
           <h2 className="text-xl font-serif font-bold text-gray-900 mb-4">Live Operations Matrix</h2>
           <OpsDashboardSheet propertySlug={propertySlug} isReadOnly={isReadOnly} />
         </div>
-      </main>
-    </div>
+    </ManagerLayout>
   );
 }

@@ -11,6 +11,26 @@ import { z } from "zod";
 import crypto from "crypto";
 import { Paddle, Environment } from "@paddle/paddle-node-sdk";
 
+export interface Entitlement {
+  plan: "free" | "premium";
+  subscriptionStatus: "none" | "active" | "trialing" | "past_due" | "canceled" | "expired";
+  accessMode: "full" | "read_only";
+  canEdit: boolean;
+  canPublish: boolean;
+}
+
+export function resolveEntitlement(subscription: any): Entitlement {
+  if (!subscription || !subscription.status || subscription.status === "none") {
+    return { plan: "free", subscriptionStatus: "none", accessMode: "full", canEdit: true, canPublish: true };
+  }
+  
+  if (subscription.status === "active" || subscription.status === "trialing") {
+    return { plan: "premium", subscriptionStatus: subscription.status, accessMode: "full", canEdit: true, canPublish: true };
+  }
+  
+  return { plan: "premium", subscriptionStatus: subscription.status, accessMode: "read_only", canEdit: false, canPublish: false };
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -334,9 +354,13 @@ async function startServer() {
       const categories = property.categories;
       const dishes = property.categories.flatMap(c => c.dishes);
       const amenities = property.amenities;
+      const entitlement = resolveEntitlement(property.subscription);
 
       res.json({
-        property,
+        property: {
+          ...property,
+          entitlement
+        },
         categories,
         dishes,
         amenities,
@@ -353,14 +377,17 @@ async function startServer() {
       // @ts-ignore
       const properties = await prisma.property.findMany({
         // @ts-ignore
-        where: { ownerId: req.session.userId }
+        where: { ownerId: req.session.userId },
+        include: { subscription: true }
       });
-      res.json(properties);
+      res.json(properties.map(p => ({
+        ...p,
+        entitlement: resolveEntitlement(p.subscription)
+      })));
     } catch (err) {
       res.status(500).json({ error: "Failed to fetch properties" });
     }
   });
-
   app.post("/api/manager/properties", requireAuth, async (req, res) => {
     try {
       // @ts-ignore
@@ -370,9 +397,13 @@ async function startServer() {
           slug: String(req.body.slug || 'prop_' + Date.now()),
           // @ts-ignore
           ownerId: req.session.userId,
-        }
+        },
+        include: { subscription: true }
       });
-      res.json(property);
+      res.json({
+        ...property,
+        entitlement: resolveEntitlement(property.subscription)
+      });
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: "Failed to create property" });
@@ -383,6 +414,20 @@ async function startServer() {
     try {
       const validatedData = PropertySchema.parse(req.body);
       
+      // Check Entitlement before allowing edits
+      const currentProperty = await prisma.property.findUnique({
+        where: { slug: req.params.slug },
+        include: { subscription: true }
+      });
+      if (!currentProperty || currentProperty.ownerId !== req.session.userId) {
+        return res.status(403).json({ error: "Forbidden or property not found" });
+      }
+      
+      const entitlement = resolveEntitlement(currentProperty.subscription);
+      if (!entitlement.canEdit) {
+        return res.status(403).json({ error: "Subscription expired. Workspace is locked in Read-Only mode." });
+      }
+
       // Use updateMany for atomic ownership checking (prevents IDOR)
       // @ts-ignore
       const result = await prisma.property.updateMany({
@@ -454,9 +499,14 @@ async function startServer() {
       const property = await prisma.property.findFirst({
         // @ts-ignore
         where: { slug: req.params.slug, ownerId: req.session.userId },
-        include: { categories: true }
+        include: { categories: true, subscription: true }
       });
       if (!property) return res.status(403).json({ error: "Unauthorized" });
+
+      const entitlement = resolveEntitlement(property.subscription);
+      if (!entitlement.canEdit) {
+        return res.status(403).json({ error: "Subscription expired. Workspace is locked in Read-Only mode." });
+      }
 
       let categoryId = validatedData.categoryId;
       if (!categoryId) {

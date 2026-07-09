@@ -181,9 +181,9 @@ async function startServer() {
   }
 
   const oauth2Client = new OAuth2Client(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    googleCallbackUrl
+    process.env.GOOGLE_CLIENT_ID?.trim(),
+    process.env.GOOGLE_CLIENT_SECRET?.trim(),
+    googleCallbackUrl?.trim()
   );
 
   
@@ -284,8 +284,12 @@ async function startServer() {
       req.session.save((err) => {
         return res.redirect("/manager/setup");
       });
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error("OAuth Callback Error Diagnostic:");
+      console.error(`- Error Name: ${err?.name || "Unknown"}`);
+      console.error(`- Error Message: ${err?.message || "Unknown error"}`);
+      console.error(`- Provider Status/Code: ${err?.code || err?.response?.status || "N/A"}`);
+      console.error(`- Failing Stage: ${err?.stack?.includes('getToken') ? 'Token Exchange' : err?.stack?.includes('verifyIdToken') ? 'Profile Fetch' : 'Database/Session Provisioning'}`);
       res.status(500).send("Login failed");
     }
   });

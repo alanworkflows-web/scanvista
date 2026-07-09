@@ -23,11 +23,11 @@ export function resolveEntitlement(subscription: any): Entitlement {
   if (!subscription || !subscription.status || subscription.status === "none") {
     return { plan: "free", subscriptionStatus: "none", accessMode: "full", canEdit: true, canPublish: true };
   }
-  
+
   if (subscription.status === "active" || subscription.status === "trialing") {
     return { plan: "premium", subscriptionStatus: subscription.status, accessMode: "full", canEdit: true, canPublish: true };
   }
-  
+
   return { plan: "premium", subscriptionStatus: subscription.status, accessMode: "read_only", canEdit: false, canPublish: false };
 }
 
@@ -47,7 +47,7 @@ async function startServer() {
 
   // Security Headers
   app.use(helmet({
-    contentSecurityPolicy: false, 
+    contentSecurityPolicy: false,
   }));
 
   app.set("trust proxy", 1);
@@ -55,7 +55,7 @@ async function startServer() {
   // Rate Limiting
   const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 100, 
+    max: 100,
     standardHeaders: true,
     legacyHeaders: false,
   });
@@ -63,7 +63,7 @@ async function startServer() {
 
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 20, 
+    max: 20,
   });
   app.use("/auth/", authLimiter);
 
@@ -78,7 +78,7 @@ async function startServer() {
       const rawBody = req.body.toString('utf8');
       const secretKey = process.env.PADDLE_WEBHOOK_SECRET || "test";
 
-      
+
       let eventData;
       try {
         eventData = paddle.webhooks.unmarshal(rawBody, secretKey, signature || '');
@@ -89,7 +89,7 @@ async function startServer() {
       if (eventData instanceof Promise) {
         eventData = await eventData;
       }
-      
+
       const eventId = eventData?.event_id || eventData?.id;
       if (eventId) {
         try {
@@ -108,18 +108,30 @@ async function startServer() {
       if (eventData && eventData.data && (eventData.data as any).custom_data && (eventData.data as any).custom_data.slug) {
         const slug = (eventData.data as any).custom_data.slug;
         const status = (eventData.data as any).status;
-        
+
         const validStatuses = ['active', 'trialing', 'canceled', 'past_due'];
         if (!status || !validStatuses.includes(status)) {
           return res.status(200).send("Unsupported or missing status safely ignored");
         }
-        
+
+        const customerId = (eventData.data as any).customer_id;
+        const subscriptionId = (eventData.data as any).id;
+
         const property = await prisma.property.findUnique({ where: { slug } });
         if (property) {
           await prisma.subscription.upsert({
             where: { propertyId: property.id },
-            update: { status: status },
-            create: { propertyId: property.id, status: status }
+            update: {
+              status: status,
+              paddleCustomerId: customerId,
+              paddleSubscriptionId: subscriptionId
+            },
+            create: {
+              propertyId: property.id,
+              status: status,
+              paddleCustomerId: customerId,
+              paddleSubscriptionId: subscriptionId
+            }
           });
         }
       }
@@ -133,7 +145,7 @@ async function startServer() {
   // Standard parsers
   app.use(express.json({ limit: '2mb' }));
   app.use(express.urlencoded({ extended: true }));
-  
+
   // Session setup
   app.use(session({
     secret: process.env.SESSION_SECRET,
@@ -150,8 +162,8 @@ async function startServer() {
     cookie: {
       secure: process.env.NODE_ENV === 'production' || !!process.env.APP_URL,
       httpOnly: true,
-      sameSite: process.env.NODE_ENV === 'production' || !!process.env.APP_URL ? 'none' : 'lax', 
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+      sameSite: process.env.NODE_ENV === 'production' || !!process.env.APP_URL ? 'none' : 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
     }
   }));
 
@@ -166,7 +178,7 @@ async function startServer() {
 
   // Zod schemas
   const PropertySchema = z.object({
-    name: z.string().min(1).max(255).optional(),
+    name: z.string().trim().min(1).max(255).optional(),
     description: z.string().max(1000).optional(),
     bannerUrl: z.string().url().max(1000).optional().or(z.literal("")),
     receptionPhone: z.string().max(50).optional(),
@@ -176,7 +188,7 @@ async function startServer() {
   });
 
   const AmenitySchema = z.object({
-    name: z.string().min(1).max(255),
+    name: z.string().trim().min(1).max(255),
     description: z.string().max(1000).optional(),
     openTime: z.string().max(20).optional(),
     closeTime: z.string().max(20).optional(),
@@ -184,12 +196,16 @@ async function startServer() {
   });
 
   const DishSchema = z.object({
-    name: z.string().min(1).max(255),
+    name: z.string().trim().min(1).max(255),
     price: z.number().min(0),
     allergens: z.string().optional(),
     healthTips: z.string().optional(),
     isOutOfStock: z.boolean().optional(),
     categoryId: z.string().uuid().optional(),
+  });
+
+  const CategorySchema = z.object({
+    name: z.string().trim().min(1).max(255),
   });
 
   // OAuth Setup
@@ -208,7 +224,7 @@ async function startServer() {
     googleCallbackUrl?.trim()
   );
 
-  
+
   app.get("/auth/google", async (req, res) => {
     if (!process.env.GOOGLE_CLIENT_ID) {
       if (process.env.NODE_ENV === "production") {
@@ -216,7 +232,7 @@ async function startServer() {
         return res.status(500).send("Authentication is currently unavailable. Please configure GOOGLE_CLIENT_ID.");
       }
       console.warn("⚠️ GOOGLE_CLIENT_ID not configured, using development bypass login");
-      
+
       const user = await prisma.user.upsert({
         where: { email: "demo@example.com" },
         update: {},
@@ -227,7 +243,7 @@ async function startServer() {
           googleId: "demo-google-id",
         }
       });
-      
+
       const rawReturnTo = req.query.returnTo as string;
       const allowedPrefixes = ['/manager/setup', '/manager/operations', '/manager/qr', '/manager/plan'];
       let safeReturnTo = '/manager/setup';
@@ -279,18 +295,18 @@ async function startServer() {
 
   app.get("/auth/google/callback", async (req, res) => {
     try {
-      
+
 
       // @ts-ignore
       const savedState = req.session.oauthState;
       if (!savedState || savedState !== req.query.state) {
         return res.status(400).send("Invalid state parameter");
       }
-      
+
       // Prevent CSRF replay
       // @ts-ignore
       delete req.session.oauthState;
-      
+
       const { tokens } = await oauth2Client.getToken(req.query.code as string);
       oauth2Client.setCredentials(tokens);
 
@@ -344,7 +360,7 @@ async function startServer() {
       res.status(500).send("Login failed");
     }
   });
-  
+
   app.post("/api/logout", (req, res) => {
     // @ts-ignore
     req.session.destroy(() => {
@@ -379,7 +395,7 @@ async function startServer() {
       if (!property) {
         return res.status(404).json({ error: "Property not found" });
       }
-      
+
       const categories = property.categories;
       const dishes = property.categories.flatMap(c => c.dishes);
       const amenities = property.amenities;
@@ -409,7 +425,7 @@ async function startServer() {
         categories,
         dishes,
         amenities,
-        grievances: [] 
+        grievances: []
       });
     } catch (err) {
       console.error(err);
@@ -446,7 +462,7 @@ async function startServer() {
     if (!base || base.length === 0) {
       base = "property";
     }
-    
+
     base = base.substring(0, 50).replace(/-$/, "");
 
     let slug = base;
@@ -462,7 +478,7 @@ async function startServer() {
         counter++;
       }
     }
-    
+
     if (!isUnique) {
       slug = `${base}-${crypto.randomBytes(4).toString('hex')}`;
     }
@@ -497,7 +513,7 @@ async function startServer() {
   app.put("/api/manager/properties/:slug", requireAuth, async (req, res) => {
     try {
       const validatedData = PropertySchema.parse(req.body);
-      
+
       // Check Entitlement before allowing edits
       const currentProperty = await prisma.property.findUnique({
         where: { slug: req.params.slug },
@@ -506,7 +522,7 @@ async function startServer() {
       if (!currentProperty || currentProperty.ownerId !== req.session.userId) {
         return res.status(403).json({ error: "Forbidden or property not found" });
       }
-      
+
       const entitlement = resolveEntitlement(currentProperty.subscription);
       if (!entitlement.canEdit) {
         return res.status(403).json({ error: "Subscription expired. Workspace is locked in Read-Only mode." });
@@ -515,7 +531,7 @@ async function startServer() {
       // Use updateMany for atomic ownership checking (prevents IDOR)
       // @ts-ignore
       const result = await prisma.property.updateMany({
-        where: { 
+        where: {
           slug: req.params.slug,
           // @ts-ignore
           ownerId: req.session.userId
@@ -534,6 +550,66 @@ async function startServer() {
         return res.status(400).json({ error: "Validation Error", details: err.issues });
       }
       res.status(500).json({ error: "Failed to update property" });
+    }
+  });
+
+  // Billing Portal
+  app.post("/api/manager/properties/:slug/portal", requireAuth, async (req, res) => {
+    try {
+      // @ts-ignore
+      const { userId } = req.session;
+      const { slug } = req.params;
+
+      const property = await prisma.property.findUnique({
+        where: { slug },
+        include: { subscription: true }
+      });
+
+      if (!property || property.ownerId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      if (!property.subscription || !property.subscription.paddleCustomerId) {
+        return res.status(400).json({ error: "No billing customer found" });
+      }
+
+      const env = process.env.PADDLE_ENV;
+      const apiKey = process.env.PADDLE_API_KEY;
+
+      if (!env || !apiKey) {
+        return res.status(500).json({ error: "Billing API not configured" });
+      }
+
+      const apiUrl = env === 'production'
+        ? `https://api.paddle.com/customers/${property.subscription.paddleCustomerId}/portal-sessions`
+        : `https://sandbox-api.paddle.com/customers/${property.subscription.paddleCustomerId}/portal-sessions`;
+
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          subscription_ids: property.subscription.paddleSubscriptionId ? [property.subscription.paddleSubscriptionId] : []
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Paddle Portal Error:", errorText);
+        throw new Error("Failed to create portal session");
+      }
+
+      const data = await response.json();
+      if (data && data.data && data.data.urls && data.data.urls.general) {
+        return res.json({ url: data.data.urls.general.url });
+      }
+
+      throw new Error("Invalid response from billing provider");
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Failed to generate billing portal link" });
     }
   });
 
@@ -615,15 +691,15 @@ async function startServer() {
         }
       }
 
-      const dish = await prisma.dish.create({ 
-        data: { 
+      const dish = await prisma.dish.create({
+        data: {
           name: validatedData.name,
           price: validatedData.price,
           allergens: validatedData.allergens || "[]",
           healthTips: validatedData.healthTips || "",
           isOutOfStock: validatedData.isOutOfStock || false,
-          categoryId 
-        } 
+          categoryId
+        }
       });
       res.json(dish);
     } catch (err) {
@@ -640,9 +716,9 @@ async function startServer() {
     const { userId } = req.session;
     const { id } = req.params;
 
-    const dish = await prisma.dish.findUnique({ 
-      where: { id }, 
-      include: { category: { include: { property: { include: { subscription: true } } } } } 
+    const dish = await prisma.dish.findUnique({
+      where: { id },
+      include: { category: { include: { property: { include: { subscription: true } } } } }
     });
     if (!dish || dish.category.property.ownerId !== userId) return res.status(403).json({ error: "Access denied" });
 
@@ -658,9 +734,9 @@ async function startServer() {
     const { userId } = req.session;
     const { id } = req.params;
 
-    const dish = await prisma.dish.findUnique({ 
-      where: { id }, 
-      include: { category: { include: { property: { include: { subscription: true } } } } } 
+    const dish = await prisma.dish.findUnique({
+      where: { id },
+      include: { category: { include: { property: { include: { subscription: true } } } } }
     });
     if (!dish || dish.category.property.ownerId !== userId) return res.status(403).json({ error: "Access denied" });
 
@@ -668,6 +744,80 @@ async function startServer() {
     if (!entitlement.canEdit) return res.status(403).json({ error: "Account is read-only." });
 
     await prisma.dish.delete({ where: { id } });
+    res.json({ success: true });
+  });
+
+  // Category Endpoints
+  app.post("/api/manager/properties/:slug/categories", requireAuth, async (req, res) => {
+    try {
+      const validatedData = CategorySchema.parse(req.body);
+      const property = await prisma.property.findFirst({
+        // @ts-ignore
+        where: { slug: req.params.slug, ownerId: req.session.userId },
+        include: { subscription: true }
+      });
+      if (!property) return res.status(403).json({ error: "Unauthorized" });
+
+      const entitlement = resolveEntitlement(property.subscription);
+      if (!entitlement.canEdit) return res.status(403).json({ error: "Account is read-only." });
+
+      const category = await prisma.menuCategory.create({
+        data: { name: validatedData.name, propertyId: property.id }
+      });
+      res.json(category);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation Error", details: err.issues });
+      }
+      res.status(500).json({ error: "Failed to create category" });
+    }
+  });
+
+  app.put("/api/manager/categories/:id", requireAuth, async (req, res) => {
+    try {
+      const validatedData = CategorySchema.parse(req.body);
+      // @ts-ignore
+      const { userId } = req.session;
+      const { id } = req.params;
+
+      const category = await prisma.menuCategory.findUnique({
+        where: { id },
+        include: { property: { include: { subscription: true } } }
+      });
+      if (!category || category.property.ownerId !== userId) return res.status(403).json({ error: "Access denied" });
+
+      const entitlement = resolveEntitlement(category.property.subscription);
+      if (!entitlement.canEdit) return res.status(403).json({ error: "Account is read-only." });
+
+      const updated = await prisma.menuCategory.update({
+        where: { id },
+        data: { name: validatedData.name }
+      });
+      res.json(updated);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to update category" });
+    }
+  });
+
+  app.delete("/api/manager/categories/:id", requireAuth, async (req, res) => {
+    // @ts-ignore
+    const { userId } = req.session;
+    const { id } = req.params;
+
+    const category = await prisma.menuCategory.findUnique({
+      where: { id },
+      include: { dishes: true, property: { include: { subscription: true } } }
+    });
+    if (!category || category.property.ownerId !== userId) return res.status(403).json({ error: "Access denied" });
+
+    const entitlement = resolveEntitlement(category.property.subscription);
+    if (!entitlement.canEdit) return res.status(403).json({ error: "Account is read-only." });
+
+    if (category.dishes.length > 0) {
+      return res.status(400).json({ error: "Cannot delete category with dishes attached." });
+    }
+
+    await prisma.menuCategory.delete({ where: { id } });
     res.json({ success: true });
   });
 

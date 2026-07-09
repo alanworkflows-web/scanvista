@@ -1,1 +1,20 @@
 @import "tailwindcss";
+
+@media print {
+  body {
+    visibility: hidden;
+    margin: 0;
+    padding: 0;
+  }
+  #print-only-qr, #print-only-qr * {
+    visibility: visible;
+  }
+  #print-only-qr {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100vw;
+    height: 100vh;
+    display: flex !important;
+  }
+}

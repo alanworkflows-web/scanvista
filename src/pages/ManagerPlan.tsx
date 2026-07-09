@@ -50,7 +50,7 @@ export function ManagerPlan() {
 
   const handlePaddleCheckout = () => {
     if (!property) return;
-    
+
     setBillingError(null);
     setCheckoutLoading(true);
 
@@ -64,7 +64,7 @@ export function ManagerPlan() {
     const env = import.meta.env.VITE_PADDLE_ENV;
     const clientToken = import.meta.env.VITE_PADDLE_CLIENT_TOKEN;
     const priceId = import.meta.env.VITE_PADDLE_PRICE_ID;
-    
+
     // Fail closed in production if config is invalid
     const isProd = import.meta.env.PROD || import.meta.env.MODE === 'production';
     if (isProd) {
@@ -82,33 +82,69 @@ export function ManagerPlan() {
       }
     }
 
-    // @ts-ignore
-    window.Paddle.Initialize({ 
-      token: clientToken, 
-      environment: env
-    });
+    try {
+      // @ts-ignore
+      window.Paddle.Initialize({
+        token: clientToken,
+        environment: env,
+        eventCallback: function(data: any) {
+          if (data.name === "checkout.closed") {
+            setCheckoutLoading(false);
+            // Refresh entitlement gracefully
+            fetch(`/api/properties/${property.slug}`)
+              .then(res => res.json())
+              .then(d => { if (d.property) setProperty(d.property); });
+          }
+        }
+      });
 
-    // @ts-ignore
-    window.Paddle.Checkout.open({
-      settings: {
-        displayMode: "overlay",
-        theme: "light",
-        locale: "en"
-      },
-      items: [{
-        priceId: priceId, 
-        quantity: 1
-      }],
-      customer: {
-        email: userEmail
-      },
-      customData: {
-        slug: property.slug
+      // @ts-ignore
+      window.Paddle.Checkout.open({
+        settings: {
+          displayMode: "overlay",
+          theme: "light",
+          locale: "en"
+        },
+        items: [{
+          priceId: priceId,
+          quantity: 1
+        }],
+        customer: {
+          email: userEmail
+        },
+        customData: {
+          slug: property.slug
+        }
+      });
+    } catch (err) {
+      console.error(err);
+      setBillingError("Could not initialize payment gateway.");
+      setCheckoutLoading(false);
+    }
+  };
+
+  const handlePortal = async () => {
+    if (!property) return;
+    setBillingError(null);
+    setCheckoutLoading(true);
+    try {
+      const res = await fetch(`/api/manager/properties/${property.slug}/portal`, {
+        method: "POST"
+      });
+      if (!res.ok) {
+        throw new Error("Failed to generate portal link");
       }
-    });
-    
-    // Release loading lock after checkout opens
-    setTimeout(() => setCheckoutLoading(false), 500);
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error("No URL returned");
+      }
+    } catch (err) {
+      console.error(err);
+      setBillingError("Could not access billing portal. Please contact support.");
+      setCheckoutLoading(false);
+    }
   };
 
   if (loading) {
@@ -181,7 +217,7 @@ export function ManagerPlan() {
                 )}
                 <h3 className="text-lg font-bold text-gray-900 mb-1">Free Tier</h3>
                 <div className="text-3xl font-bold text-gray-900 mb-4">$0 <span className="text-base font-normal text-gray-500">/mo</span></div>
-                
+
                 <ul className="space-y-3 mb-8">
                   <li className="flex items-center gap-2 text-gray-600"><CheckCircle2 className="w-5 h-5 text-gray-400" /> ScanVista QR Code</li>
                   <li className="flex items-center gap-2 text-gray-600"><CheckCircle2 className="w-5 h-5 text-gray-400" /> Basic property profile</li>
@@ -205,7 +241,7 @@ export function ManagerPlan() {
                 )}
                 <h3 className="text-lg font-bold text-gray-900 mb-1">Premium Plan</h3>
                 <div className="text-3xl font-bold text-gray-900 mb-4">$10 <span className="text-base font-normal text-gray-500">/mo</span></div>
-                
+
                 <ul className="space-y-3 mb-8">
                   <li className="flex items-center gap-2 text-gray-800 font-medium"><CheckCircle2 className="w-5 h-5 text-emerald-500" /> Dynamic Digital Menu</li>
                   <li className="flex items-center gap-2 text-gray-800 font-medium"><CheckCircle2 className="w-5 h-5 text-emerald-500" /> Unlimited Categories & Dishes</li>
@@ -220,19 +256,25 @@ export function ManagerPlan() {
                   </div>
                 )}
 
-                <button 
-                  onClick={handlePaddleCheckout}
-                  disabled={isPremium || checkoutLoading}
-                  className={cn(
-                    "w-full font-bold py-3 px-4 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2",
-                    isPremium 
-                      ? "bg-gray-100 text-gray-400 cursor-not-allowed" 
-                      : "bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-70 disabled:cursor-not-allowed"
-                  )}
-                >
-                  {checkoutLoading ? <Loader2 size={18} className="animate-spin" /> : <CreditCard size={18} />}
-                  {isPremium ? "Active" : isExpired ? "Renew Subscription" : "Upgrade to Premium"}
-                </button>
+                {isPremium ? (
+                  <button
+                    onClick={handlePortal}
+                    disabled={checkoutLoading}
+                    className="w-full font-bold py-3 px-4 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 disabled:opacity-70 disabled:cursor-not-allowed"
+                  >
+                    {checkoutLoading ? <Loader2 size={18} className="animate-spin" /> : <CreditCard size={18} />}
+                    Manage Subscription
+                  </button>
+                ) : (
+                  <button
+                    onClick={handlePaddleCheckout}
+                    disabled={checkoutLoading}
+                    className="w-full font-bold py-3 px-4 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-70 disabled:cursor-not-allowed"
+                  >
+                    {checkoutLoading ? <Loader2 size={18} className="animate-spin" /> : <CreditCard size={18} />}
+                    {isExpired ? "Renew Subscription" : "Upgrade to Premium"}
+                  </button>
+                )}
               </div>
             </div>
           </div>

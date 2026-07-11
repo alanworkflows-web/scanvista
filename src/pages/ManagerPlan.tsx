@@ -103,8 +103,7 @@ export function ManagerPlan() {
         }
       });
 
-      // @ts-ignore
-      window.Paddle.Checkout.open({
+      const checkoutPayload = {
         settings: {
           displayMode: "overlay",
           theme: "light",
@@ -120,7 +119,12 @@ export function ManagerPlan() {
         customData: {
           slug: property.slug
         }
-      });
+      };
+
+      console.log("DEBUG PADDLE PAYLOAD:", checkoutPayload);
+
+      // @ts-ignore
+      window.Paddle.Checkout.open(checkoutPayload);
     } catch (err) {
       console.error(err);
       setBillingError("Could not initialize payment gateway.");

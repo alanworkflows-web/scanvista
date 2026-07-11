@@ -65,6 +65,14 @@ export function ManagerPlan() {
     const clientToken = import.meta.env.VITE_PADDLE_CLIENT_TOKEN;
     const priceId = import.meta.env.VITE_PADDLE_PRICE_ID;
 
+    console.log("DEBUG PADDLE:", {
+      mode: import.meta.env.MODE,
+      prod: import.meta.env.PROD,
+      env: import.meta.env.VITE_PADDLE_ENV,
+      hasClientToken: !!import.meta.env.VITE_PADDLE_CLIENT_TOKEN,
+      hasPriceId: !!import.meta.env.VITE_PADDLE_PRICE_ID,
+    });
+
     // Fail closed in production if config is invalid
     const isProd = import.meta.env.PROD || import.meta.env.MODE === 'production';
     if (isProd) {

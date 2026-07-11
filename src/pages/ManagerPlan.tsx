@@ -91,6 +91,11 @@ export function ManagerPlan() {
     }
 
     try {
+      if (env === "sandbox") {
+        // @ts-ignore
+        window.Paddle.Environment.set("sandbox");
+      }
+
       // @ts-ignore
       window.Paddle.Initialize({
         token: clientToken,

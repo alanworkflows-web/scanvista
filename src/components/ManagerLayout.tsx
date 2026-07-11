@@ -64,12 +64,17 @@ export function ManagerLayout({ children }: { children: React.ReactNode }) {
           })}
         </div>
 
-        <div className="p-4 border-t border-gray-100">
+        <div className="p-4 border-t border-gray-100 flex flex-col gap-2">
+          <div className="flex justify-center gap-4 text-xs text-gray-400 mb-2">
+            <Link to="/privacy" className="hover:text-gray-600 transition-colors">Privacy</Link>
+            <span>&middot;</span>
+            <Link to="/terms" className="hover:text-gray-600 transition-colors">Terms</Link>
+          </div>
           <button 
             onClick={handleLogout}
-            className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 w-full rounded-xl transition-colors"
+            className="flex items-center justify-center gap-3 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 w-full rounded-xl transition-colors border border-gray-200"
           >
-            <LogOut size={18} className="text-gray-400" />
+            <LogOut size={16} className="text-gray-400" />
             Sign out
           </button>
         </div>

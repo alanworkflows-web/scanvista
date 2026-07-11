@@ -94,7 +94,6 @@ export function ManagerPlan() {
       // @ts-ignore
       window.Paddle.Initialize({
         token: clientToken,
-        environment: env,
         eventCallback: function(data: any) {
           if (data.name === "checkout.closed") {
             setCheckoutLoading(false);

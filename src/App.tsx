@@ -6,6 +6,7 @@ import { ManagerPlan } from "./pages/ManagerPlan";
 import { LandingPage } from "./pages/LandingPage";
 import { ManagerOperations } from "./pages/ManagerOperations";
 import { ManagerQr } from "./pages/ManagerQr";
+import { LegalPage } from "./pages/LegalPage";
 
 export default function App() {
   return (
@@ -15,6 +16,8 @@ export default function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/manager" element={<ManagerLanding />} />
         <Route path="/p/:propertySlug" element={<PropertyPage />} />
+        <Route path="/privacy" element={<LegalPage />} />
+        <Route path="/terms" element={<LegalPage />} />
 
         {/* Authenticated Manager Routes */}
         <Route path="/manager/setup" element={<ManagerDashboard />} />

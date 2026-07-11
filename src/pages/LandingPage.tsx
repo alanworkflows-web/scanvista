@@ -140,9 +140,9 @@ export function LandingPage() {
             <Hotel className="text-emerald-500" />
             ScanVista
           </div>
-          <div className="flex gap-6 text-sm text-gray-400 md:justify-end">
-            <span className="cursor-not-allowed">Privacy Policy (Placeholder)</span>
-            <span className="cursor-not-allowed">Terms of Service (Placeholder)</span>
+          <div className="flex gap-6 text-sm md:justify-end">
+            <Link to="/privacy" className="text-gray-400 hover:text-white transition-colors">Privacy Policy</Link>
+            <Link to="/terms" className="text-gray-400 hover:text-white transition-colors">Terms of Service</Link>
           </div>
         </div>
       </footer>

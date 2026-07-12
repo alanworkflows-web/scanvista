@@ -685,7 +685,12 @@ async function startServer() {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("Paddle Portal Error:", errorText);
+        console.error("========== PADDLE BILLING ERROR ==========");
+        console.error("Status:", response.status);
+        console.error("Body:", errorText);
+        console.error("Customer ID:", property.subscription.paddleCustomerId);
+        console.error("Subscription ID:", property.subscription.paddleSubscriptionId);
+        console.error("API URL:", apiUrl);
         throw new Error("Failed to create portal session");
       }
 

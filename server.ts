@@ -78,26 +78,41 @@ async function startServer() {
       const rawBody = req.body.toString('utf8');
       const secretKey = process.env.PADDLE_WEBHOOK_SECRET;
 
-      console.log("=== PADDLE WEBHOOK AUDIT ===");
-      console.log(`1. Secret Present: ${!!secretKey}`);
-      if (secretKey) console.log(`   Secret Length: ${secretKey.length}`);
-      console.log(`2. Signature Header Present: ${!!signature}`);
-      console.log(`3. Content-Type: ${req.headers['content-type']}`);
-      console.log(`   Is Buffer: ${Buffer.isBuffer(req.body)}`);
-      console.log(`   Body Length (Buffer): ${Buffer.isBuffer(req.body) ? req.body.length : (req.body ? req.body.length : 0)}`);
+      console.log("BEGIN PADDLE AUDIT");
+      console.log(`process.env.PADDLE_WEBHOOK_SECRET exists: ${!!secretKey}`);
+      if (secretKey) {
+        console.log(`process.env.PADDLE_WEBHOOK_SECRET.length: ${secretKey.length}`);
+        if (secretKey.length > 40) {
+          const maskedSecret = secretKey.substring(0, 20) + "****" + secretKey.slice(-20);
+          console.log(`Masked Secret: ${maskedSecret}`);
+        } else {
+          console.log(`Masked Secret: Secret is too short to mask securely`);
+        }
+      }
+      console.log(`typeof req.body: ${typeof req.body}`);
+      console.log(`Buffer.isBuffer(req.body): ${Buffer.isBuffer(req.body)}`);
+      console.log(`req.body.length: ${req.body ? req.body.length : 0}`);
+      console.log(`rawBody length: ${rawBody ? rawBody.length : 0}`);
+      console.log(`req.headers["paddle-signature"] exists: ${!!req.headers['paddle-signature']}`);
+      console.log(`Signature length: ${signature ? signature.length : 0}`);
+      console.log(`req.headers["content-type"]: ${req.headers['content-type']}`);
+      console.log(`req.headers["content-length"]: ${req.headers['content-length']}`);
 
       if (!secretKey) {
         console.error("CRITICAL: PADDLE_WEBHOOK_SECRET is not set in the environment.");
+        console.log("END PADDLE AUDIT");
         return res.status(500).send("Webhook configuration error");
       }
 
       let eventData;
       try {
         eventData = paddle.webhooks.unmarshal(rawBody, secretKey, signature || '');
+        console.log("UNMARSHAL SUCCESS");
+        console.log("END PADDLE AUDIT");
       } catch (e: any) {
-        console.log("6. Verification Threw:");
-        console.log(`   Error Message: ${e.message}`);
-        console.log(`   Error Name: ${e.name}`);
+        console.log(`error.name: ${e.name}`);
+        console.log(`error.message: ${e.message}`);
+        console.log("END PADDLE AUDIT");
         throw new Error("Invalid signature sync");
       }
       

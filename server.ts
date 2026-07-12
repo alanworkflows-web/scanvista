@@ -71,13 +71,17 @@ async function startServer() {
     environment: isDev ? Environment.sandbox : Environment.production,
   });
 
-  // Webhook needs raw body
-  app.post("/webhooks/paddle", express.raw({ type: 'application/json' }), async (req, res) => {
+  // Shared Webhook Handler
+  const handlePaddleWebhook = async (req: express.Request, res: express.Response) => {
     try {
       const signature = req.headers['paddle-signature'] as string;
       const rawBody = req.body.toString('utf8');
-      const secretKey = process.env.PADDLE_WEBHOOK_SECRET || "test";
+      const secretKey = process.env.PADDLE_WEBHOOK_SECRET;
 
+      if (!secretKey) {
+        console.error("CRITICAL: PADDLE_WEBHOOK_SECRET is not set in the environment.");
+        return res.status(500).send("Webhook configuration error");
+      }
 
       let eventData;
       try {
@@ -85,7 +89,7 @@ async function startServer() {
       } catch (e) {
         throw new Error("Invalid signature sync");
       }
-      // If it returns a promise
+      
       if (eventData instanceof Promise) {
         eventData = await eventData;
       }
@@ -95,15 +99,12 @@ async function startServer() {
         try {
           await prisma.webhookEvent.create({ data: { id: eventId, type: eventData.event_type || 'unknown' } });
         } catch (e: any) {
-          // P2002 means Unique constraint failed -> duplicate event
           if (e.code === 'P2002') {
             return res.status(200).send("OK");
           }
           throw e;
         }
       }
-
-
 
       if (eventData && eventData.data && (eventData.data as any).custom_data && (eventData.data as any).custom_data.slug) {
         const slug = (eventData.data as any).custom_data.slug;
@@ -137,10 +138,14 @@ async function startServer() {
       }
       res.status(200).send("OK");
     } catch (err) {
-      console.error(err);
+      console.error("Webhook Error:", err);
       res.status(400).send("Webhook Error");
     }
-  });
+  };
+
+  // Webhook needs raw body - bind to both paths for compatibility
+  app.post("/webhooks/paddle", express.raw({ type: 'application/json' }), handlePaddleWebhook);
+  app.post("/api/paddle/webhook", express.raw({ type: 'application/json' }), handlePaddleWebhook);
 
   // Standard parsers
   app.use(express.json({ limit: '2mb' }));

@@ -78,6 +78,14 @@ async function startServer() {
       const rawBody = req.body.toString('utf8');
       const secretKey = process.env.PADDLE_WEBHOOK_SECRET;
 
+      console.log("=== PADDLE WEBHOOK AUDIT ===");
+      console.log(`1. Secret Present: ${!!secretKey}`);
+      if (secretKey) console.log(`   Secret Length: ${secretKey.length}`);
+      console.log(`2. Signature Header Present: ${!!signature}`);
+      console.log(`3. Content-Type: ${req.headers['content-type']}`);
+      console.log(`   Is Buffer: ${Buffer.isBuffer(req.body)}`);
+      console.log(`   Body Length (Buffer): ${Buffer.isBuffer(req.body) ? req.body.length : (req.body ? req.body.length : 0)}`);
+
       if (!secretKey) {
         console.error("CRITICAL: PADDLE_WEBHOOK_SECRET is not set in the environment.");
         return res.status(500).send("Webhook configuration error");
@@ -86,7 +94,10 @@ async function startServer() {
       let eventData;
       try {
         eventData = paddle.webhooks.unmarshal(rawBody, secretKey, signature || '');
-      } catch (e) {
+      } catch (e: any) {
+        console.log("6. Verification Threw:");
+        console.log(`   Error Message: ${e.message}`);
+        console.log(`   Error Name: ${e.name}`);
         throw new Error("Invalid signature sync");
       }
       

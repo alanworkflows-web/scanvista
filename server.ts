@@ -701,9 +701,15 @@ async function startServer() {
       }
 
       throw new Error("Invalid response from billing provider");
-    } catch (err) {
+    } catch (err: any) {
+      console.error("========== BILLING PORTAL EXCEPTION ==========");
       console.error(err);
-      res.status(500).json({ error: "Failed to generate billing portal link" });
+      console.error(err?.message);
+      console.error(err?.stack);
+
+      return res.status(500).json({
+        error: err?.message || "Unknown error"
+      });
     }
   });
 

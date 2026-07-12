@@ -120,6 +120,10 @@ async function startServer() {
         eventData = await eventData;
       }
 
+      console.log("=== BEGIN SDK PAYLOAD DUMP ===");
+      console.dir(eventData, { depth: null });
+      console.log("=== END SDK PAYLOAD DUMP ===");
+
       const eventId = eventData?.eventId || eventData?.id;
       if (eventId) {
         try {

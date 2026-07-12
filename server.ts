@@ -120,10 +120,10 @@ async function startServer() {
         eventData = await eventData;
       }
 
-      const eventId = eventData?.event_id || eventData?.id;
+      const eventId = eventData?.eventId || eventData?.id;
       if (eventId) {
         try {
-          await prisma.webhookEvent.create({ data: { id: eventId, type: eventData.event_type || 'unknown' } });
+          await prisma.webhookEvent.create({ data: { id: eventId, type: eventData.eventType || 'unknown' } });
         } catch (e: any) {
           if (e.code === 'P2002') {
             return res.status(200).send("OK");
@@ -132,19 +132,31 @@ async function startServer() {
         }
       }
 
-      if (eventData && eventData.data && (eventData.data as any).custom_data && (eventData.data as any).custom_data.slug) {
-        const slug = (eventData.data as any).custom_data.slug;
-        const status = (eventData.data as any).status;
+      console.log(`1. Parsed eventType: ${eventData?.eventType}`);
+
+      // Use explicit casting to the SDK's expected generic payload shape to access camelCase properties correctly
+      const payload = eventData?.data as any; // Cast as any first to satisfy strict TypeScript before checking properties, but use camelCase below
+      
+      console.log(`2. Log customData:`, payload?.customData);
+
+      if (payload && payload.customData && payload.customData.slug) {
+        const slug = payload.customData.slug;
+        console.log(`3. Log slug: ${slug}`);
+
+        const status = payload.status;
 
         const validStatuses = ['active', 'trialing', 'canceled', 'past_due'];
         if (!status || !validStatuses.includes(status)) {
           return res.status(200).send("Unsupported or missing status safely ignored");
         }
 
-        const customerId = (eventData.data as any).customer_id;
-        const subscriptionId = (eventData.data as any).id;
+        const customerId = payload.customerId;
+        const subscriptionId = payload.id;
+        // Other SDK properties if we needed them: businessId, addressId, scheduledChange, transactionId
 
         const property = await prisma.property.findUnique({ where: { slug } });
+        console.log(`4. Log property lookup: ${property ? property.id : 'NOT_FOUND'}`);
+
         if (property) {
           await prisma.subscription.upsert({
             where: { propertyId: property.id },
@@ -160,6 +172,8 @@ async function startServer() {
               paddleSubscriptionId: subscriptionId
             }
           });
+          console.log(`5. Log subscription upsert: UPSERTED for ${property.id}`);
+          console.log(`6. Log entitlement refresh: REFRESHED for ${slug} (status: ${status})`);
         }
       }
       res.status(200).send("OK");

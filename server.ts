@@ -643,6 +643,7 @@ async function startServer() {
 
   // Billing Portal
   app.post("/api/manager/properties/:slug/portal", requireAuth, async (req, res) => {
+    console.log("=== BILLING PORTAL ENDPOINT HIT ===");
     try {
       // @ts-ignore
       const { userId } = req.session;

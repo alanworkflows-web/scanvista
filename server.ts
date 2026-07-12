@@ -673,6 +673,13 @@ async function startServer() {
         ? `https://api.paddle.com/customers/${property.subscription.paddleCustomerId}/portal-sessions`
         : `https://sandbox-api.paddle.com/customers/${property.subscription.paddleCustomerId}/portal-sessions`;
 
+      console.log("API Key starts with:", apiKey.substring(0, 12));
+      console.log("API Key length:", apiKey.length);
+      console.log(
+        "Authorization header:",
+        `Bearer ${apiKey.substring(0, 12)}...`
+      );
+
       const response = await fetch(apiUrl, {
         method: "POST",
         headers: {

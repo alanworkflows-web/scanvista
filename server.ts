@@ -708,11 +708,11 @@ async function startServer() {
       const data = await response.json();
       console.dir(data, { depth: null });
 
-      // Paddle Billing v2 returns subscription-specific URLs if subscription_ids is provided
-      const generalUrl = data?.data?.urls?.general?.url;
-      const subscriptionUrl = data?.data?.urls?.subscriptions?.[0]?.url;
+      // Paddle Billing v2 returns specific action URLs instead of a generic .url field
+      const generalUrl = data?.data?.urls?.general?.overview;
+      const subscriptionUrl = data?.data?.urls?.subscriptions?.[0]?.update_subscription_payment_method;
       
-      const portalUrl = subscriptionUrl || generalUrl;
+      const portalUrl = generalUrl || subscriptionUrl;
 
       if (portalUrl) {
         return res.json({ url: portalUrl });

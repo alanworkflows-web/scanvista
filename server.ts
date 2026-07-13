@@ -706,11 +706,19 @@ async function startServer() {
       }
 
       const data = await response.json();
-      if (data && data.data && data.data.urls && data.data.urls.general) {
-        return res.json({ url: data.data.urls.general.url });
+      console.dir(data, { depth: null });
+
+      // Paddle Billing v2 returns subscription-specific URLs if subscription_ids is provided
+      const generalUrl = data?.data?.urls?.general?.url;
+      const subscriptionUrl = data?.data?.urls?.subscriptions?.[0]?.url;
+      
+      const portalUrl = subscriptionUrl || generalUrl;
+
+      if (portalUrl) {
+        return res.json({ url: portalUrl });
       }
 
-      throw new Error("Invalid response from billing provider");
+      throw new Error("Invalid response from billing provider: Missing URL");
     } catch (err: any) {
       console.error("========== BILLING PORTAL EXCEPTION ==========");
       console.error(err);

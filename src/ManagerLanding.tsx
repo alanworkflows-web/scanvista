@@ -77,7 +77,7 @@ export function ManagerLanding() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Property Type</label>
               <div className="relative">
                 <select
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl appearance-none focus:ring-2 focus:ring-gray-900 focus:bg-white outline-none transition-all"
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl appearance-none focus:ring-4 focus:ring-gray-900/20 shadow-sm focus:shadow-md focus:bg-white outline-none transition-all"
                   value={propertyType}
                   onChange={e => setPropertyType(e.target.value)}
                 >

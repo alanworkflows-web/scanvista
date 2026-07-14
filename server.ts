@@ -17,18 +17,20 @@ export interface Entitlement {
   accessMode: "full" | "read_only";
   canEdit: boolean;
   canPublish: boolean;
+  maxCategories: number;
+  maxDishes: number;
 }
 
 export function resolveEntitlement(subscription: any): Entitlement {
   if (!subscription || !subscription.status || subscription.status === "none") {
-    return { plan: "free", subscriptionStatus: "none", accessMode: "full", canEdit: true, canPublish: true };
+    return { plan: "free", subscriptionStatus: "none", accessMode: "full", canEdit: true, canPublish: true, maxCategories: 2, maxDishes: 10 };
   }
 
   if (subscription.status === "active" || subscription.status === "trialing") {
-    return { plan: "premium", subscriptionStatus: subscription.status, accessMode: "full", canEdit: true, canPublish: true };
+    return { plan: "premium", subscriptionStatus: subscription.status, accessMode: "full", canEdit: true, canPublish: true, maxCategories: 1000, maxDishes: 10000 };
   }
 
-  return { plan: "premium", subscriptionStatus: subscription.status, accessMode: "read_only", canEdit: false, canPublish: false };
+  return { plan: "premium", subscriptionStatus: subscription.status, accessMode: "read_only", canEdit: false, canPublish: false, maxCategories: 1000, maxDishes: 10000 };
 }
 
 async function startServer() {
@@ -59,7 +61,16 @@ async function startServer() {
     standardHeaders: true,
     legacyHeaders: false,
   });
-  app.use("/api/", apiLimiter);
+  
+  const publicApiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 1500, // Generous limit for public guest views (100 req/min)
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  app.use("/api/manager", apiLimiter);
+  app.use("/api/properties", publicApiLimiter);
 
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -211,7 +222,7 @@ async function startServer() {
     cookie: {
       secure: process.env.NODE_ENV === 'production' || !!process.env.APP_URL,
       httpOnly: true,
-      sameSite: process.env.NODE_ENV === 'production' || !!process.env.APP_URL ? 'none' : 'lax',
+      sameSite: 'lax',
       maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
     }
   }));
@@ -230,6 +241,12 @@ async function startServer() {
     name: z.string().trim().min(1).max(255).optional(),
     description: z.string().max(1000).optional(),
     bannerUrl: z.string().url().max(1000).optional().or(z.literal("")),
+    propertyType: z.enum(["HOTEL", "HOMESTAY", "RESORT", "RETREAT"]).optional(),
+    wifiNetwork: z.string().max(100).optional(),
+    wifiPassword: z.string().max(100).optional(),
+    hostInfo: z.string().max(2000).optional(),
+    houseRules: z.string().max(2000).optional(),
+    experiences: z.string().max(2000).optional(),
     receptionPhone: z.string().max(50).optional(),
     roomServicePhone: z.string().max(50).optional(),
     housekeepingPhone: z.string().max(50).optional(),
@@ -342,7 +359,6 @@ async function startServer() {
     }
 
     const url = oauth2Client.generateAuthUrl({
-      access_type: 'offline',
       scope: ['https://www.googleapis.com/auth/userinfo.profile', 'https://www.googleapis.com/auth/userinfo.email'],
       state: state
     });
@@ -465,9 +481,18 @@ async function startServer() {
   });
 
   // Properties API
+  const publicPropertyCache = new Map<string, { data: any, timestamp: number }>();
+
   app.get("/api/properties/:slug", async (req, res) => {
     try {
       const slug = req.params.slug.toLowerCase();
+
+      // Basic memory cache (TTL: 30s)
+      const cached = publicPropertyCache.get(slug);
+      if (cached && Date.now() - cached.timestamp < 30000) {
+        return res.json(cached.data);
+      }
+
       const property = await prisma.property.findUnique({
         where: { slug },
         include: {
@@ -508,13 +533,16 @@ async function startServer() {
         entitlement
       };
 
-      res.json({
+      const responseData = {
         property: safeProperty,
         categories,
         dishes,
         amenities,
         grievances: []
-      });
+      };
+
+      publicPropertyCache.set(slug, { data: responseData, timestamp: Date.now() });
+      res.json(responseData);
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: "Failed to fetch property" });
@@ -737,9 +765,15 @@ async function startServer() {
       const validatedData = AmenitySchema.parse(req.body);
       const property = await prisma.property.findFirst({
         // @ts-ignore
-        where: { slug: req.params.slug, ownerId: req.session.userId }
+        where: { slug: req.params.slug, ownerId: req.session.userId },
+        include: { subscription: true }
       });
       if (!property) return res.status(403).json({ error: "Unauthorized" });
+
+      const entitlement = resolveEntitlement(property.subscription);
+      if (!entitlement.canEdit) {
+        return res.status(403).json({ error: "Subscription expired. Workspace is locked in Read-Only mode." });
+      }
 
       const amenity = await prisma.amenity.create({ data: { ...validatedData, propertyId: property.id } });
       res.json(amenity);
@@ -795,6 +829,13 @@ async function startServer() {
       const entitlement = resolveEntitlement(property.subscription);
       if (!entitlement.canEdit) {
         return res.status(403).json({ error: "Subscription expired. Workspace is locked in Read-Only mode." });
+      }
+
+      const dishCount = await prisma.dish.count({
+        where: { category: { propertyId: property.id } }
+      });
+      if (dishCount >= entitlement.maxDishes) {
+        return res.status(403).json({ error: `Dish limit reached (${entitlement.maxDishes}). Please upgrade your plan.` });
       }
 
       let categoryId = validatedData.categoryId;
@@ -879,9 +920,18 @@ async function startServer() {
       const entitlement = resolveEntitlement(property.subscription);
       if (!entitlement.canEdit) return res.status(403).json({ error: "Account is read-only." });
 
+      const categoryCount = await prisma.menuCategory.count({
+        where: { propertyId: property.id }
+      });
+      if (categoryCount >= entitlement.maxCategories) {
+        return res.status(403).json({ error: `Category limit reached (${entitlement.maxCategories}). Please upgrade your plan.` });
+      }
+
       const category = await prisma.menuCategory.create({
         data: { name: validatedData.name, propertyId: property.id }
       });
+
+      publicPropertyCache.delete(req.params.slug);
       res.json(category);
     } catch (err) {
       if (err instanceof z.ZodError) {

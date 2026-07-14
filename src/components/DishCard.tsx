@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Dish } from "../types";
-import { ChevronDown, Leaf, WheatOff, Info, AlertTriangle, Star, ChefHat, Phone, Calendar } from "lucide-react";
+import { ChevronDown, Leaf, WheatOff, Info, AlertTriangle, Star, ChefHat, Phone, Calendar, X } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -11,30 +11,51 @@ function cn(...inputs: ClassValue[]) {
 interface DishCardProps {
   item: Dish;
   propertyType: 'HOTEL' | 'HOMESTAY' | 'RESORT' | 'RETREAT';
-  roomServicePhone?: string;
-  hostPhone?: string; // fallback if needed
 }
 
-export const DishCard: React.FC<DishCardProps> = ({ item, propertyType, roomServicePhone, hostPhone }) => {
+export const DishCard: React.FC<DishCardProps> = ({ item, propertyType }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isZoomed, setIsZoomed] = useState(false);
   
   let allergensList: string[] = [];
   try {
     allergensList = JSON.parse(item.allergens);
   } catch (e) {
-    console.error("Failed to parse allergens");
+    // Ignore invalid JSON silent fallback
   }
 
-  const isPreplanned = propertyType === 'HOMESTAY' || propertyType === 'RETREAT';
-
   return (
-    <div className={cn(
-      "py-5 flex items-start gap-4 transition-opacity text-left w-full",
-      item.isOutOfStock && "opacity-60 grayscale-[0.5]"
+    <>
+      {isZoomed && item.imageUrl && (
+        <div 
+          className="fixed inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center p-4"
+          onClick={() => setIsZoomed(false)}
+        >
+          <button 
+            className="absolute top-6 right-6 p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
+            onClick={() => setIsZoomed(false)}
+          >
+            <X size={24} />
+          </button>
+          <img 
+            src={item.imageUrl} 
+            alt={item.name} 
+            className="max-w-full max-h-[80vh] object-contain rounded-xl shadow-2xl"
+          />
+          <h3 className="text-white text-xl font-serif font-bold mt-6 text-center">{item.name}</h3>
+        </div>
+      )}
+      <div className={cn(
+        "py-4 flex items-start gap-4 transition-opacity text-left w-full border-b border-gray-100 last:border-0",
+      item.isOutOfStock && "opacity-50 grayscale-[0.8]"
     )}>
       {/* Dish Image as bullet */}
       {item.imageUrl && (
-        <div className="w-20 h-20 shrink-0 rounded-xl overflow-hidden bg-gray-50 border border-gray-100 relative mt-1">
+        <button 
+          onClick={() => setIsZoomed(true)}
+          className="w-20 h-20 shrink-0 rounded-xl overflow-hidden bg-gray-50 border border-gray-100 relative mt-1 block cursor-zoom-in group"
+        >
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors z-10" />
           <img 
             src={item.imageUrl} 
             alt={item.name} 
@@ -46,50 +67,52 @@ export const DishCard: React.FC<DishCardProps> = ({ item, propertyType, roomServ
               <span className="text-[10px] font-bold uppercase tracking-wider text-gray-900 bg-white/80 px-1 py-0.5 rounded">Out</span>
             </div>
           )}
-        </div>
+        </button>
       )}
 
       {/* Content */}
-      <div className="flex-1 flex flex-col gap-2.5">
+      <div className="flex-1 flex flex-col gap-1.5 min-w-0">
         {/* Title & Price Row */}
-        <div className="flex justify-between items-start gap-4">
-          <div className="flex-1">
-            <div className="flex flex-wrap items-center gap-2 mb-1">
-              <h3 className="font-serif text-lg font-medium text-gray-900 leading-tight">{item.name}</h3>
+        <div className="flex justify-between items-start gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2 mb-0.5">
+              <h3 className="font-serif font-semibold text-[17px] text-gray-900 leading-snug truncate">{item.name}</h3>
               {item.isOutOfStock && !item.imageUrl && (
-                <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-xs font-medium">Sold Out</span>
+                <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider">Sold Out</span>
               )}
             </div>
             {item.description && (
-              <p className="text-gray-600 text-sm leading-relaxed">
+              <p className="font-sans text-sm text-gray-600 leading-relaxed line-clamp-2">
                 {item.description}
               </p>
             )}
           </div>
-          <span className="font-medium text-emerald-700 whitespace-nowrap mt-0.5">
+          <span className="font-semibold text-gray-900 whitespace-nowrap mt-0.5">
             €{item.price.toFixed(2)}
           </span>
         </div>
 
         {/* Dietary and Status Text Line */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-y-2">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-medium text-gray-500">
-            {item.isPopular && <span className="flex items-center gap-1 text-amber-700"><Star size={12} className="fill-amber-500 text-amber-500" /> Popular</span>}
-            {item.isChefRec && <span className="flex items-center gap-1 text-blue-700"><ChefHat size={12} /> Chef's Choice</span>}
-            {item.dietaryCategory === "Vegan" && <span className="flex items-center gap-1 text-emerald-700"><Leaf size={12} /> Vegan</span>}
-            {item.dietaryCategory === "Vegetarian" && <span className="flex items-center gap-1 text-green-700"><Leaf size={12} /> Vegetarian</span>}
-            {item.dietaryCategory === "Gluten-Free" && <span className="flex items-center gap-1 text-amber-700"><WheatOff size={12} /> GF</span>}
+        <div className="flex flex-wrap items-center justify-between gap-y-1.5 mt-0.5">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-sans text-xs font-medium text-gray-500 uppercase tracking-wide">
+            {item.isPopular && <span className="flex items-center gap-1 text-amber-700"><Star size={10} className="fill-amber-500 text-amber-500" /> Popular</span>}
+            {item.isChefRec && <span className="flex items-center gap-1 text-blue-700"><ChefHat size={10} /> Chef's Choice</span>}
+            {item.dietaryCategory === "Vegan" && <span className="flex items-center gap-1 text-emerald-700"><Leaf size={10} /> Vegan</span>}
+            {item.dietaryCategory === "Vegetarian" && <span className="flex items-center gap-1 text-green-700"><Leaf size={10} /> Vegetarian</span>}
+            {item.dietaryCategory === "Gluten-Free" && <span className="flex items-center gap-1 text-amber-700"><WheatOff size={10} /> GF</span>}
           </div>
           
           {/* Collapsible Trigger */}
           <button 
             onClick={() => setIsExpanded(!isExpanded)}
-            className="flex items-center gap-1.5 text-gray-400 hover:text-gray-700 transition-colors py-1 text-xs font-medium"
+            aria-expanded={isExpanded}
+            aria-controls={`dish-info-${item.id}`}
+            className="flex items-center gap-1 text-gray-400 hover:text-gray-800 transition-colors py-1 text-[11px] font-medium"
           >
-            <Info size={14} />
+            <Info size={12} />
             {isExpanded ? 'Hide Info' : 'EU Allergen & Health Info'}
             <ChevronDown 
-              size={14} 
+              size={12} 
               className={cn("transition-transform duration-300", isExpanded && "rotate-180")}
             />
           </button>
@@ -97,6 +120,7 @@ export const DishCard: React.FC<DishCardProps> = ({ item, propertyType, roomServ
 
         {/* Collapsible Health Info */}
         <div 
+          id={`dish-info-${item.id}`}
           className={cn(
             "grid transition-all duration-300 ease-in-out",
             isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
@@ -113,7 +137,7 @@ export const DishCard: React.FC<DishCardProps> = ({ item, propertyType, roomServ
                 {allergensList.length > 0 ? (
                   <div className="flex flex-wrap gap-1.5">
                     {allergensList.map(allergen => (
-                      <span key={allergen} className="px-2 py-0.5 bg-white text-slate-600 rounded-md border border-slate-200 text-xs font-medium tracking-wide">
+                      <span key={allergen} className="px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider bg-white text-gray-600 border border-gray-200">
                         {allergen}
                       </span>
                     ))}
@@ -135,26 +159,8 @@ export const DishCard: React.FC<DishCardProps> = ({ item, propertyType, roomServ
             </div>
           </div>
         </div>
-
-        {/* Action Line */}
-        <div className="mt-1">
-          {!item.isOutOfStock && isPreplanned && (
-            <div className="inline-flex items-center gap-2 px-3 py-2 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-medium border border-indigo-100">
-              <Calendar size={14} />
-              <span>Pre-planned Meal (Call Host to Coordinate)</span>
-            </div>
-          )}
-          {!item.isOutOfStock && !isPreplanned && roomServicePhone && (
-            <a 
-              href={`tel:${roomServicePhone}`}
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 transition-colors"
-            >
-              <Phone size={14} />
-              Call Room Service to Order
-            </a>
-          )}
-        </div>
       </div>
     </div>
+    </>
   );
 }

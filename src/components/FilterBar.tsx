@@ -1,5 +1,5 @@
 import React from "react";
-import { Leaf, WheatOff } from "lucide-react";
+import { Leaf, WheatOff, Search } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -11,6 +11,7 @@ export type FilterState = {
   veganOnly: boolean;
   vegetarianOnly: boolean;
   hideGluten: boolean;
+  searchQuery: string;
 };
 
 interface FilterBarProps {
@@ -20,9 +21,25 @@ interface FilterBarProps {
 
 export function FilterBar({ filters, setFilters, compact }: FilterBarProps & { compact?: boolean }) {
   return (
-    <div className={cn("flex w-full", compact ? "gap-1.5 flex-wrap" : "grid grid-cols-2 sm:grid-cols-3 gap-3")}>
+    <div className="flex flex-col gap-3 w-full">
+      <div className="relative w-full">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <Search size={16} className="text-gray-400" />
+        </div>
+        <input
+          type="text"
+          placeholder="Search menu..."
+          value={filters.searchQuery || ""}
+          onChange={(e) => setFilters(prev => ({ ...prev, searchQuery: e.target.value }))}
+          className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl focus:ring-4 focus:ring-emerald-500/20 shadow-sm focus:shadow-md focus:border-transparent outline-none text-sm transition-all shadow-sm placeholder:text-gray-400"
+          aria-label="Search menu items"
+        />
+      </div>
+      <div className={cn("flex w-full", compact ? "gap-1.5 flex-wrap" : "grid grid-cols-2 sm:grid-cols-3 gap-3")}>
       <button
         onClick={() => setFilters(prev => ({ ...prev, veganOnly: !prev.veganOnly, vegetarianOnly: false }))}
+        aria-label="Toggle vegan filter"
+        aria-pressed={filters.veganOnly}
         className={cn(
           "flex items-center justify-center transition-all duration-200 border",
           compact ? "gap-1 px-2 py-1 rounded-lg text-[11px]" : "gap-2 px-4 py-2 rounded-xl text-sm",
@@ -38,6 +55,8 @@ export function FilterBar({ filters, setFilters, compact }: FilterBarProps & { c
 
       <button
         onClick={() => setFilters(prev => ({ ...prev, vegetarianOnly: !prev.vegetarianOnly, veganOnly: false }))}
+        aria-label="Toggle vegetarian filter"
+        aria-pressed={filters.vegetarianOnly}
         className={cn(
           "flex items-center justify-center transition-all duration-200 border",
           compact ? "gap-1 px-2 py-1 rounded-lg text-[11px]" : "gap-2 px-4 py-2 rounded-xl text-sm",
@@ -53,6 +72,8 @@ export function FilterBar({ filters, setFilters, compact }: FilterBarProps & { c
 
       <button
         onClick={() => setFilters(prev => ({ ...prev, hideGluten: !prev.hideGluten }))}
+        aria-label="Toggle gluten-free filter"
+        aria-pressed={filters.hideGluten}
         className={cn(
           "flex items-center justify-center transition-all duration-200 border",
           compact ? "gap-1 px-2 py-1 rounded-lg text-[11px]" : "gap-2 px-4 py-2 rounded-xl text-sm",
@@ -65,6 +86,7 @@ export function FilterBar({ filters, setFilters, compact }: FilterBarProps & { c
         <WheatOff size={compact ? 12 : 14} className={cn(filters.hideGluten ? "text-amber-100" : "text-amber-500")} />
         Hide Gluten
       </button>
+      </div>
     </div>
   );
 }

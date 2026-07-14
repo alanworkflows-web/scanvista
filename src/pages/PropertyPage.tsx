@@ -3,6 +3,8 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { PropertyData } from "../types";
 import { DishCard } from "../components/DishCard";
 import { FilterBar, FilterState } from "../components/FilterBar";
+import { EmptyState } from "../components/EmptyState";
+import { Skeleton } from "../components/Skeleton";
 import {
   Loader2,
   UtensilsCrossed,
@@ -21,6 +23,8 @@ import {
   HeartPulse,
   LifeBuoy,
   ChevronDown,
+  Info,
+  AlertTriangle,
 } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -46,21 +50,12 @@ export function PropertyPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("menu");
-  const [expandedCategories, setExpandedCategories] = useState<
-    Record<string, boolean>
-  >({});
-
-  const toggleCategory = (categoryId: string) => {
-    setExpandedCategories((prev) => ({
-      ...prev,
-      [categoryId]: !prev[categoryId],
-    }));
-  };
 
   const [filters, setFilters] = useState<FilterState>({
     veganOnly: false,
     vegetarianOnly: false,
     hideGluten: false,
+    searchQuery: "",
   });
 
   useEffect(() => {
@@ -69,7 +64,9 @@ export function PropertyPage() {
         setLoading(true);
         const res = await fetch(`/api/properties/${propertySlug}`);
         if (!res.ok) {
-          throw new Error("Property not found");
+          if (res.status === 429) throw new Error("Too many requests. Please try again in a minute.");
+          if (res.status === 404) throw new Error("Restaurant Not Found");
+          throw new Error("System Error. Please try again.");
         }
         const json = await res.json();
         setData(json);
@@ -84,6 +81,12 @@ export function PropertyPage() {
       fetchData();
     }
   }, [propertySlug]);
+
+  useEffect(() => {
+    if (data?.property?.name) {
+      document.title = data.property.name;
+    }
+  }, [data?.property?.name]);
 
   const propertyType = data?.property?.propertyType;
 
@@ -104,23 +107,33 @@ export function PropertyPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+      <div className="min-h-screen bg-gray-50 max-w-2xl mx-auto flex flex-col p-6 space-y-6">
+        <Skeleton className="h-48 w-full rounded-3xl" />
+        <Skeleton className="h-10 w-3/4" />
+        <Skeleton className="h-6 w-full" />
+        <Skeleton className="h-6 w-5/6" />
+        <div className="space-y-4 mt-8">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
+        </div>
       </div>
     );
   }
 
   if (error || !data) {
+    const isSystemError = error && error !== "Restaurant Not Found";
+
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4 text-center">
-        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
-          <Home className="w-8 h-8 text-red-500" />
+        <div className={cn("w-16 h-16 rounded-full flex items-center justify-center mb-4", isSystemError ? "bg-amber-100" : "bg-red-100")}>
+          {isSystemError ? <AlertTriangle className="w-8 h-8 text-amber-500" /> : <Home className="w-8 h-8 text-red-500" />}
         </div>
         <h1 className="text-2xl font-semibold text-gray-900 mb-2">
-          Property Not Found
+          {error || "Restaurant Not Found"}
         </h1>
         <p className="text-gray-500">
-          We couldn't find the property you're looking for.
+          {isSystemError ? "We are experiencing technical difficulties. Please refresh." : "We couldn't find the restaurant you're looking for."}
         </p>
       </div>
     );
@@ -159,6 +172,14 @@ export function PropertyPage() {
     } catch (e) {}
 
     if (filters.hideGluten && hasGluten) return false;
+    
+    if (filters.searchQuery) {
+      const q = filters.searchQuery.toLowerCase();
+      const matchesName = item.name.toLowerCase().includes(q);
+      const matchesDesc = item.description?.toLowerCase().includes(q);
+      if (!matchesName && !matchesDesc) return false;
+    }
+
     return true;
   });
 
@@ -185,8 +206,8 @@ export function PropertyPage() {
       >
         {/* Property Header */}
         {property.bannerUrl && (
-          <div className="relative h-64 md:h-80 w-full">
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent z-10" />
+          <div className="relative h-72 md:h-96 w-full">
+            <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/40 to-transparent z-10" />
             <img
               src={property.bannerUrl}
               alt={property.name}
@@ -194,19 +215,15 @@ export function PropertyPage() {
             />
 
             {/* Overlay Property Info */}
-            <div className="absolute bottom-6 left-4 md:bottom-10 md:left-10 z-30 max-w-3xl">
-              <h1 className="text-3xl md:text-5xl font-serif font-bold text-white mb-2 drop-shadow-md">
-                {property.name}
-              </h1>
-              <p className="text-white/90 text-sm md:text-base text-shadow-sm font-medium">
-                📍 {property.description || `${property.name} Location`}
-                {(property.receptionPhone || property.emergencyPhone) && (
-                  <>
-                    {" "}
-                    | 📞 {property.receptionPhone || property.emergencyPhone}
-                  </>
-                )}
-              </p>
+            <div className="absolute bottom-6 left-4 right-4 md:bottom-10 md:left-10 md:right-10 z-30 max-w-5xl mx-auto flex flex-col md:flex-row md:items-end justify-between gap-4">
+              <div>
+                <h1 className="text-4xl md:text-5xl font-serif font-bold text-white mb-2 drop-shadow-md">
+                  {property.name}
+                </h1>
+                <p className="text-gray-200 text-sm md:text-base font-medium flex items-center gap-2">
+                  <Map className="w-4 h-4" /> {property.description || `${property.name} Location`}
+                </p>
+              </div>
             </div>
           </div>
         )}
@@ -234,94 +251,88 @@ export function PropertyPage() {
           </div>
 
           {activeTab === "menu" && (
-            <div>
-              <div className="mb-4">
+            <div className="flex flex-col gap-6">
+              
+              {/* Sticky Category Nav & Filters */}
+              <div className="sticky top-0 z-40 bg-gray-50/95 backdrop-blur-xl py-3 -mx-4 px-4 sm:mx-0 sm:px-0 border-b border-gray-200/50">
+                <div 
+                  className="flex overflow-x-auto hide-scrollbar gap-2 mb-3 pb-1"
+                  style={{ maskImage: "linear-gradient(to right, black 90%, transparent 100%)", WebkitMaskImage: "linear-gradient(to right, black 90%, transparent 100%)" }}
+                >
+                  {categories.map((cat) => {
+                    const hasItems = filteredItems.some(i => i.categoryId === cat.id);
+                    if (!hasItems) return null;
+                    return (
+                      <a 
+                        key={cat.id} 
+                        href={`#category-${cat.id}`}
+                        className="whitespace-nowrap px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-100 hover:border-gray-300 transition-colors shadow-sm min-h-[44px] flex items-center"
+                      >
+                        {cat.name}
+                      </a>
+                    );
+                })}
+              </div>
                 <FilterBar filters={filters} setFilters={setFilters} compact />
               </div>
 
-              <div className="flex flex-col gap-2">
-                {categories.map((category) => {
-                  const categoryItems = filteredItems.filter(
-                    (item) => item.categoryId === category.id,
-                  );
-                  if (categoryItems.length === 0) return null;
+              <div className="flex flex-col gap-8 pb-12">
+                {categories.length === 0 ? (
+                  <div className="px-2 mt-4">
+                    <EmptyState 
+                      icon={UtensilsCrossed} 
+                      title="Menu Coming Soon" 
+                      description="We are currently updating our digital menu. Please check back shortly or ask your server for assistance." 
+                    />
+                  </div>
+                ) : filteredItems.length === 0 ? (
+                  <div className="px-2 mt-4 text-center">
+                    <EmptyState 
+                      icon={UtensilsCrossed} 
+                      title="No Items Found" 
+                      description="Try adjusting your dietary filters." 
+                      action={{
+                        label: "Clear filters",
+                        onClick: () => setFilters({
+                          veganOnly: false,
+                          vegetarianOnly: false,
+                          hideGluten: false,
+                          searchQuery: "",
+                        })
+                      }}
+                    />
+                  </div>
+                ) : (
+                  categories.map((category) => {
+                    const categoryItems = filteredItems.filter(
+                      (item) => item.categoryId === category.id,
+                    );
+                    if (categoryItems.length === 0) return null;
 
-                  const isExpanded = expandedCategories[category.id];
-
-                  return (
-                    <div
-                      key={category.id}
-                      className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden my-1"
-                    >
-                      <button
-                        onClick={() => toggleCategory(category.id)}
-                        className="w-full pl-4 pr-3 py-3 flex items-center justify-between bg-white hover:bg-gray-50 transition-colors text-left"
+                    return (
+                      <div
+                        key={category.id}
+                        id={`category-${category.id}`}
+                        className="scroll-mt-48"
                       >
-                        <h2 className="text-lg font-serif font-semibold text-gray-900 flex-1">
+                        <h2 className="text-2xl font-serif font-bold text-gray-900 mb-4 py-2 border-b border-gray-100">
                           {category.name}
                         </h2>
-                        <div
-                          className={cn(
-                            "w-8 h-8 rounded-full flex items-center justify-center transition-transform duration-300 ml-4 shrink-0",
-                            isExpanded
-                              ? "rotate-180 bg-gray-100"
-                              : "bg-gray-50",
-                          )}
-                        >
-                          <ChevronDown className="w-5 h-5 text-gray-600" />
-                        </div>
-                      </button>
 
-                      <div
-                        className={cn(
-                          "grid transition-all duration-300 ease-in-out",
-                          isExpanded
-                            ? "grid-rows-[1fr] opacity-100"
-                            : "grid-rows-[0fr] opacity-0",
-                        )}
-                      >
-                        <div className="overflow-hidden">
-                          <div className="px-4 pb-4 pt-1 divide-y divide-gray-100 flex flex-col text-left items-start w-full">
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+                          <div className="flex flex-col w-full">
                             {categoryItems.map((item) => (
                               <DishCard
                                 key={item.id}
                                 item={item}
-                                propertyType={property.propertyType}
-                                roomServicePhone={property.roomServicePhone}
-                                hostPhone={property.emergencyPhone} // fallback
+                                propertyType={property.propertyType as any}
                               />
                             ))}
                           </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-
-                {filteredItems.length === 0 && (
-                  <div className="text-center py-20 px-4">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <UtensilsCrossed className="w-8 h-8 text-gray-400" />
-                    </div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-1">
-                      No items found
-                    </h3>
-                    <p className="text-gray-500">
-                      Try adjusting your dietary filters.
-                    </p>
-                    <button
-                      onClick={() =>
-                        setFilters({
-                          veganOnly: false,
-                          vegetarianOnly: false,
-                          hideGluten: false,
-                        })
-                      }
-                      className="mt-4 px-4 py-2 bg-emerald-50 text-emerald-700 font-medium rounded-full hover:bg-emerald-100 transition-colors"
-                    >
-                      Clear all filters
-                    </button>
-                  </div>
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -577,6 +588,28 @@ export function PropertyPage() {
           )}
         </div>
       </div>
+      
+      {/* Floating Bottom Bar (Only visible if scanned) */}
+      {isScanned && property && (
+        <div className="fixed bottom-0 left-0 right-0 p-4 z-50 bg-gradient-to-t from-gray-50 via-gray-50/80 to-transparent pointer-events-none pb-safe">
+          <div className="max-w-md mx-auto w-full pointer-events-auto">
+            {(property.roomServicePhone || property.receptionPhone) ? (
+              <a 
+                href={`tel:${property.roomServicePhone || property.receptionPhone}`}
+                className="flex items-center justify-center gap-2 w-full py-3.5 bg-gray-900 text-white rounded-2xl font-bold shadow-xl hover:bg-gray-800 transition-all active:scale-95"
+              >
+                <Phone className="w-5 h-5" />
+                {property.roomServicePhone ? "Order Room Service" : "Call to Order"}
+              </a>
+            ) : (
+              <div className="flex items-center justify-center gap-2 w-full py-3.5 bg-white text-gray-900 rounded-2xl font-semibold shadow-lg border border-gray-200">
+                <Info className="w-5 h-5" />
+                <span>Please order at the counter</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -1,70 +1,132 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Settings, CreditCard, LogOut, Menu, X, Hotel, Utensils, QrCode } from "lucide-react";
-import { cn } from "../lib/utils";
+import { routeComponents } from "../App";
+import { 
+  Hotel, 
+  Menu as MenuIcon, 
+  X, 
+  LayoutDashboard, 
+  UtensilsCrossed, 
+  QrCode, 
+  Palette, 
+  Sparkles, 
+  TrendingUp, 
+  Settings as SettingsIcon,
+  LogOut,
+  HelpCircle
+} from "lucide-react";
+import { cn } from "./ui/Button";
+import { theme } from "../design/theme";
+import { SyncStatus } from "./ui/SyncStatus";
 
 export function ManagerLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [hoveredPath, setHoveredPath] = useState<string | null>(null);
 
+  // When clicking an anchor link on the same page, react-router doesn't always scroll automatically.
+  // We handle scroll into view if needed, but standard href anchor works in standard cases.
+  // The mapping uses path + hash combinations.
   const navigation = [
-    { name: 'Property Setup', href: '/manager/setup', icon: Settings },
-    { name: 'Menu & Amenities', href: '/manager/operations', icon: Utensils },
-    { name: 'QR Generator', href: '/manager/qr', icon: QrCode },
-    { name: 'Plan & Billing', href: '/manager/plan', icon: CreditCard },
+    { name: 'Home', href: '/manager/home', icon: LayoutDashboard },
+    { name: 'Restaurant', href: '/manager/restaurant', icon: Palette },
+    { name: 'Menu', href: '/manager/menu', icon: UtensilsCrossed },
+    { name: 'Publishing', href: '/manager/publishing', icon: QrCode },
+    { name: 'Billing', href: '/manager/billing', icon: TrendingUp },
+    { name: 'Help', href: '/manager/help', icon: Sparkles },
   ];
 
   const handleLogout = () => {
     fetch("/api/logout", { method: "POST" }).then(() => navigate("/manager"));
   };
 
+  const isActivePath = (href: string) => {
+    return location.pathname === href;
+  };
+
+  const sidebarStyle = {
+    '--sidebar-bg': theme.colors.bg.primary,
+    '--sidebar-text': theme.colors.text.secondary,
+    '--sidebar-hover-bg': theme.colors.bg.secondary,
+    '--sidebar-hover-text': theme.colors.text.primary,
+    '--sidebar-active-bg': theme.colors.bg.secondary, // Linear style subtle active state
+    '--sidebar-active-text': theme.colors.text.primary,
+    '--sidebar-border': theme.colors.border.light,
+    '--sidebar-brand': theme.colors.text.brand,
+    '--sidebar-font-sans': theme.typography.fonts.sans,
+    '--sidebar-font-serif': theme.typography.fonts.display,
+  } as React.CSSProperties;
+
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-[100dvh] bg-[var(--sidebar-hover-bg)] flex animate-in fade-in duration-[500ms]" style={sidebarStyle}>
       {/* Mobile menu button */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-2 font-serif font-bold text-xl text-gray-900">
-          <Hotel className="text-emerald-600" />
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-[var(--sidebar-bg)] border-b border-[var(--sidebar-border)] px-4 py-3 flex items-center justify-between shadow-sm">
+        <div className="flex items-center gap-2 text-[length:var(--ph-title-size)] [font-family:var(--sidebar-font-serif)] font-bold text-[var(--sidebar-active-text)]">
+          <Hotel className="text-[var(--sidebar-brand)]" />
           ScanVista
         </div>
-        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 -mr-2 text-gray-600">
-          {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 -mr-2 text-[var(--sidebar-text)]">
+          {isMobileMenuOpen ? <X size={24} /> : <MenuIcon size={24} />}
         </button>
       </div>
 
-      {/* Sidebar */}
+      {/* Sidebar - Linear/Notion style */}
       <div className={cn(
-        "fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-200 transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:block flex flex-col",
+        "fixed inset-y-0 left-0 z-40 w-64 bg-[var(--sidebar-bg)] border-r border-[var(--sidebar-border)] transform transition-transform duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] lg:translate-x-0 lg:static lg:block flex flex-col",
         isMobileMenuOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"
       )}>
-        <div className="h-16 flex items-center px-6 border-b border-gray-100 hidden lg:flex gap-2 font-serif font-bold text-xl text-gray-900">
-          <Hotel className="text-emerald-600" />
+        <div className="h-16 flex items-center px-6 hidden lg:flex gap-2 [font-family:var(--sidebar-font-serif)] font-bold text-2xl text-[var(--sidebar-active-text)] mt-2 mb-4">
+          <Hotel className="text-[var(--sidebar-brand)]" />
           ScanVista
         </div>
 
-        <div className="flex-1 overflow-y-auto py-6 px-4 space-y-1">
+        <div className="flex-1 overflow-y-auto py-2 px-3 space-y-0.5 [font-family:var(--sidebar-font-sans)]">
           {navigation.map((item) => {
-            const isActive = location.pathname.startsWith(item.href);
+            const active = isActivePath(item.href);
             return (
               <Link
                 key={item.name}
                 to={item.href}
+                onMouseEnter={() => {
+                  setHoveredPath(item.href);
+                  const comp = routeComponents[item.href as keyof typeof routeComponents];
+                  if (comp?.preload) comp.preload();
+                }}
+                onMouseLeave={() => setHoveredPath(null)}
                 onClick={() => setIsMobileMenuOpen(false)}
                 className={cn(
-                  "flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-colors",
-                  isActive 
-                    ? "bg-emerald-50 text-emerald-700" 
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  "relative flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors",
+                  active ? "text-[var(--sidebar-active-text)]" : "text-[var(--sidebar-text)] hover:text-[var(--sidebar-hover-text)]"
                 )}
               >
-                <item.icon size={18} className={isActive ? "text-emerald-600" : "text-gray-400"} />
-                {item.name}
+                {active && (
+                  <motion.div
+                    layoutId="sidebar-active"
+                    className="absolute inset-0 bg-[var(--sidebar-active-bg)] rounded-lg"
+                    initial={false}
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                  />
+                )}
+                {!active && hoveredPath === item.href && (
+                  <motion.div
+                    layoutId="sidebar-hover"
+                    className="absolute inset-0 bg-[var(--sidebar-hover-bg)] rounded-lg opacity-50"
+                    initial={false}
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                  />
+                )}
+                <span className="relative z-10 flex items-center gap-3">
+                  <item.icon size={16} className={active ? "text-[var(--sidebar-active-text)]" : "text-[var(--sidebar-text)] opacity-70"} />
+                  {item.name}
+                </span>
               </Link>
             );
           })}
         </div>
 
-        <div className="p-4 border-t border-gray-100 flex flex-col gap-2">
+        <div className="p-4 flex flex-col gap-2">
           <div className="flex justify-center gap-4 text-xs text-gray-400 mb-2">
             <Link to="/privacy" className="hover:text-gray-600 transition-colors">Privacy</Link>
             <span>&middot;</span>
@@ -72,25 +134,34 @@ export function ManagerLayout({ children }: { children: React.ReactNode }) {
           </div>
           <button 
             onClick={handleLogout}
-            className="flex items-center justify-center gap-3 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 w-full rounded-xl transition-colors border border-gray-200"
+            className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover-bg)] hover:text-[var(--sidebar-hover-text)] w-full rounded-lg transition-colors"
           >
-            <LogOut size={16} className="text-gray-400" />
+            <LogOut size={16} className="opacity-70" />
             Sign out
           </button>
         </div>
       </div>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0 pt-16 lg:pt-0">
+      <div className="flex-1 flex flex-col min-w-0 pt-16 lg:pt-0 relative">
+        <div className="absolute top-4 right-8 z-10 hidden lg:block">
+          <SyncStatus />
+        </div>
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto w-full">
-          {children}
+          <motion.div
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          >
+            {children}
+          </motion.div>
         </main>
       </div>
 
       {/* Mobile overlay */}
       {isMobileMenuOpen && (
         <div 
-          className="fixed inset-0 bg-gray-900/50 z-30 lg:hidden backdrop-blur-sm transition-opacity"
+          className="fixed inset-0 bg-gray-900/20 z-30 lg:hidden backdrop-blur-sm transition-opacity"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}

@@ -57,13 +57,31 @@ model Property {
   emergencyPhone    String?
   roomServicePhone  String?
   
+  // CRM Tracking
+  onboardedAt       DateTime?
+  firstMenuAt       DateTime?
+  qrPrintedAt       DateTime?
+  firstScanAt       DateTime?
+  renewalRisk       String     @default("LOW") // LOW, MEDIUM, HIGH
+
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
   owner        User       @relation(fields: [ownerId], references: [id])
   categories   MenuCategory[]
   amenities    Amenity[]
+  feedbacks    Feedback[]
   subscription Subscription?
+}
+
+model Feedback {
+  id         String   @id @default(uuid())
+  propertyId String
+  type       String   // "BUG", "FEATURE_REQUEST", "GENERAL"
+  message    String
+  status     String   @default("OPEN")
+  createdAt  DateTime @default(now())
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 }
 
 model MenuCategory {

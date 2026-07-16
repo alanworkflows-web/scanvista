@@ -14,7 +14,8 @@ import {
   TrendingUp, 
   Settings as SettingsIcon,
   LogOut,
-  HelpCircle
+  HelpCircle,
+  Users
 } from "lucide-react";
 import { cn } from "./ui/Button";
 import { theme } from "../design/theme";
@@ -33,6 +34,7 @@ export function ManagerLayout({ children }: { children: React.ReactNode }) {
     { name: 'Home', href: '/manager/home', icon: LayoutDashboard },
     { name: 'Restaurant', href: '/manager/restaurant', icon: Palette },
     { name: 'Menu', href: '/manager/menu', icon: UtensilsCrossed },
+    { name: 'Guests', href: '/manager/guests', icon: Users },
     { name: 'Publishing', href: '/manager/publishing', icon: QrCode },
     { name: 'Billing', href: '/manager/billing', icon: TrendingUp },
     { name: 'Help', href: '/manager/help', icon: Sparkles },

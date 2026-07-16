@@ -10,7 +10,8 @@ const ManagerPublishing = lazyWithPreload(() => import('./pages/ManagerPublishin
 const ManagerBilling = lazyWithPreload(() => import('./pages/ManagerBilling').then(m => ({ default: m.ManagerBilling })));
 const ManagerHelp = lazyWithPreload(() => import('./pages/ManagerHelp').then(m => ({ default: m.ManagerHelp })));
 const AdminCRM = lazyWithPreload(() => import('./pages/AdminCRM').then(m => ({ default: m.AdminCRM })));
-
+const ManagerGuests = lazyWithPreload(() => import('./pages/ManagerGuests').then(m => ({ default: m.ManagerGuests })));
+const GuestWelcome = lazyWithPreload(() => import('./pages/GuestWelcome').then(m => ({ default: m.GuestWelcome })));
 
 import { LandingPage } from "./pages/LandingPage";
 
@@ -26,6 +27,7 @@ export const routeComponents = {
   '/manager/publishing': ManagerPublishing,
   '/manager/billing': ManagerBilling,
   '/manager/help': ManagerHelp,
+  '/manager/guests': ManagerGuests,
   '/admin/crm': AdminCRM,
 };
 
@@ -38,6 +40,7 @@ export default function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/manager" element={<ManagerLanding />} />
         <Route path="/p/:propertySlug" element={<PropertyPage />} />
+        <Route path="/g/:token" element={<GuestWelcome />} />
         <Route path="/privacy" element={<LegalPage />} />
         <Route path="/terms" element={<LegalPage />} />
 
@@ -48,8 +51,11 @@ export default function App() {
         <Route path="/manager/menu" element={<ManagerMenu />} />
         <Route path="/manager/publishing" element={<ManagerPublishing />} />
         <Route path="/manager/billing" element={<ManagerBilling />} />
+        <Route path="/manager/guests" element={<ManagerGuests />} />
         <Route path="/manager/help" element={<ManagerHelp />} />
         <Route path="/admin/crm" element={<AdminCRM />} />
+        <Route path="/manager/setup" element={<Navigate to="/manager/home" replace />} />
+        <Route path="*" element={<Navigate to="/manager/home" replace />} />
       </Routes>
         </Suspense>
     </BrowserRouter>

@@ -71,6 +71,7 @@ model Property {
   categories   MenuCategory[]
   amenities    Amenity[]
   feedbacks    Feedback[]
+  guests       Guest[]
   subscription Subscription?
 }
 
@@ -149,3 +150,45 @@ model OAuthState {
   consumedAt  DateTime?
   createdAt   DateTime  @default(now())
 }
+
+model Guest {
+  id             String      @id @default(cuid())
+  token          String      @unique @default(cuid())
+
+  propertyId     String
+
+  name           String
+  phone          String
+
+  roomNumber     String?
+
+  language       String?      @default("en")
+
+  arrivalDate    DateTime?
+  departureDate  DateTime?
+  arrivalTime    DateTime?
+
+  notes          String?
+
+  preferences    Json?
+  communication  Json?
+
+  status         GuestStatus  @default(BOOKED)
+  linkViewedAt   DateTime?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  property Property @relation(fields:[propertyId], references:[id], onDelete:Cascade)
+
+  @@index([propertyId, arrivalDate])
+}
+
+enum GuestStatus {
+  BOOKED
+  ARRIVING
+  CHECKED_IN
+  STAYING
+  CHECKED_OUT
+}
+

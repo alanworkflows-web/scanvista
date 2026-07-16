@@ -21,6 +21,16 @@ export function ManagerHome() {
   const propertySlug = property?.slug;
   const isReadOnly = property?.entitlement?.accessMode === "read_only";
   
+  const [guests, setGuests] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (propertySlug) {
+      fetch(`/api/manager/properties/${propertySlug}/guests`)
+        .then(res => res.ok ? res.json() : [])
+        .then(data => setGuests(Array.isArray(data) ? data : []));
+    }
+  }, [propertySlug]);
+
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -102,6 +112,19 @@ export function ManagerHome() {
 
   return (
     <ManagerLayout>
+      <div
+        style={{
+          background: "#dc2626",
+          color: "white",
+          padding: "16px",
+          fontSize: "28px",
+          fontWeight: "bold",
+          textAlign: "center",
+          zIndex: 99999
+        }}
+      >
+        🚨 MANAGER HOME BUILD TEST - JULY 16
+      </div>
       <div className="mb-12 animate-in fade-in slide-in-from-bottom-2 duration-[300ms]">
         <h1 className="text-[length:var(--ph-title-size)] [font-family:var(--ph-font-serif)] font-bold text-[var(--ph-title-color)] mb-2">
           {new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening'}, {property?.name || "Restaurant Owner"}
@@ -142,6 +165,41 @@ export function ManagerHome() {
           )}
         </Card>
         </motion.div>
+      </div>
+
+      <div className="mb-16 animate-in fade-in slide-in-from-bottom-4 duration-[450ms]">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-bold text-[var(--ph-title-color)]">Today's Guests</h2>
+          <Button variant="ghost" onClick={() => navigate('/manager/guests')} className="text-emerald-600">
+            View All <ArrowRight size={16} className="ml-2" />
+          </Button>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <Card hoverable className="p-4 cursor-pointer text-center" onClick={() => navigate('/manager/guests')}>
+            <p className="text-3xl font-bold text-gray-900 mb-1">{guests.filter(g => g.status === 'ARRIVING' || g.status === 'BOOKED').length}</p>
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Today's Arrivals</p>
+          </Card>
+          <Card hoverable className="p-4 cursor-pointer text-center" onClick={() => navigate('/manager/guests')}>
+            <p className="text-3xl font-bold text-emerald-600 mb-1">{guests.filter(g => g.status === 'CHECKED_IN' || g.status === 'STAYING').length}</p>
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Checked In</p>
+          </Card>
+          <Card hoverable className="p-4 cursor-pointer text-center" onClick={() => navigate('/manager/guests')}>
+            <p className="text-3xl font-bold text-amber-600 mb-1">{guests.filter(g => g.status === 'BOOKED').length}</p>
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Pending</p>
+          </Card>
+          <Card hoverable className="p-4 cursor-pointer text-center" onClick={() => navigate('/manager/guests')}>
+            <p className="text-3xl font-bold text-purple-600 mb-1">0</p>
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">VIP</p>
+          </Card>
+          <Card hoverable className="p-4 cursor-pointer text-center" onClick={() => navigate('/manager/guests')}>
+            <p className="text-3xl font-bold text-blue-600 mb-1">0</p>
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Families</p>
+          </Card>
+          <Card hoverable className="p-4 cursor-pointer text-center" onClick={() => navigate('/manager/guests')}>
+            <p className="text-3xl font-bold text-indigo-600 mb-1">0</p>
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Airport Pickup</p>
+          </Card>
+        </div>
       </div>
 
       <div className="mb-16 animate-in fade-in slide-in-from-bottom-4 duration-[500ms]">

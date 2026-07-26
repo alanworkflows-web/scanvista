@@ -6,6 +6,7 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { Users, Plus } from "lucide-react";
 import { Button } from "../components/ui/Button";
 import { GlobalHeader } from "../components/ui/GlobalHeader";
+import { toast } from "sonner";
 
 import { GuestCard } from "../components/guest/GuestCard";
 import { GuestForm, type GuestFormData } from "../components/guest/GuestForm";
@@ -40,6 +41,7 @@ export function ManagerGuests() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState<string | null>(null);
   const [isEditOpen, setIsEditOpen] = useState<Guest | null>(null);
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<GuestFormData>(EMPTY_FORM);
 
   // ── Data fetching ──
@@ -68,7 +70,6 @@ export function ManagerGuests() {
       : `/api/manager/properties/${property.slug}/guests`;
 
     const payload: Record<string, unknown> = { ...formData };
-    // Fix 4: always send UTC
     if (payload.arrivalDate) {
       payload.arrivalDate = toUTCDate(payload.arrivalDate as string);
     } else {
@@ -83,6 +84,7 @@ export function ManagerGuests() {
       payload.arrivalTime = null;
     }
 
+    setSaving(true);
     try {
       const res = await fetch(url, {
         method: isEditing ? "PATCH" : "POST",
@@ -90,13 +92,21 @@ export function ManagerGuests() {
         body: JSON.stringify(payload),
       });
       if (res.ok) {
+        toast.success(isEditing ? "Guest details updated" : "Guest registered successfully");
         setIsAddOpen(false);
         setIsEditOpen(null);
         setFormData(EMPTY_FORM);
-        fetchGuests();
+        await fetchGuests();
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        const message = errJson.error || errJson.details?.[0]?.message || "Failed to save guest details";
+        toast.error(message);
       }
     } catch (err) {
       console.error(err);
+      toast.error("Network error while saving guest details");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -135,7 +145,7 @@ export function ManagerGuests() {
     return (
       <ManagerLayout>
         <div className="p-8">
-          <Skeleton className="h-10 w-48 mb-8" />
+          <Skeleton className="h-10 w-48 mb-12" />
         </div>
       </ManagerLayout>
     );
@@ -155,9 +165,9 @@ export function ManagerGuests() {
         title="Guest Journey"
         description="Manage guest life cycles and activate personalized experiences."
         breadcrumbs={[{ label: "Workspace" }, { label: "Guests" }]}
-        action={
+        actions={
           <Button onClick={() => setIsAddOpen(true)}>
-            <Plus size={18} className="mr-2" aria-hidden="true" /> Add Guest
+            <Plus size={18} className="mr-2" aria-hidden="true" /> Register Arrival
           </Button>
         }
       />
@@ -170,7 +180,7 @@ export function ManagerGuests() {
       />
 
       {fetching ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 p-8 pt-0">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-10 p-8 pt-0">
           <Skeleton className="h-64 w-full" />
         </div>
       ) : guests.length === 0 ? (
@@ -179,11 +189,11 @@ export function ManagerGuests() {
             icon={Users}
             title="No Active Guests"
             description="Add your first guest to generate a personalized journey link."
-            action={<Button onClick={() => setIsAddOpen(true)}>Add Guest</Button>}
+            action={{ label: "Register Arrival", onClick: () => setIsAddOpen(true) }}
           />
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 p-8 pt-0">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-10 p-8 pt-0">
           {filteredGuests.map((guest) => (
             <GuestCard
               key={guest.id}
@@ -208,6 +218,7 @@ export function ManagerGuests() {
             setIsEditOpen(null);
           }}
           isEditing={!!isEditOpen}
+            isSaving={saving}
         />
       )}
     </ManagerLayout>

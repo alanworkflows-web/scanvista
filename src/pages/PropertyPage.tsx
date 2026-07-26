@@ -107,7 +107,7 @@ export function PropertyPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 max-w-2xl mx-auto flex flex-col p-6 space-y-6">
+      <div className="min-h-screen bg-background max-w-2xl mx-auto flex flex-col p-8 space-y-6">
         <Skeleton className="h-48 w-full rounded-3xl" />
         <Skeleton className="h-10 w-3/4" />
         <Skeleton className="h-6 w-full" />
@@ -125,14 +125,14 @@ export function PropertyPage() {
     const isSystemError = error && error !== "Restaurant Not Found";
 
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4 text-center">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4 text-center">
         <div className={cn("w-16 h-16 rounded-full flex items-center justify-center mb-4", isSystemError ? "bg-amber-100" : "bg-red-100")}>
           {isSystemError ? <AlertTriangle className="w-8 h-8 text-amber-500" /> : <Home className="w-8 h-8 text-red-500" />}
         </div>
-        <h1 className="text-2xl font-semibold text-gray-900 mb-2">
+        <h1 className="text-2xl font-semibold text-text-primary mb-2">
           {error || "Restaurant Not Found"}
         </h1>
-        <p className="text-gray-500">
+        <p className="text-text-secondary opacity-60">
           {isSystemError ? "We are experiencing technical difficulties. Please refresh." : "We couldn't find the restaurant you're looking for."}
         </p>
       </div>
@@ -187,11 +187,11 @@ export function PropertyPage() {
     <>
       {!isScanned && (
         <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/30 backdrop-blur-sm pointer-events-auto">
-          <div className="bg-white/95 p-8 rounded-2xl shadow-2xl max-w-lg text-center mx-4">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+          <div className="bg-surface/95 p-8 rounded-sm shadow-premium-hover max-w-lg text-center mx-4">
+            <h2 className="text-3xl font-serif text-text-primary mb-4">
               🖥️ Management Administrative Preview Mode
             </h2>
-            <p className="text-gray-600 font-medium text-lg">
+            <p className="text-text-secondary opacity-80 font-medium text-lg">
               Scan Physical QR for Guest Execution
             </p>
           </div>
@@ -199,25 +199,28 @@ export function PropertyPage() {
       )}
       <div
         className={cn(
-          "min-h-screen bg-gray-50 pb-24",
+          "min-h-screen bg-background pb-24",
           !isScanned &&
             "pointer-events-none select-none filter grayscale-[30%] blur-[1px]",
         )}
       >
         {/* Property Header */}
-        {property.bannerUrl && (
+        {(property.bannerUrl || property.heroImage) && (
           <div className="relative h-72 md:h-96 w-full">
             <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/40 to-transparent z-10" />
             <img
-              src={property.bannerUrl}
+              src={property.bannerUrl || property.heroImage}
               alt={property.name}
               className="w-full h-full object-cover"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = "https://images.unsplash.com/photo-1542314831-c6a4d27ce66b?q=80&w=2000&auto=format&fit=crop";
+              }}
             />
 
             {/* Overlay Property Info */}
-            <div className="absolute bottom-6 left-4 right-4 md:bottom-10 md:left-10 md:right-10 z-30 max-w-5xl mx-auto flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div className="absolute bottom-6 left-4 right-4 md:bottom-10 md:left-10 md:right-10 z-30 max-w-5xl mx-auto flex flex-col md:flex-row md:items-end justify-between gap-10">
               <div>
-                <h1 className="text-4xl md:text-5xl font-serif font-bold text-white mb-2 drop-shadow-md">
+                <h1 className="text-4xl md:text-5xl font-serif font-medium text-white mb-2 drop-shadow-premium-hover">
                   {property.name}
                 </h1>
                 <p className="text-gray-200 text-sm md:text-base font-medium flex items-center gap-2">
@@ -231,17 +234,17 @@ export function PropertyPage() {
         {/* Main Content Area */}
         <div className="max-w-5xl mx-auto px-4 sm:px-6 mt-6">
           {/* Navigation Tabs */}
-          <div className="mb-6">
-            <div className="bg-white/80 backdrop-blur-md rounded-xl shadow-sm border border-gray-200 p-1 flex justify-between gap-1 w-full max-w-sm">
+          <div className="mb-12">
+            <div className="bg-surface/80 backdrop-blur-md rounded-sm shadow-premium border border-divider p-1 flex justify-between gap-1 w-full max-w-sm">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    "flex-1 whitespace-nowrap py-1.5 px-3 text-sm font-medium rounded-lg transition-colors",
+                    "flex-1 whitespace-nowrap py-1.5 px-3 text-sm font-medium rounded-sm transition-colors",
                     activeTab === tab.id
                       ? "bg-gray-900 text-white shadow"
-                      : "text-gray-700 hover:text-gray-900 hover:bg-gray-100",
+                      : "text-text-secondary hover:text-text-primary hover:bg-surface-hover",
                   )}
                 >
                   {tab.label}
@@ -251,22 +254,22 @@ export function PropertyPage() {
           </div>
 
           {activeTab === "menu" && (
-            <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-10">
               
               {/* Sticky Category Nav & Filters */}
-              <div className="sticky top-0 z-40 bg-gray-50/95 backdrop-blur-xl py-3 -mx-4 px-4 sm:mx-0 sm:px-0 border-b border-gray-200/50">
+              <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl py-3 -mx-4 px-4 sm:mx-0 sm:px-0 border-b border-divider/50">
                 <div 
                   className="flex overflow-x-auto hide-scrollbar gap-2 mb-3 pb-1"
                   style={{ maskImage: "linear-gradient(to right, black 90%, transparent 100%)", WebkitMaskImage: "linear-gradient(to right, black 90%, transparent 100%)" }}
                 >
-                  {categories.map((cat) => {
+                  {(categories || []).map((cat) => {
                     const hasItems = filteredItems.some(i => i.categoryId === cat.id);
                     if (!hasItems) return null;
                     return (
                       <a 
                         key={cat.id} 
                         href={`#category-${cat.id}`}
-                        className="whitespace-nowrap px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-100 hover:border-gray-300 transition-colors shadow-sm min-h-[44px] flex items-center"
+                        className="whitespace-nowrap px-4 py-2.5 bg-surface border border-divider text-text-secondary rounded-full text-sm font-medium hover:bg-surface-hover hover:border-primary transition-colors shadow-premium min-h-[44px] flex items-center"
                       >
                         {cat.name}
                       </a>
@@ -276,7 +279,7 @@ export function PropertyPage() {
                 <FilterBar filters={filters} setFilters={setFilters} compact />
               </div>
 
-              <div className="flex flex-col gap-8 pb-12">
+              <div className="flex flex-col gap-10 pb-12">
                 {categories.length === 0 ? (
                   <div className="px-2 mt-4">
                     <EmptyState 
@@ -303,7 +306,7 @@ export function PropertyPage() {
                     />
                   </div>
                 ) : (
-                  categories.map((category) => {
+                  (categories || []).map((category) => {
                     const categoryItems = filteredItems.filter(
                       (item) => item.categoryId === category.id,
                     );
@@ -315,11 +318,11 @@ export function PropertyPage() {
                         id={`category-${category.id}`}
                         className="scroll-mt-48"
                       >
-                        <h2 className="text-2xl font-serif font-bold text-gray-900 mb-4 py-2 border-b border-gray-100">
+                        <h2 className="text-2xl font-serif font-medium text-text-primary mb-4 py-2 border-b border-divider">
                           {category.name}
                         </h2>
 
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+                        <div className="bg-surface rounded-sm shadow-premium border border-divider p-8">
                           <div className="flex flex-col w-full">
                             {categoryItems.map((item) => (
                               <DishCard
@@ -340,11 +343,11 @@ export function PropertyPage() {
 
           {activeTab === "amenities" && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <h2 className="text-2xl font-serif font-semibold text-gray-900">
+              <h2 className="text-2xl font-serif font-semibold text-text-primary">
                 Amenities
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {amenities.map((am) => {
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                {(amenities || []).map((am) => {
                   const IconComponent =
                     am.icon && IconMap[am.icon] ? IconMap[am.icon] : Dumbbell;
 
@@ -371,19 +374,19 @@ export function PropertyPage() {
                   return (
                     <div
                       key={am.id}
-                      className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-4"
+                      className="bg-surface p-8 rounded-sm shadow-premium border border-divider flex flex-col gap-10"
                     >
                       <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="p-3 bg-indigo-50 rounded-xl text-indigo-600 shrink-0">
+                        <div className="flex items-center gap-10">
+                          <div className="p-3 bg-primary-light/20 rounded-sm text-primary-hover shrink-0">
                             <IconComponent size={24} />
                           </div>
                           <div>
-                            <h3 className="font-medium text-gray-900">
+                            <h3 className="font-medium text-text-primary">
                               {am.name}
                             </h3>
                             {am.description && (
-                              <p className="text-sm text-gray-500 mt-1">
+                              <p className="text-sm text-text-secondary opacity-60 mt-1">
                                 {am.description}
                               </p>
                             )}
@@ -393,8 +396,8 @@ export function PropertyPage() {
                         {am.openTime && am.closeTime && (
                           <div className="shrink-0">
                             {isOpen ? (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-primary/5 text-text-primary border border-divider">
+                                <span className="w-1.5 h-1.5 rounded-full bg-primary/50"></span>
                                 Open Now
                               </span>
                             ) : (
@@ -411,7 +414,7 @@ export function PropertyPage() {
                         <div className="mt-2 pt-4 border-t border-gray-50">
                           <a
                             href={`tel:${property.receptionPhone}`}
-                            className="flex items-center justify-center gap-2 w-full py-2.5 bg-gray-50 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-100 transition-colors border border-gray-200"
+                            className="flex items-center justify-center gap-2 w-full py-2.5 bg-background text-text-secondary rounded-sm text-sm font-medium hover:bg-surface-hover transition-colors border border-divider"
                           >
                             <Phone size={16} />
                             Call Desk to Book Slot
@@ -421,8 +424,8 @@ export function PropertyPage() {
                     </div>
                   );
                 })}
-                {amenities.length === 0 && (
-                  <p className="text-gray-500">No amenities listed.</p>
+                {(!amenities || amenities.length === 0) && (
+                  <p className="text-text-secondary opacity-60">No amenities listed.</p>
                 )}
               </div>
             </div>
@@ -430,29 +433,29 @@ export function PropertyPage() {
 
           {activeTab === "wifi" && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <h2 className="text-2xl font-serif font-semibold text-gray-900">
+              <h2 className="text-2xl font-serif font-semibold text-text-primary">
                 Information & Support
               </h2>
 
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
-                <div className="p-6 border-b border-gray-50 flex items-start gap-4">
-                  <div className="p-3 bg-blue-50 rounded-xl text-blue-600">
+              <div className="bg-surface rounded-sm shadow-premium border border-divider overflow-hidden mb-12">
+                <div className="p-8 border-b border-gray-50 flex items-start gap-10">
+                  <div className="p-3 bg-blue-50 rounded-sm text-blue-600">
                     <Wifi size={24} />
                   </div>
                   <div className="w-full">
-                    <h3 className="font-medium text-gray-900 mb-3">
+                    <h3 className="font-medium text-text-primary mb-3">
                       Wi-Fi Connection
                     </h3>
                     <div className="space-y-3 text-sm">
                       <p className="flex justify-between border-b border-gray-50 pb-3">
-                        <span className="text-gray-500">Network</span>
-                        <span className="font-medium text-gray-900">
+                        <span className="text-text-secondary opacity-60">Network</span>
+                        <span className="font-medium text-text-primary">
                           {property.wifiNetwork || "Not provided"}
                         </span>
                       </p>
                       <p className="flex justify-between">
-                        <span className="text-gray-500">Password</span>
-                        <span className="font-medium text-gray-900">
+                        <span className="text-text-secondary opacity-60">Password</span>
+                        <span className="font-medium text-text-primary">
                           {property.wifiPassword || "Not provided"}
                         </span>
                       </p>
@@ -462,13 +465,13 @@ export function PropertyPage() {
               </div>
 
               {/* Direct Team Communication Actions */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
                 {property.receptionPhone && (
                   <a
                     href={`tel:${property.receptionPhone}`}
-                    className="flex flex-col items-center justify-center gap-2 p-6 bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-md hover:border-indigo-200 transition-all text-gray-700 hover:text-indigo-700"
+                    className="flex flex-col items-center justify-center gap-2 p-8 bg-surface rounded-sm shadow-premium border border-divider hover:shadow-premium-hover hover:border-indigo-200 transition-all text-text-secondary hover:text-indigo-700"
                   >
-                    <div className="p-3 bg-indigo-50 rounded-full text-indigo-600">
+                    <div className="p-3 bg-primary-light/20 rounded-full text-primary-hover">
                       <PhoneCall size={24} />
                     </div>
                     <span className="font-medium">Call Reception</span>
@@ -477,7 +480,7 @@ export function PropertyPage() {
                 {property.housekeepingPhone && (
                   <a
                     href={`tel:${property.housekeepingPhone}`}
-                    className="flex flex-col items-center justify-center gap-2 p-6 bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-md hover:border-teal-200 transition-all text-gray-700 hover:text-teal-700"
+                    className="flex flex-col items-center justify-center gap-2 p-8 bg-surface rounded-sm shadow-premium border border-divider hover:shadow-premium-hover hover:border-teal-200 transition-all text-text-secondary hover:text-teal-700"
                   >
                     <div className="p-3 bg-teal-50 rounded-full text-teal-600">
                       <LifeBuoy size={24} />
@@ -488,7 +491,7 @@ export function PropertyPage() {
                 {property.emergencyPhone && (
                   <a
                     href={`tel:${property.emergencyPhone}`}
-                    className="flex flex-col items-center justify-center gap-2 p-6 bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-md hover:border-rose-200 transition-all text-gray-700 hover:text-rose-700"
+                    className="flex flex-col items-center justify-center gap-2 p-8 bg-surface rounded-sm shadow-premium border border-divider hover:shadow-premium-hover hover:border-rose-200 transition-all text-text-secondary hover:text-rose-700"
                   >
                     <div className="p-3 bg-rose-50 rounded-full text-rose-600">
                       <HeartPulse size={24} />
@@ -502,15 +505,15 @@ export function PropertyPage() {
 
           {activeTab === "host" && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <h2 className="text-2xl font-serif font-semibold text-gray-900">
+              <h2 className="text-2xl font-serif font-semibold text-text-primary">
                 Your Host
               </h2>
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-start gap-4">
-                <div className="p-3 bg-amber-50 rounded-xl text-amber-600">
+              <div className="bg-surface p-8 rounded-sm shadow-premium border border-divider flex items-start gap-10">
+                <div className="p-3 bg-amber-50 rounded-sm text-amber-600">
                   <User size={24} />
                 </div>
                 <div>
-                  <p className="text-gray-700 leading-relaxed">
+                  <p className="text-text-secondary leading-relaxed">
                     {property.hostInfo || "No host information provided."}
                   </p>
                 </div>
@@ -520,33 +523,33 @@ export function PropertyPage() {
 
           {activeTab === "rules" && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <h2 className="text-2xl font-serif font-semibold text-gray-900">
+              <h2 className="text-2xl font-serif font-semibold text-text-primary">
                 Info & Experiences
               </h2>
 
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-start gap-4">
-                <div className="p-3 bg-rose-50 rounded-xl text-rose-600">
+              <div className="bg-surface p-8 rounded-sm shadow-premium border border-divider flex items-start gap-10">
+                <div className="p-3 bg-rose-50 rounded-sm text-rose-600">
                   <FileText size={24} />
                 </div>
                 <div>
-                  <h3 className="font-medium text-gray-900 mb-2">
+                  <h3 className="font-medium text-text-primary mb-2">
                     House Rules
                   </h3>
-                  <p className="text-gray-600 text-sm leading-relaxed">
+                  <p className="text-text-secondary opacity-80 text-sm leading-relaxed">
                     {property.houseRules || "No house rules listed."}
                   </p>
                 </div>
               </div>
 
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-start gap-4">
-                <div className="p-3 bg-teal-50 rounded-xl text-teal-600">
+              <div className="bg-surface p-8 rounded-sm shadow-premium border border-divider flex items-start gap-10">
+                <div className="p-3 bg-teal-50 rounded-sm text-teal-600">
                   <Map size={24} />
                 </div>
                 <div>
-                  <h3 className="font-medium text-gray-900 mb-2">
+                  <h3 className="font-medium text-text-primary mb-2">
                     Experiences
                   </h3>
-                  <p className="text-gray-600 text-sm leading-relaxed">
+                  <p className="text-text-secondary opacity-80 text-sm leading-relaxed">
                     {property.experiences || "No experiences listed."}
                   </p>
                 </div>
@@ -555,16 +558,16 @@ export function PropertyPage() {
               {/* Direct Team Communication Actions for Homestay/Retreat */}
               {(property.emergencyPhone || property.receptionPhone) && (
                 <div className="pt-4">
-                  <h3 className="font-medium text-gray-900 mb-4">
+                  <h3 className="font-medium text-text-primary mb-4">
                     Support & Contacts
                   </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
                     {property.receptionPhone && (
                       <a
                         href={`tel:${property.receptionPhone}`}
-                        className="flex flex-col items-center justify-center gap-2 p-6 bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-md hover:border-indigo-200 transition-all text-gray-700 hover:text-indigo-700"
+                        className="flex flex-col items-center justify-center gap-2 p-8 bg-surface rounded-sm shadow-premium border border-divider hover:shadow-premium-hover hover:border-indigo-200 transition-all text-text-secondary hover:text-indigo-700"
                       >
-                        <div className="p-3 bg-indigo-50 rounded-full text-indigo-600">
+                        <div className="p-3 bg-primary-light/20 rounded-full text-primary-hover">
                           <PhoneCall size={24} />
                         </div>
                         <span className="font-medium">Call Host</span>
@@ -573,7 +576,7 @@ export function PropertyPage() {
                     {property.emergencyPhone && (
                       <a
                         href={`tel:${property.emergencyPhone}`}
-                        className="flex flex-col items-center justify-center gap-2 p-6 bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-md hover:border-rose-200 transition-all text-gray-700 hover:text-rose-700"
+                        className="flex flex-col items-center justify-center gap-2 p-8 bg-surface rounded-sm shadow-premium border border-divider hover:shadow-premium-hover hover:border-rose-200 transition-all text-text-secondary hover:text-rose-700"
                       >
                         <div className="p-3 bg-rose-50 rounded-full text-rose-600">
                           <HeartPulse size={24} />
@@ -591,18 +594,18 @@ export function PropertyPage() {
       
       {/* Floating Bottom Bar (Only visible if scanned) */}
       {isScanned && property && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 z-50 bg-gradient-to-t from-gray-50 via-gray-50/80 to-transparent pointer-events-none pb-safe">
+        <div className="fixed bottom-0 left-0 right-0 p-8 z-50 bg-gradient-to-t from-gray-50 via-gray-50/80 to-transparent pointer-events-none pb-safe">
           <div className="max-w-md mx-auto w-full pointer-events-auto">
             {(property.roomServicePhone || property.receptionPhone) ? (
               <a 
                 href={`tel:${property.roomServicePhone || property.receptionPhone}`}
-                className="flex items-center justify-center gap-2 w-full py-3.5 bg-gray-900 text-white rounded-2xl font-bold shadow-xl hover:bg-gray-800 transition-all active:scale-95"
+                className="flex items-center justify-center gap-2 w-full py-3.5 bg-gray-900 text-white rounded-sm font-medium shadow-premium hover:bg-gray-800 transition-all active:scale-95"
               >
                 <Phone className="w-5 h-5" />
                 {property.roomServicePhone ? "Order Room Service" : "Call to Order"}
               </a>
             ) : (
-              <div className="flex items-center justify-center gap-2 w-full py-3.5 bg-white text-gray-900 rounded-2xl font-semibold shadow-lg border border-gray-200">
+              <div className="flex items-center justify-center gap-2 w-full py-3.5 bg-surface text-text-primary rounded-sm font-semibold shadow-premium border border-divider">
                 <Info className="w-5 h-5" />
                 <span>Please order at the counter</span>
               </div>

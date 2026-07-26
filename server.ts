@@ -245,7 +245,9 @@ async function startServer() {
   const PropertySchema = z.object({
     name: z.string().trim().min(1).max(255).optional(),
     description: z.string().max(1000).optional(),
-    bannerUrl: z.string().url().max(1000).optional().or(z.literal("")),
+    bannerUrl: z.string().optional().nullable().or(z.literal("")),
+    heroImage: z.string().optional().nullable().or(z.literal("")),
+    logoUrl: z.string().optional().nullable().or(z.literal("")),
     propertyType: z.enum(["HOTEL", "HOMESTAY", "RESORT", "RETREAT"]).optional(),
     wifiNetwork: z.string().max(100).optional(),
     wifiPassword: z.string().max(100).optional(),
@@ -256,6 +258,17 @@ async function startServer() {
     roomServicePhone: z.string().max(50).optional(),
     housekeepingPhone: z.string().max(50).optional(),
     emergencyPhone: z.string().max(50).optional(),
+    tagline: z.string().max(255).optional(),
+    welcomeMessage: z.string().max(2000).optional(),
+    checkInTime: z.string().max(50).optional(),
+    checkOutTime: z.string().max(50).optional(),
+    paymentMethods: z.any().optional(),
+    wifiCoverage: z.string().max(1000).optional(),
+    wifiTroubleshooting: z.string().max(2000).optional(),
+    contacts: z.any().optional(),
+    conciergeServices: z.any().optional(),
+    hotelRules: z.any().optional(),
+    galleryImages: z.any().optional(),
   });
 
   const AmenitySchema = z.object({
@@ -506,7 +519,12 @@ async function startServer() {
             include: { dishes: true },
             orderBy: { displayOrder: 'asc' }
           },
-          subscription: true
+          subscription: true,
+          snapshots: {
+            orderBy: { publishedAt: 'desc' },
+            take: 1,
+            select: { id: true, publishedAt: true }
+          }
         }
       });
 
@@ -524,7 +542,10 @@ async function startServer() {
         slug: property.slug,
         name: property.name,
         description: property.description,
-        bannerUrl: property.bannerUrl,
+        bannerUrl: property.bannerUrl || property.heroImage,
+        heroImage: property.heroImage || property.bannerUrl,
+        logoUrl: property.logoUrl,
+        previewToken: property.previewToken,
         propertyType: property.propertyType,
         wifiNetwork: property.wifiNetwork,
         wifiPassword: property.wifiPassword,
@@ -535,6 +556,15 @@ async function startServer() {
         housekeepingPhone: property.housekeepingPhone,
         emergencyPhone: property.emergencyPhone,
         roomServicePhone: property.roomServicePhone,
+        tagline: property.tagline,
+        welcomeMessage: property.welcomeMessage,
+        checkInTime: property.checkInTime,
+        checkOutTime: property.checkOutTime,
+        // Published state – used by frontend to gate QR distribution
+        isPublished: property.snapshots.length > 0,
+        snapshotCount: property.snapshots.length,
+        lastPublishedAt: property.snapshots[0]?.publishedAt ?? null,
+        snapshots: property.snapshots,
         entitlement
       };
 
@@ -551,6 +581,36 @@ async function startServer() {
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: "Failed to fetch property" });
+    }
+  });
+
+  app.get("/api/preview/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      let property = await prisma.property.findFirst({
+        where: { OR: [{ previewToken: token }, { slug: token }] },
+        include: {
+          amenities: true,
+          categories: { include: { dishes: true } },
+          subscription: true
+        }
+      });
+      if (!property) return res.status(404).json({ error: "Invalid preview token" });
+
+      const safeGuest = {
+        token: 'preview-mode',
+        name: 'Manager Preview',
+        status: 'PREVIEW',
+        property: {
+          ...property,
+          heroImage: property.heroImage || property.bannerUrl,
+          bannerUrl: property.bannerUrl || property.heroImage
+        }
+      };
+      res.json(safeGuest);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Failed to fetch preview" });
     }
   });
 
@@ -576,7 +636,7 @@ async function startServer() {
   const phoneRegex = /^\+?[\d\s\-().]{7,20}$/;
   const guestSchema = z.object({
     name: z.string().min(1, "Name is required"),
-    phone: z.string().min(1, "Phone is required").regex(phoneRegex, "Invalid phone number format"),
+    phone: z.string().regex(phoneRegex, "Invalid phone number format").optional().nullable().or(z.literal("")),
     roomNumber: z.string().optional().nullable(),
     language: z.string().optional().nullable(),
     arrivalDate: isoDatetime.optional().nullable(),
@@ -737,56 +797,92 @@ async function startServer() {
   app.get("/api/guests/:token", async (req, res) => {
     try {
       const { token } = req.params;
+
+      // 1. Try finding a registered guest by their unique token
       const guest = await prisma.guest.findUnique({
         where: { token },
         include: {
           property: {
-            select: {
-              slug: true,
-              name: true,
-              bannerUrl: true,
-              receptionPhone: true,
-              wifiNetwork: true,
-              wifiPassword: true,
-              houseRules: true,
-              propertyType: true,
+            include: {
+              amenities: true,
+              categories: { include: { dishes: true } },
             }
           }
         }
       });
 
-      if (!guest) {
-        return res.status(404).json({ error: "Guest journey not found" });
+      if (guest) {
+        // Update linkViewedAt
+        await prisma.guest.update({
+          where: { id: guest.id },
+          data: { linkViewedAt: new Date() }
+        });
+
+        // Return personalized guest journey with full property data
+        const safeGuest = {
+          token: guest.token,
+          name: guest.name,
+          roomNumber: guest.roomNumber,
+          language: guest.language,
+          arrivalDate: guest.arrivalDate,
+          departureDate: guest.departureDate,
+          arrivalTime: guest.arrivalTime,
+          preferences: guest.preferences,
+          communication: guest.communication,
+          status: guest.status,
+          property: {
+            ...guest.property,
+            heroImage: guest.property.heroImage || guest.property.bannerUrl,
+            bannerUrl: guest.property.bannerUrl || guest.property.heroImage
+          }
+        };
+
+        return res.json(safeGuest);
       }
 
-      // Update linkViewedAt
-      await prisma.guest.update({
-        where: { id: guest.id },
-        data: { linkViewedAt: new Date() }
+      // 2. No guest found — fall back to property slug lookup (public QR access)
+      const property = await prisma.property.findFirst({
+        where: { OR: [{ slug: token }, { previewToken: token }] },
+        include: {
+          amenities: true,
+          categories: { include: { dishes: true } },
+        }
       });
 
-      // Do NOT expose internal IDs
-      const safeGuest = {
-        token: guest.token,
-        name: guest.name,
-        roomNumber: guest.roomNumber,
-        language: guest.language,
-        arrivalDate: guest.arrivalDate,
-        departureDate: guest.departureDate,
-        arrivalTime: guest.arrivalTime,
-        // notes intentionally excluded — manager-only data
-        preferences: guest.preferences,
-        communication: guest.communication,
-        status: guest.status,
-        property: guest.property
-      };
+      if (property) {
+        console.log(`[GuestAPI] Slug/token fallback hit: token="${token}" → property="${property.name}" (id=${property.id})`);
 
-      res.json(safeGuest);
+        // Track scan interaction
+        await prisma.guestInteraction.create({
+          data: {
+            propertyId: property.id,
+            section: "QR_SCAN",
+            guestToken: token
+          }
+        }).catch(() => {}); // Non-blocking analytics
+
+        const safeGuest = {
+          token: 'public-guest',
+          name: 'Guest',
+          status: 'CHECKED_IN',
+          property: {
+            ...property,
+            heroImage: property.heroImage || property.bannerUrl,
+            bannerUrl: property.bannerUrl || property.heroImage
+          }
+        };
+
+        return res.json(safeGuest);
+      }
+
+      // 3. Neither guest nor property found
+      return res.status(404).json({ error: "Guest journey not found" });
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: "Failed to fetch guest journey" });
     }
   });
+
 
   async function generateUniqueSlug(baseName: string): Promise<string> {
     let base = baseName
@@ -867,6 +963,14 @@ async function startServer() {
         return res.status(403).json({ error: "Subscription expired. Workspace is locked in Read-Only mode." });
       }
 
+      const updatePayload: any = { ...validatedData };
+      if (validatedData.heroImage && !validatedData.bannerUrl) {
+        updatePayload.bannerUrl = validatedData.heroImage;
+      }
+      if (validatedData.bannerUrl && !validatedData.heroImage) {
+        updatePayload.heroImage = validatedData.bannerUrl;
+      }
+
       // Use updateMany for atomic ownership checking (prevents IDOR)
       // @ts-ignore
       const result = await prisma.property.updateMany({
@@ -875,7 +979,7 @@ async function startServer() {
           // @ts-ignore
           ownerId: req.session.userId
         },
-        data: validatedData
+        data: updatePayload
       });
 
       if (result.count === 0) {
@@ -983,6 +1087,56 @@ async function startServer() {
   });
 
   // CRUD Amenities & Dishes via Slug
+  app.put("/api/manager/properties/:slug/amenities", requireAuth, async (req, res) => {
+    try {
+      const property = await prisma.property.findFirst({
+        where: { slug: req.params.slug, ownerId: req.session.userId },
+        include: { subscription: true }
+      });
+      if (!property) return res.status(403).json({ error: "Unauthorized or property not found" });
+
+      const entitlement = resolveEntitlement(property.subscription);
+      if (!entitlement.canEdit) {
+        return res.status(403).json({ error: "Subscription expired. Workspace is locked in Read-Only mode." });
+      }
+
+      const { amenities } = req.body;
+      if (!Array.isArray(amenities)) {
+        return res.status(400).json({ error: "Invalid payload: amenities must be an array" });
+      }
+
+      await prisma.$transaction(async (tx) => {
+        await tx.amenity.deleteMany({ where: { propertyId: property.id } });
+        if (amenities.length > 0) {
+          await tx.amenity.createMany({
+            data: amenities.map((a: any, i: number) => ({
+              propertyId: property.id,
+              name: a.name || "Unnamed Amenity",
+              description: a.description || "",
+              icon: a.icon || "🏊‍♂️",
+              openTime: a.openTime || "",
+              closeTime: a.closeTime || "",
+              requiresReservation: !!a.requiresReservation,
+              rules: a.rules || "",
+              location: a.location || "",
+              floor: a.floor || "",
+              directions: a.directions || "",
+              contact: a.contact || "",
+              heroImage: a.imageUrl || a.heroImage || "",
+              priority: i + 1
+            }))
+          });
+        }
+      });
+
+      publicPropertyCache.delete(req.params.slug);
+      res.json({ success: true, count: amenities.length });
+    } catch (err: any) {
+      console.error(err);
+      res.status(500).json({ error: "Failed to update amenities" });
+    }
+  });
+
   app.post("/api/manager/properties/:slug/amenities", requireAuth, async (req, res) => {
     try {
       const validatedData = AmenitySchema.parse(req.body);
@@ -1210,6 +1364,165 @@ async function startServer() {
 
     await prisma.menuCategory.delete({ where: { id } });
     res.json({ success: true });
+  });
+
+  // ============================================================
+  // PUBLISH WORKFLOW
+  // ============================================================
+
+  // GET /api/manager/properties/:slug/snapshots
+  // Returns all published snapshots in descending order
+  app.get("/api/manager/properties/:slug/snapshots", requireAuth, async (req, res) => {
+    try {
+      const { slug } = req.params;
+      // @ts-ignore
+      const { userId } = req.session;
+
+      const property = await prisma.property.findFirst({
+        where: { slug, ownerId: userId }
+      });
+
+      if (!property) {
+        console.log(`[Snapshots] 403 – property "${slug}" not found for user ${userId}`);
+        return res.status(403).json({ error: "Unauthorized or property not found" });
+      }
+
+      const snapshots = await prisma.propertySnapshot.findMany({
+        where: { propertyId: property.id },
+        orderBy: { publishedAt: "desc" }
+      });
+
+      console.log(`[Snapshots] slug=${slug} propertyId=${property.id} count=${snapshots.length}`);
+      res.json(snapshots);
+    } catch (err: any) {
+      console.error("[Snapshots] Error:", err);
+      res.status(500).json({ error: "Failed to fetch snapshots" });
+    }
+  });
+
+  // POST /api/manager/properties/:slug/publish
+  // Creates a snapshot of the current property state, marks property as published,
+  // ensures previewToken exists, and returns the published property with QR URL.
+  app.post("/api/manager/properties/:slug/publish", requireAuth, async (req, res) => {
+    try {
+      const { slug } = req.params;
+      // @ts-ignore
+      const { userId } = req.session;
+
+      console.log(`[Publish] BEGIN – slug=${slug} userId=${userId}`);
+
+      // 1. Verify ownership
+      const property = await prisma.property.findFirst({
+        where: { slug, ownerId: userId },
+        include: {
+          amenities: true,
+          categories: { include: { dishes: true } },
+          subscription: true
+        }
+      });
+
+      if (!property) {
+        console.log(`[Publish] 403 – property "${slug}" not found for user ${userId}`);
+        return res.status(403).json({ error: "Unauthorized or property not found" });
+      }
+
+      console.log(`[Publish] Property found: id=${property.id} name="${property.name}"`);
+
+      // 2. Check entitlement
+      const entitlement = resolveEntitlement(property.subscription);
+      if (!entitlement.canPublish) {
+        console.log(`[Publish] 403 – canPublish=false plan=${entitlement.plan} status=${entitlement.subscriptionStatus}`);
+        return res.status(403).json({ error: "Subscription expired. Upgrade to publish." });
+      }
+
+      // 3. Ensure previewToken exists (generate one if missing)
+      let previewToken = property.previewToken;
+      if (!previewToken) {
+        previewToken = crypto.randomBytes(24).toString("hex");
+        await prisma.property.update({
+          where: { id: property.id },
+          data: { previewToken }
+        });
+        console.log(`[Publish] Generated new previewToken: ${previewToken}`);
+      } else {
+        console.log(`[Publish] Existing previewToken: ${previewToken}`);
+      }
+
+      // 4. Build snapshot payload (full property state)
+      const snapshotData = {
+        property: {
+          id: property.id,
+          slug: property.slug,
+          name: property.name,
+          description: property.description,
+          bannerUrl: property.bannerUrl || property.heroImage,
+          heroImage: property.heroImage || property.bannerUrl,
+          logoUrl: property.logoUrl,
+          previewToken,
+          propertyType: property.propertyType,
+          tagline: property.tagline,
+          welcomeMessage: property.welcomeMessage,
+          wifiNetwork: property.wifiNetwork,
+          wifiPassword: property.wifiPassword,
+          hostInfo: property.hostInfo,
+          houseRules: property.houseRules,
+          experiences: property.experiences,
+          receptionPhone: property.receptionPhone,
+          housekeepingPhone: property.housekeepingPhone,
+          emergencyPhone: property.emergencyPhone,
+          roomServicePhone: property.roomServicePhone,
+          checkInTime: property.checkInTime,
+          checkOutTime: property.checkOutTime,
+          contacts: property.contacts,
+          conciergeServices: property.conciergeServices,
+          galleryImages: property.galleryImages,
+          gallery: property.gallery,
+          highlights: property.highlights
+        },
+        amenities: property.amenities,
+        categories: property.categories,
+        dishes: property.categories.flatMap(c => c.dishes),
+        publishedAt: new Date().toISOString()
+      };
+
+      // 5. Create snapshot record
+      const snapshot = await prisma.propertySnapshot.create({
+        data: {
+          propertyId: property.id,
+          data: snapshotData,
+          publishedBy: userId
+        }
+      });
+
+      console.log(`[Publish] Snapshot created: id=${snapshot.id} publishedAt=${snapshot.publishedAt}`);
+
+      // 6. Invalidate the public property cache so guests see fresh data
+      publicPropertyCache.delete(slug);
+
+      // 7. Build QR URL
+      const baseUrl = req.headers.origin || `https://${req.headers.host}`;
+      const guestUrl = `${baseUrl}/g/${slug}`;
+      const previewUrl = `${baseUrl}/preview/${previewToken}`;
+
+      console.log(`[Publish] SUCCESS – guestUrl=${guestUrl} snapshotId=${snapshot.id}`);
+
+      res.json({
+        success: true,
+        snapshotId: snapshot.id,
+        publishedAt: snapshot.publishedAt,
+        previewToken,
+        guestUrl,
+        previewUrl,
+        propertyId: property.id,
+        slug: property.slug
+      });
+    } catch (err: any) {
+      console.error("[Publish] FATAL ERROR:", err);
+      res.status(500).json({
+        error: "Failed to publish property",
+        detail: err?.message || "Unknown server error"
+      });
+    }
   });
 
   // Vite middleware for development

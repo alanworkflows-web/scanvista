@@ -20,7 +20,7 @@ import {
 import { cn } from "./ui/Button";
 import { theme } from "../design/theme";
 import { SyncStatus } from "./ui/SyncStatus";
-
+import { GlobalFooter } from "./ui/GlobalFooter";
 export function ManagerLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -128,11 +128,11 @@ export function ManagerLayout({ children }: { children: React.ReactNode }) {
           })}
         </div>
 
-        <div className="p-4 flex flex-col gap-2">
-          <div className="flex justify-center gap-4 text-xs text-gray-400 mb-2">
-            <Link to="/privacy" className="hover:text-gray-600 transition-colors">Privacy</Link>
+        <div className="p-8 flex flex-col gap-2">
+          <div className="flex justify-center gap-10 text-xs text-text-muted mb-2">
+            <Link to="/legal/privacy" className="hover:text-text-secondary opacity-80 transition-colors">Privacy</Link>
             <span>&middot;</span>
-            <Link to="/terms" className="hover:text-gray-600 transition-colors">Terms</Link>
+            <Link to="/legal/terms" className="hover:text-text-secondary opacity-80 transition-colors">Terms</Link>
           </div>
           <button 
             onClick={handleLogout}
@@ -149,7 +149,7 @@ export function ManagerLayout({ children }: { children: React.ReactNode }) {
         <div className="absolute top-4 right-8 z-10 hidden lg:block">
           <SyncStatus />
         </div>
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto w-full">
+        <main className="flex-1 p-8 sm:p-12 lg:p-16 max-w-5xl mx-auto w-full mb-16">
           <motion.div
             initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
@@ -158,6 +158,9 @@ export function ManagerLayout({ children }: { children: React.ReactNode }) {
             {children}
           </motion.div>
         </main>
+        <div className="legal-no-print">
+          <GlobalFooter />
+        </div>
       </div>
 
       {/* Mobile overlay */}

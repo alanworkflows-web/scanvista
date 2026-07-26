@@ -1,0 +1,214 @@
+import React from 'react';
+import { LegalDocumentLayout } from '../LegalDocumentLayout';
+import { LEGAL_CONTACT } from '../../../lib/legalConstants';
+
+export function AcceptableUsePolicy() {
+  return (
+    <LegalDocumentLayout 
+      title="Acceptable Use Policy"
+      description="ScanVista Acceptable Use Policy explaining rules and acceptable behaviors."
+    >
+      <p>
+        This Acceptable Use Policy ("AUP") explains the rules governing the use of ScanVista. It is designed to protect
+        ScanVista, its Managers, Guests, and the integrity of the platform.
+      </p>
+      <p>
+        This AUP forms part of the ScanVista Terms of Service. By accessing or using ScanVista, you agree to comply with this
+        policy.
+      </p>
+
+      <h2>1. Purpose</h2>
+      <p>
+        ScanVista is intended to help hospitality businesses publish and manage legitimate guest-facing information in a secure,
+        reliable, and lawful manner.
+      </p>
+      <p>This policy defines acceptable and prohibited uses of the Services.</p>
+
+      <h2>2. Scope</h2>
+      <p>This policy applies to all users of ScanVista, including but not limited to:</p>
+      <ul>
+        <li>Managers</li>
+        <li>Property owners</li>
+        <li>Property administrators</li>
+        <li>Employees using business accounts</li>
+        <li>Contractors authorized by a property</li>
+        <li>Guests accessing public property pages</li>
+      </ul>
+
+      <h2>3. Lawful Use</h2>
+      <p>Users must use ScanVista only for lawful purposes and in compliance with applicable laws and regulations.</p>
+      <p>Users may not use ScanVista to facilitate illegal activities or to violate the rights of others.</p>
+
+      <h2>4. Account Security</h2>
+      <p>Users are responsible for:</p>
+      <ul>
+        <li>Keeping account credentials confidential.</li>
+        <li>Using strong, unique passwords.</li>
+        <li>Promptly reporting suspected unauthorized access.</li>
+        <li>Ensuring only authorized personnel use business accounts.</li>
+      </ul>
+      <p>Users must not share login credentials with unauthorized individuals.</p>
+
+      <h2>5. Accurate Information</h2>
+      <p>Managers are responsible for ensuring that all published information is accurate and up to date.</p>
+      <p>This includes, but is not limited to:</p>
+      <ul>
+        <li>Property names</li>
+        <li>Contact information</li>
+        <li>Addresses</li>
+        <li>Menus</li>
+        <li>Pricing</li>
+        <li>Amenities</li>
+        <li>Operating hours</li>
+        <li>Policies</li>
+        <li>Images</li>
+        <li>Descriptions</li>
+      </ul>
+      <p>Publishing intentionally false or misleading information is prohibited.</p>
+
+      <h2>6. Prohibited Content</h2>
+      <p>Users must not upload, publish, transmit, or distribute content that:</p>
+      <ul>
+        <li>Is illegal under applicable law.</li>
+        <li>Is fraudulent or deceptive.</li>
+        <li>Infringes copyrights, trademarks, or other intellectual property rights.</li>
+        <li>Contains malware, ransomware, viruses, or other malicious code.</li>
+        <li>Contains phishing content.</li>
+        <li>Promotes violence or criminal activity.</li>
+        <li>Promotes terrorism or extremist organizations.</li>
+        <li>Exploits or endangers children.</li>
+        <li>Contains unlawful discriminatory or hateful content.</li>
+        <li>Violates another person's privacy or confidentiality.</li>
+        <li>Contains sexually explicit material where prohibited by applicable law.</li>
+      </ul>
+      <p>Managers are responsible for ensuring they have the legal right to publish all uploaded content.</p>
+
+      <h2>7. Platform Abuse</h2>
+      <p>Users must not:</p>
+      <ul>
+        <li>Attempt unauthorized access to ScanVista systems.</li>
+        <li>Circumvent authentication or authorization mechanisms.</li>
+        <li>Probe, scan, or test platform vulnerabilities without written authorization.</li>
+        <li>Reverse engineer the platform except where expressly permitted by law.</li>
+        <li>Interfere with platform operations.</li>
+        <li>Attempt to disrupt service availability.</li>
+        <li>Abuse APIs or automated systems.</li>
+        <li>Bypass usage limitations or security controls.</li>
+      </ul>
+
+      <h2>8. Property Isolation</h2>
+      <p>Managers may access only properties they are authorized to manage.</p>
+      <p>Users must not attempt to:</p>
+      <ul>
+        <li>View another property's private information.</li>
+        <li>Modify another property's data.</li>
+        <li>Delete another property's content.</li>
+        <li>Access administrative functions without authorization.</li>
+      </ul>
+      <p>Any attempt to bypass access controls may result in immediate suspension.</p>
+
+      <h2>9. QR Code Usage</h2>
+      <p>QR codes generated by ScanVista are intended solely for legitimate hospitality purposes.</p>
+      <p>Users must not:</p>
+      <ul>
+        <li>Use QR codes for phishing.</li>
+        <li>Redirect users to malicious websites.</li>
+        <li>Misrepresent ScanVista-generated QR codes.</li>
+        <li>Alter QR codes in a way that deceives guests.</li>
+        <li>Use QR codes for unlawful activities.</li>
+      </ul>
+      <p>Managers remain responsible for where and how QR codes are displayed.</p>
+
+      <h2>10. Automated Access</h2>
+      <p>Users must not use automated systems to:</p>
+      <ul>
+        <li>Scrape data without authorization.</li>
+        <li>Harvest contact information.</li>
+        <li>Perform excessive automated requests.</li>
+        <li>Interfere with normal platform operations.</li>
+      </ul>
+      <p>Reasonable automated access expressly authorized by ScanVista may be permitted.</p>
+
+      <h2>11. Intellectual Property</h2>
+      <p>Users may not:</p>
+      <ul>
+        <li>Copy ScanVista software.</li>
+        <li>Reproduce platform designs.</li>
+        <li>Remove copyright notices.</li>
+        <li>Misuse ScanVista trademarks or branding.</li>
+        <li>Claim ownership of ScanVista technology.</li>
+      </ul>
+      <p>Nothing in this policy grants ownership of ScanVista intellectual property.</p>
+
+      <h2>12. Fair Use</h2>
+      <p>Users must use platform resources responsibly.</p>
+      <p>Examples of abuse include:</p>
+      <ul>
+        <li>Excessive requests intended to overload systems.</li>
+        <li>Uploading unnecessary or malicious files.</li>
+        <li>Intentionally generating excessive traffic.</li>
+        <li>Attempting denial-of-service activities.</li>
+        <li>Using ScanVista in ways that negatively affect other customers.</li>
+      </ul>
+
+      <h2>13. Reporting Abuse</h2>
+      <p>Users who become aware of:</p>
+      <ul>
+        <li>Security vulnerabilities</li>
+        <li>Fraud</li>
+        <li>Account compromise</li>
+        <li>Platform abuse</li>
+        <li>Illegal content</li>
+      </ul>
+      <p>should report the matter to ScanVista as soon as reasonably possible.</p>
+      <p>Reports should include sufficient detail to allow investigation.</p>
+
+      <h2>14. Enforcement</h2>
+      <p>ScanVista may investigate suspected violations of this policy.</p>
+      <p>Where appropriate, ScanVista may:</p>
+      <ul>
+        <li>Request additional information.</li>
+        <li>Remove prohibited content.</li>
+        <li>Suspend affected accounts.</li>
+        <li>Restrict access to Services.</li>
+        <li>Permanently terminate accounts.</li>
+        <li>Report unlawful conduct to appropriate authorities where required or permitted by law.</li>
+      </ul>
+
+      <h2>15. Consequences of Violations</h2>
+      <p>Violations of this policy may result in one or more of the following actions:</p>
+      <ul>
+        <li>Warning notice</li>
+        <li>Temporary account suspension</li>
+        <li>Permanent account termination</li>
+        <li>Removal of content</li>
+        <li>Restriction of platform features</li>
+        <li>Legal action where appropriate</li>
+      </ul>
+      <p>The action taken will depend on the severity, frequency, and impact of the violation.</p>
+
+      <h2>16. Appeals</h2>
+      <p>
+        If a Manager believes their account or content has been restricted in error, they may contact ScanVista to request a
+        review.
+      </p>
+      <p>Submission of an appeal does not guarantee restoration of access.</p>
+      <p>ScanVista will review appeals in a reasonable timeframe and communicate its decision where appropriate.</p>
+
+      <h2>17. Policy Changes</h2>
+      <p>
+        ScanVista may update this Acceptable Use Policy from time to time to reflect changes in technology, legal requirements,
+        or operational practices.
+      </p>
+      <p>Material updates will be indicated by revising the "Last Updated" date.</p>
+      <p>Continued use of the Services after an updated policy becomes effective constitutes acceptance of the revised policy.</p>
+
+      <h2>18. Contact</h2>
+      <p>Questions or reports relating to this policy may be directed to:</p>
+      <p><strong>ScanVista</strong></p>
+      <p>Support Email: <a href={`mailto:${LEGAL_CONTACT.support}`}>{LEGAL_CONTACT.support}</a></p>
+      <p>Security Email: <a href={`mailto:${LEGAL_CONTACT.security}`}>{LEGAL_CONTACT.security}</a></p>
+      <p>Website: <a href="https://scanvista.app">https://scanvista.app</a></p>
+    </LegalDocumentLayout>
+  );
+}

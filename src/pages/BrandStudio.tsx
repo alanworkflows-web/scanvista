@@ -30,7 +30,13 @@ export function BrandStudio() {
     receptionPhone: "",
     wifiNetwork: "",
     propertyType: "HOTEL",
-    preset: "classic"
+    preset: "classic",
+    // Property DNA
+    guestType: "Families",
+    personality: "Relaxed",
+    peak: "Friday Dinner",
+    risk: "Supplier Delays",
+    strength: "Personalized Service"
   });
 
   const [saving, setSaving] = useState(false);
@@ -47,7 +53,12 @@ export function BrandStudio() {
         receptionPhone: property.receptionPhone || "",
         wifiNetwork: property.wifiNetwork || "",
         propertyType: property.propertyType || "HOTEL",
-        preset: "classic"
+        preset: "classic",
+        guestType: property.guestType || "Families",
+        personality: property.personality || "Relaxed",
+        peak: property.peak || "Friday Dinner",
+        risk: property.risk || "Supplier Delays",
+        strength: property.strength || "Personalized Service"
       });
     }
   }, [property]);
@@ -84,54 +95,54 @@ export function BrandStudio() {
     }, 750); // 750ms debounce
   };
 
-  if (loading) return <ManagerLayout><div className="p-8 text-gray-500">Loading Studio...</div></ManagerLayout>;
+  if (loading) return <ManagerLayout><div className="p-8 text-text-secondary opacity-60">Loading Studio...</div></ManagerLayout>;
   if (!property) return <ManagerLayout><div className="p-8 text-red-500">Error loading property</div></ManagerLayout>;
 
   return (
     <ManagerLayout>
-      <div className="flex flex-col lg:flex-row min-h-[calc(100dvh-80px)] lg:h-[calc(100vh-80px)] w-full overflow-hidden bg-gray-50">
+      <div className="flex flex-col lg:flex-row min-h-[calc(100dvh-80px)] lg:h-[calc(100vh-80px)] w-full overflow-hidden bg-background">
         
         {/* LEFT COLUMN: Editor */}
-        <div className="w-full lg:w-[600px] bg-white border-r border-gray-200 flex flex-col shrink-0 overflow-y-auto">
+        <div className="w-full lg:w-[600px] bg-surface border-r border-divider flex flex-col shrink-0 overflow-y-auto">
           <div className="p-8 space-y-10">
             
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-serif font-bold text-gray-900">Brand Studio</h1>
-                <p className="text-gray-500">Auto-saving as you type.</p>
+                <h1 className="text-2xl font-serif font-medium text-text-primary">Brand Studio</h1>
+                <p className="text-text-secondary opacity-60">Auto-saving as you type.</p>
               </div>
               <div className="flex items-center gap-2">
                 {saveStatus === 'saving' && <span className="text-sm font-medium text-amber-500 flex items-center"><Loader2 className="animate-spin mr-1" size={14}/> Saving...</span>}
-                {saveStatus === 'saved' && <span className="text-sm font-medium text-emerald-500 flex items-center"><CheckCircle2 className="mr-1" size={14}/> Saved</span>}
+                {saveStatus === 'saved' && <span className="text-sm font-medium text-primary flex items-center"><CheckCircle2 className="mr-1" size={14}/> Saved</span>}
               </div>
             </div>
 
             <section className="space-y-6">
-              <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider">Identity</h2>
+              <h2 className="text-sm font-medium text-text-muted uppercase tracking-wider">Identity</h2>
               
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Restaurant Name</label>
+                <label className="text-sm font-medium text-text-secondary">Restaurant Name</label>
                 <Input 
                   value={formData.name} 
                   onChange={e => handleChange('name', e.target.value)} 
                   placeholder="e.g. The Rustic Spoon"
-                  className="bg-gray-50 text-lg font-serif"
+                  className="bg-background text-lg font-serif"
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">The Story</label>
+                <label className="text-sm font-medium text-text-secondary">The Story</label>
                 <textarea 
                   value={formData.description} 
                   onChange={e => handleChange('description', e.target.value)} 
                   rows={4}
                   placeholder="Describe your culinary vision..."
-                  className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 resize-none"
+                  className="w-full p-8 bg-background border border-divider rounded-sm text-sm focus:outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary resize-none"
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Hero Image URL</label>
+                <label className="text-sm font-medium text-text-secondary">Hero Image URL</label>
                 <Input 
                   value={formData.bannerUrl} 
                   onChange={e => handleChange('bannerUrl', e.target.value)} 
@@ -139,29 +150,57 @@ export function BrandStudio() {
                   icon={<ImageIcon size={16} />}
                 />
               </div>
+
+              <div className="mt-8 pt-6 border-t border-divider">
+                <h3 className="text-sm font-medium text-text-primary mb-4 flex items-center gap-2">
+                  <Star className="text-indigo-500" size={16} /> Property DNA
+                </h3>
+                <div className="grid grid-cols-2 gap-10">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-text-secondary opacity-60 uppercase tracking-wider">Guest Type</label>
+                    <Input value={formData.guestType} onChange={e => handleChange('guestType', e.target.value)} placeholder="e.g. Families" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-text-secondary opacity-60 uppercase tracking-wider">Personality</label>
+                    <Input value={formData.personality} onChange={e => handleChange('personality', e.target.value)} placeholder="e.g. Relaxed" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-text-secondary opacity-60 uppercase tracking-wider">Peak Time</label>
+                    <Input value={formData.peak} onChange={e => handleChange('peak', e.target.value)} placeholder="e.g. Friday Dinner" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-text-secondary opacity-60 uppercase tracking-wider">Core Strength</label>
+                    <Input value={formData.strength} onChange={e => handleChange('strength', e.target.value)} placeholder="e.g. Personalized Service" />
+                  </div>
+                  <div className="space-y-1.5 col-span-2">
+                    <label className="text-xs font-medium text-amber-600 uppercase tracking-wider">Primary Risk</label>
+                    <Input value={formData.risk} onChange={e => handleChange('risk', e.target.value)} placeholder="e.g. Supplier Delays" className="border-amber-200 focus:border-amber-400 focus:ring-amber-400/20" />
+                  </div>
+                </div>
+              </div>
             </section>
 
             <section className="space-y-6">
-              <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider">Aesthetics</h2>
+              <h2 className="text-sm font-medium text-text-muted uppercase tracking-wider">Aesthetics</h2>
               <div className="grid grid-cols-2 gap-3">
                 {Object.values(brandPresets).map(preset => (
                   <button
                     key={preset.id}
                     onClick={() => handleChange('preset', preset.id)}
                     className={cn(
-                      "p-4 rounded-xl border-2 text-left transition-all",
-                      formData.preset === preset.id ? "border-emerald-500 ring-4 ring-emerald-500/10" : "border-gray-100 hover:border-gray-200"
+                      "p-8 rounded-sm border-2 text-left transition-all",
+                      formData.preset === preset.id ? "border-primary ring-4 ring-primary/10" : "border-divider hover:border-divider"
                     )}
                   >
-                    <div className={cn("w-full h-8 rounded-lg mb-3 shadow-sm", preset.bg, preset.id === 'classic' && "border border-gray-200")} />
-                    <div className="font-bold text-sm text-gray-900">{preset.label}</div>
+                    <div className={cn("w-full h-8 rounded-sm mb-3 shadow-premium", preset.bg, preset.id === 'classic' && "border border-divider")} />
+                    <div className="font-medium text-sm text-text-primary">{preset.label}</div>
                   </button>
                 ))}
               </div>
             </section>
 
             <section className="space-y-6 pb-8">
-              <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider">Contact & Connect</h2>
+              <h2 className="text-sm font-medium text-text-muted uppercase tracking-wider">Contact & Connect</h2>
               <div className="space-y-4">
                 <Input 
                   value={formData.receptionPhone} 
@@ -182,8 +221,8 @@ export function BrandStudio() {
         </div>
 
         {/* RIGHT COLUMN: Live Preview */}
-        <div className="hidden lg:flex flex-1 bg-gray-100 flex-col items-center justify-center p-8">
-          <div className="w-[375px] h-[700px] bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border-[8px] border-gray-900 relative flex flex-col">
+        <div className="hidden lg:flex flex-1 bg-surface-hover flex-col items-center justify-center p-8">
+          <div className="w-[375px] h-[700px] bg-surface rounded-[2.5rem] shadow-premium-hover overflow-hidden border-[8px] border-gray-900 relative flex flex-col">
             <div className="absolute top-0 inset-x-0 h-6 bg-gray-900 rounded-b-2xl w-40 mx-auto z-50"></div>
             
             {/* Live Render */}
@@ -192,29 +231,29 @@ export function BrandStudio() {
                 {formData.bannerUrl ? (
                   <img src={formData.bannerUrl} alt="Hero" className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-400"><ImageIcon size={32}/></div>
+                  <div className="w-full h-full bg-gray-200 flex items-center justify-center text-text-muted"><ImageIcon size={32}/></div>
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
                 <div className="absolute bottom-6 left-6 right-6">
-                  <h1 className="text-3xl font-serif font-bold text-white mb-2 leading-tight">{formData.name || "Restaurant Name"}</h1>
-                  {formData.wifiNetwork && <Badge className="bg-white/20 text-white backdrop-blur-md border-0"><Wifi size={12} className="mr-1"/> WiFi: {formData.wifiNetwork}</Badge>}
+                  <h1 className="text-3xl font-serif font-medium text-white mb-2 leading-tight">{formData.name || "Restaurant Name"}</h1>
+                  {formData.wifiNetwork && <Badge className="bg-surface/20 text-white backdrop-blur-md border-0"><Wifi size={12} className="mr-1"/> WiFi: {formData.wifiNetwork}</Badge>}
                 </div>
               </div>
 
-              <div className={cn("p-6", brandPresets[formData.preset as keyof typeof brandPresets]?.text)}>
+              <div className={cn("p-8", brandPresets[formData.preset as keyof typeof brandPresets]?.text)}>
                 {formData.description && (
-                  <div className="mb-8">
-                    <h3 className="text-sm font-bold uppercase tracking-widest opacity-50 mb-3">Our Story</h3>
+                  <div className="mb-12">
+                    <h3 className="text-sm font-medium uppercase tracking-widest opacity-50 mb-3">Our Story</h3>
                     <p className="text-sm opacity-90 leading-relaxed font-serif">{formData.description}</p>
                   </div>
                 )}
                 
                 <div className="space-y-4">
-                  <div className={cn("h-24 rounded-xl border flex items-center justify-center opacity-50", brandPresets[formData.preset as keyof typeof brandPresets]?.text === 'text-gray-900' ? "border-gray-200" : "border-white/20")}>
-                    <span className="text-sm font-bold">Menu Preview</span>
+                  <div className={cn("h-24 rounded-sm border flex items-center justify-center opacity-50", brandPresets[formData.preset as keyof typeof brandPresets]?.text === 'text-text-primary' ? "border-divider" : "border-white/20")}>
+                    <span className="text-sm font-medium">Menu Preview</span>
                   </div>
-                  <div className={cn("h-24 rounded-xl border flex items-center justify-center opacity-50", brandPresets[formData.preset as keyof typeof brandPresets]?.text === 'text-gray-900' ? "border-gray-200" : "border-white/20")}>
-                    <span className="text-sm font-bold">Menu Preview</span>
+                  <div className={cn("h-24 rounded-sm border flex items-center justify-center opacity-50", brandPresets[formData.preset as keyof typeof brandPresets]?.text === 'text-text-primary' ? "border-divider" : "border-white/20")}>
+                    <span className="text-sm font-medium">Menu Preview</span>
                   </div>
                 </div>
               </div>

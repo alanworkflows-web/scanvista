@@ -13,17 +13,17 @@ export function ShareDialog({ token, onClose }: ShareDialogProps) {
 
   return (
     <div
-      className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+      className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-8"
       role="dialog"
       aria-modal="true"
       aria-label="Share guest journey link"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="bg-white rounded-t-2xl sm:rounded-2xl p-6 w-full max-w-sm shadow-xl flex flex-col items-center max-h-[85dvh] overflow-y-auto">
-        <h3 className="font-bold text-xl mb-2 text-gray-900">Share Guest Link</h3>
-        <p className="text-sm text-gray-500 mb-6 text-center">Scan to open or share directly.</p>
+      <div className="bg-surface rounded-t-2xl sm:rounded-sm p-8 w-full max-w-sm shadow-premium flex flex-col items-center max-h-[85dvh] overflow-y-auto">
+        <h3 className="text-xl font-serif text-text-primary text-xl mb-2 text-text-primary">Share Guest Link</h3>
+        <p className="text-sm text-text-secondary opacity-60 mb-12 text-center">Scan to open or share directly.</p>
 
-        <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-200 mb-6 inline-block">
+        <div className="p-8 bg-surface rounded-sm shadow-premium border border-divider mb-12 inline-block">
           <QRCodeSVG value={guestUrl} size={160} />
         </div>
 
@@ -37,7 +37,7 @@ export function ShareDialog({ token, onClose }: ShareDialogProps) {
               alert("Link copied!");
             }}
           >
-            <Copy size={18} className="mr-3 text-gray-400" aria-hidden="true" /> Copy Link
+            <Copy size={18} className="mr-3 text-text-muted" aria-hidden="true" /> Copy Link
           </Button>
           <Button
             className="w-full justify-start bg-green-50 text-green-700 hover:bg-green-100 border border-green-200"

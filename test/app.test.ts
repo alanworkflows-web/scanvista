@@ -63,20 +63,32 @@ describe("Ownership", () => {
   
   beforeAll(async () => {
     // Create User B and their assets
+    const suffix = Date.now().toString();
     const userB = await prisma.user.create({
       data: {
-        email: "userb@example.com",
+        email: `userb-${suffix}@example.com`,
         name: "User B",
         role: "MANAGER"
       }
     });
     userBId = userB.id;
     
+    const orgB = await prisma.organization.create({
+      data: {
+        name: "Org B",
+        slug: `org-b-${suffix}`,
+        memberships: {
+          create: { userId: userBId, role: "OWNER" }
+        }
+      }
+    });
+
     const propB = await prisma.property.create({
       data: {
         name: "Property B",
-        slug: "property-b",
-        ownerId: userBId
+        slug: `property-b-${suffix}`,
+        ownerId: userBId,
+        orgId: orgB.id
       }
     });
     propertyBSlug = propB.slug;
@@ -150,15 +162,22 @@ describe("Property", () => {
 describe("Guest & QR Flow", () => {
   it("valid slug loads", async () => {
     // Create a property first
+    const suffix = Date.now().toString();
+    const userA = await prisma.user.findFirst();
+    const orgA = await prisma.organization.findFirst({
+      where: { memberships: { some: { userId: userA!.id } } }
+    });
+
     await prisma.property.create({
       data: {
         name: "Guest Prop",
-        slug: "guest-prop",
-        ownerId: (await prisma.user.findFirst())!.id
+        slug: `guest-prop-${suffix}`,
+        ownerId: userA!.id,
+        orgId: orgA!.id
       }
     });
     
-    const res = await request(app).get("/api/properties/guest-prop");
+    const res = await request(app).get(`/api/properties/guest-prop-${suffix}`);
     expect(res.status).toBe(200);
     expect(res.body.property.name).toBe("Guest Prop");
   });
@@ -216,11 +235,11 @@ describe("Payment", () => {
     // Note: We bypass the actual paddle signature check in tests if we can't sign it easily,
     // but the idempotency logic kicks in if the eventId exists.
     // Let's create a webhook event directly to simulate an already processed event.
-    const eventId = "evt_duplicate_test_123";
+    const eventId = `evt_duplicate_test_${Date.now()}`;
     await prisma.webhookEvent.create({
       data: {
         id: eventId,
-        type: "subscription.created"
+        type: "subscription.updated"
       }
     });
 

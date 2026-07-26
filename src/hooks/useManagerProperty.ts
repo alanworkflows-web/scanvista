@@ -17,9 +17,10 @@ export function useManagerProperty() {
   const [loading, setLoading] = useState(!cachedData);
   const [multiPropertyError, setMultiPropertyError] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refreshCount, setRefreshCount] = useState(0);
 
   useEffect(() => {
-    if (cachedData) {
+    if (cachedData && !fetchPromise) {
       setLoading(false);
       return;
     }
@@ -35,10 +36,27 @@ export function useManagerProperty() {
         })
         .then(({ userData, properties }): any => {
           if (properties.length === 0) {
-            return { user: userData, properties: [] };
+            // Auto-provision a default property to prevent "No property found"
+            return fetch("/api/manager/properties", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ name: "My Property" })
+            })
+            .then(res => res.json())
+            .then(newProp => {
+              return fetch(`/api/properties/${newProp.slug}`)
+                .then(res => res.json())
+                .then(propData => ({
+                  user: userData,
+                  property: propData.property,
+                  dishes: [],
+                  amenities: [],
+                  categories: []
+                }));
+            });
           }
           if (properties.length >= 1) {
-            return fetch(`/api/properties/${properties[0].slug}`)
+            return fetch(`/api/properties/${properties[0].slug}?t=${Date.now()}`)
               .then((res) => res.json())
               .then((propData) => {
                 return {
@@ -59,9 +77,6 @@ export function useManagerProperty() {
         cachedData = resData;
         setData(resData);
         setLoading(false);
-        if (resData.properties?.length === 0 && location.pathname !== "/manager/onboarding") {
-          navigate("/manager/onboarding");
-        }
       })
       .catch((err) => {
         if (err.message === "Not authorized") {
@@ -72,12 +87,19 @@ export function useManagerProperty() {
         setLoading(false);
         fetchPromise = null; // allow retry
       });
-  }, [navigate, location]);
+  }, [navigate, location, refreshCount]);
 
   const setProperty = useCallback((updater: any) => {
     const newValue = typeof updater === 'function' ? updater(cachedData?.property) : updater;
     cachedData = { ...cachedData, property: newValue };
     setData({ ...cachedData });
+  }, []);
+
+  const refreshProperty = useCallback(() => {
+    fetchPromise = null;
+    cachedData = null;
+    setLoading(true);
+    setRefreshCount(c => c + 1);
   }, []);
 
   return {
@@ -89,6 +111,7 @@ export function useManagerProperty() {
     user: data?.user || null,
     multiPropertyError,
     error,
-    setProperty
+    setProperty,
+    refreshProperty
   };
 }

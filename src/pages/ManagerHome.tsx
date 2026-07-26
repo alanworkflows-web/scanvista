@@ -1,277 +1,256 @@
-import React, { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import React, { useState, useEffect } from "react";
 import { ManagerLayout } from "../components/ManagerLayout";
-import { Image as ImageIcon, Loader2, Save, ArrowRight, CheckCircle2, AlertCircle, Activity, Utensils, Wifi, QrCode, CreditCard } from "lucide-react";
-import { useNavigate, useLocation } from "react-router-dom";
 import { useManagerProperty } from "../hooks/useManagerProperty";
-// removed RestaurantProfile
-import { Button } from "../components/ui/Button";
-import { Card } from "../components/ui/Card";
+import { Link, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { calculateCompletion } from "../lib/completionEngine";
+import { getPublishingStatus } from "../lib/publishingState";
+import { safeFormatTime } from "../lib/dateUtils";
+import { 
+  CheckCircle2, Send, Globe,
+  Clock, Zap, Target, Settings, Plus, Eye
+} from "lucide-react";
+import confetti from "canvas-confetti";
+import { dispatchSync } from "../lib/sync";
 
 export function ManagerHome() {
-  const {
-    property,
-    dishes,
-    amenities,
-    categories,
-    loading,
-    error: multiPropertyError,
-  } = useManagerProperty();
+  const { property, loading, refreshProperty } = useManagerProperty();
+  const [publishing, setPublishing] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
+  const navigate = useNavigate();
+
+  const handleAddMenuClick = () => {
+    setIsNavigating(true);
+    setTimeout(() => {
+      navigate("/manager/menu");
+    }, 50);
+  };
   
-  const propertySlug = property?.slug;
-  const isReadOnly = property?.entitlement?.accessMode === "read_only";
-  
-  const [guests, setGuests] = useState<any[]>([]);
+  const [snapshots, setSnapshots] = useState<any[]>([]);
+  const [draftData, setDraftData] = useState<any>(null);
 
   useEffect(() => {
-    if (propertySlug) {
-      fetch(`/api/manager/properties/${propertySlug}/guests`)
-        .then(res => res.ok ? res.json() : [])
-        .then(data => setGuests(Array.isArray(data) ? data : []));
-    }
-  }, [propertySlug]);
+    if (property) {
+      const fetchLiveStatus = async () => {
+        try {
+          const liveRes = await fetch(`/api/manager/properties/${property.slug}/snapshots`);
+          if (liveRes.ok) {
+            const raw = await liveRes.json();
+            const snapshotsList = Array.isArray(raw) ? raw : (raw.snapshots || []);
+            setSnapshots(snapshotsList);
+          }
 
-  const navigate = useNavigate();
-  const location = useLocation();
+          if (property.previewToken) {
+            const previewRes = await fetch(`/api/preview/${property.previewToken}`);
+            if (previewRes.ok) {
+              setDraftData(await previewRes.json());
+            }
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      };
+      fetchLiveStatus();
+    }
+  }, [property]);
+
+  const handlePublish = async () => {
+    if (!property?.slug) return;
+    setPublishing(true);
+    dispatchSync('saving');
+    try {
+      const res = await fetch(`/api/manager/properties/${property.slug}/publish`, { method: "POST" });
+      if (!res.ok) throw new Error("Publish failed");
+      await refreshProperty();
+      dispatchSync('synced');
+      confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#10b981', '#3b82f6', '#f59e0b'] });
+      toast.success("Successfully published to live!");
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (e) {
+      dispatchSync('idle');
+      toast.error("Failed to publish property");
+    } finally {
+      setPublishing(false);
+    }
+  };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
-      </div>
-    );
-  }
-
-  if (multiPropertyError) {
-    return (
       <ManagerLayout>
-        <div className="bg-amber-50 border border-amber-200 px-4 py-6 text-center sm:px-6 lg:px-8 rounded-xl shadow-sm">
-          <h2 className="text-lg font-bold text-amber-900 mb-2">Multiple Restaurants Found</h2>
-          <p className="text-amber-800">Switching is not yet available.</p>
+        <div className="flex items-center justify-center h-64">
+          <div className="w-8 h-8 rounded-full border-4 border-primary border-t-transparent animate-spin" />
         </div>
       </ManagerLayout>
     );
   }
 
-  // Evaluate "What should I do next?"
-  const isBrandSetup = !!property?.name && !!property?.description;
-  const isMenuSetup = dishes && dishes.length > 0;
-  let intelligentAction = null;
+  if (!property) return null;
 
-  if (isReadOnly) {
-    intelligentAction = {
-      title: "Renew your Subscription",
-      desc: "Your workspace is locked in Read-Only mode.",
-      btnText: "Update Billing",
-      action: () => navigate("/manager/plan"),
-      icon: <CreditCard className="text-red-500 mb-4" size={48} />,
-      bg: "bg-red-50/50",
-      border: "border-red-200"
-    };
-  } else if (!property?.bannerUrl) {
-    intelligentAction = {
-      title: "Add a hero image to improve your guests' first impression.",
-      desc: "A beautiful cover photo sets the tone for your restaurant.",
-      btnText: "Upload Image",
-      action: () => navigate('/manager/brand'),
-      icon: <ImageIcon className="text-emerald-500 mb-4" size={48} />,
-      bg: "bg-emerald-50/50",
-      border: "border-emerald-200"
-    };
-  } else if (!dishes || dishes.length === 0) {
-    intelligentAction = {
-      title: "Build your first menu.",
-      desc: "Add your first category and dish to get started.",
-      btnText: "Open Menu Studio",
-      action: () => navigate("/manager/operations"),
-      icon: <Utensils className="text-emerald-500 mb-4" size={48} />,
-      bg: "bg-emerald-50/50",
-      border: "border-emerald-200"
-    };
-  } else if (!property?.qrPrintsThisMonth || property.qrPrintsThisMonth === 0) {
-    intelligentAction = {
-      title: "Download your first table QR.",
-      desc: "Print your QR code so guests can access your menu.",
-      btnText: "Open Publishing Center",
-      action: () => navigate("/manager/qr"),
-      icon: <QrCode className="text-emerald-500 mb-4" size={48} />,
-      bg: "bg-emerald-50/50",
-      border: "border-emerald-200"
-    };
-  } else {
-    intelligentAction = {
-      title: "Your restaurant is fully ready. Excellent work.",
-      desc: "Your menu is live and QR codes are printed.",
-      btnText: null,
-      action: null,
-      icon: <CheckCircle2 className="text-emerald-500 mb-4" size={48} />,
-      bg: "bg-emerald-50/50",
-      border: "border-emerald-200"
-    };
-  }
+  const completion = calculateCompletion(property);
+  const status = getPublishingStatus(property, snapshots, draftData);
+  const lastSaved = safeFormatTime(property.updatedAt);
 
   return (
     <ManagerLayout>
-      <div
-        style={{
-          background: "#dc2626",
-          color: "white",
-          padding: "16px",
-          fontSize: "28px",
-          fontWeight: "bold",
-          textAlign: "center",
-          zIndex: 99999
-        }}
-      >
-        🚨 MANAGER HOME BUILD TEST - JULY 16
-      </div>
-      <div className="mb-12 animate-in fade-in slide-in-from-bottom-2 duration-[300ms]">
-        <h1 className="text-[length:var(--ph-title-size)] [font-family:var(--ph-font-serif)] font-bold text-[var(--ph-title-color)] mb-2">
-          {new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening'}, {property?.name || "Restaurant Owner"}
-        </h1>
-        <p className="text-[length:var(--ph-desc-size)] [font-family:var(--ph-font-sans)] text-[var(--ph-desc-color)] flex items-center gap-2">
-          {isReadOnly ? (
-            <span className="flex items-center gap-1.5 text-red-600 font-medium bg-red-50 px-2 py-0.5 rounded-md">
-              <span className="relative flex h-2 w-2"><span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span></span>
-              Read-Only Mode
+      <div className="max-w-6xl mx-auto pb-20 animate-in fade-in duration-500">
+        
+        {/* Command Center Header */}
+        <div className="mb-12">
+          <h1 className="text-3xl font-serif font-medium text-text-primary tracking-tight mb-2">Command Center</h1>
+          <div className="flex items-center gap-2 text-sm">
+            <span className="flex items-center gap-1.5 font-medium text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+              <CheckCircle2 size={14} className="text-emerald-600" /> Systems Operational
             </span>
-          ) : (
-            <span className="flex items-center gap-1.5 text-emerald-600 font-medium bg-emerald-50 px-2 py-0.5 rounded-md">
-              <span className="relative flex h-2 w-2">
-                <motion.span animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }} transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }} className="absolute inline-flex h-full w-full rounded-full bg-emerald-400"></motion.span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              Live & Receiving Guests
-            </span>
-          )}
-          &middot; {property?.entitlement?.plan === "premium" ? "Premium Plan" : "Free Plan"}
-        </p>
-      </div>
-
-      <div className="mb-16 animate-in fade-in slide-in-from-bottom-3 duration-[400ms]">
-        <motion.div
-          initial={{ scale: 0.98, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <Card className={`p-8 md:p-12 flex flex-col items-center justify-center text-center border-2 ${intelligentAction.border} ${intelligentAction.bg}`}>
-          {intelligentAction.icon}
-          <h2 className="text-2xl md:text-3xl font-serif font-bold text-gray-900 mb-2 max-w-lg">{intelligentAction.title}</h2>
-          <p className="text-gray-600 mb-8 max-w-md">{intelligentAction.desc}</p>
-          {intelligentAction.btnText && (
-            <Button size="lg" onClick={intelligentAction.action} className="px-8 py-6 text-lg rounded-full shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all active:scale-[0.98]">
-              {intelligentAction.btnText}
-            </Button>
-          )}
-        </Card>
-        </motion.div>
-      </div>
-
-      <div className="mb-16 animate-in fade-in slide-in-from-bottom-4 duration-[450ms]">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-[var(--ph-title-color)]">Today's Guests</h2>
-          <Button variant="ghost" onClick={() => navigate('/manager/guests')} className="text-emerald-600">
-            View All <ArrowRight size={16} className="ml-2" />
-          </Button>
+            <span className="text-text-muted">&bull;</span>
+            <span className="text-text-secondary opacity-60">Last saved {lastSaved}</span>
+          </div>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          <Card hoverable className="p-4 cursor-pointer text-center" onClick={() => navigate('/manager/guests')}>
-            <p className="text-3xl font-bold text-gray-900 mb-1">{guests.filter(g => g.status === 'ARRIVING' || g.status === 'BOOKED').length}</p>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Today's Arrivals</p>
-          </Card>
-          <Card hoverable className="p-4 cursor-pointer text-center" onClick={() => navigate('/manager/guests')}>
-            <p className="text-3xl font-bold text-emerald-600 mb-1">{guests.filter(g => g.status === 'CHECKED_IN' || g.status === 'STAYING').length}</p>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Checked In</p>
-          </Card>
-          <Card hoverable className="p-4 cursor-pointer text-center" onClick={() => navigate('/manager/guests')}>
-            <p className="text-3xl font-bold text-amber-600 mb-1">{guests.filter(g => g.status === 'BOOKED').length}</p>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Pending</p>
-          </Card>
-          <Card hoverable className="p-4 cursor-pointer text-center" onClick={() => navigate('/manager/guests')}>
-            <p className="text-3xl font-bold text-purple-600 mb-1">0</p>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">VIP</p>
-          </Card>
-          <Card hoverable className="p-4 cursor-pointer text-center" onClick={() => navigate('/manager/guests')}>
-            <p className="text-3xl font-bold text-blue-600 mb-1">0</p>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Families</p>
-          </Card>
-          <Card hoverable className="p-4 cursor-pointer text-center" onClick={() => navigate('/manager/guests')}>
-            <p className="text-3xl font-bold text-indigo-600 mb-1">0</p>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Airport Pickup</p>
-          </Card>
-        </div>
-      </div>
 
-      <div className="mb-16 animate-in fade-in slide-in-from-bottom-4 duration-[500ms]">
-        <h2 className="text-xl font-bold text-[var(--ph-title-color)] mb-6">Quick Actions</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card hoverable className="p-6 cursor-pointer group flex flex-col items-center justify-center text-center gap-3" onClick={() => navigate('/manager/menu')}>
-            <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:-translate-y-1 hover:shadow-lg active:scale-95 group-active:scale-95 transition-transform">
-              <Utensils size={24} />
+        {/* Top Operational Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
+          <div className="bg-surface rounded-sm p-8 border border-divider shadow-premium flex flex-col justify-between">
+            <div className="flex items-center gap-2 text-text-secondary opacity-60 mb-4">
+              <Globe size={16} /> <span className="text-xs font-semibold uppercase tracking-widest">Live Status</span>
             </div>
-            <span className="font-bold text-gray-900">Menu Studio</span>
-          </Card>
-          <Card hoverable className="p-6 cursor-pointer group flex flex-col items-center justify-center text-center gap-3" onClick={() => navigate('/manager/publishing')}>
-            <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:-translate-y-1 hover:shadow-lg active:scale-95 group-active:scale-95 transition-transform">
-              <QrCode size={24} />
+            <div>
+              <p className="text-3xl font-serif font-bold text-text-primary mb-1">{status.label}</p>
+              <p className="text-sm text-text-secondary opacity-60">{status.subtext}</p>
             </div>
-            <span className="font-bold text-gray-900">Publishing Center</span>
-          </Card>
-          <Card hoverable className="p-6 cursor-pointer group flex flex-col items-center justify-center text-center gap-3" onClick={() => navigate('/manager/restaurant')}>
-            <div className="w-12 h-12 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center group-hover:-translate-y-1 hover:shadow-lg active:scale-95 group-active:scale-95 transition-transform">
-              <AlertCircle size={24} />
+          </div>
+          
+          <div className="bg-surface rounded-sm p-8 border border-divider shadow-premium flex flex-col justify-between">
+            <div className="flex items-center gap-2 text-text-secondary opacity-60 mb-4">
+              <Target size={16} /> <span className="text-xs font-semibold uppercase tracking-widest">Launch Readiness</span>
             </div>
-            <span className="font-bold text-gray-900">Restaurant Profile</span>
-          </Card>
-          <Card hoverable className="p-6 cursor-pointer group flex flex-col items-center justify-center text-center gap-3" onClick={() => navigate('/manager/billing')}>
-            <div className="w-12 h-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center group-hover:-translate-y-1 hover:shadow-lg active:scale-95 group-active:scale-95 transition-transform">
-              <CreditCard size={24} />
-            </div>
-            <span className="font-bold text-gray-900">Growth Plan</span>
-          </Card>
-        </div>
-      </div>
-
-      <div className="mb-16 animate-in fade-in slide-in-from-bottom-5 duration-[600ms]">
-        <h2 className="text-xl font-bold text-[var(--ph-title-color)] mb-6">Recent Activity</h2>
-        <Card className="p-6 md:p-8">
-          <div className="space-y-8">
-            <div className="flex gap-4 relative">
-              <div className="absolute top-8 bottom-[-2rem] left-[11px] w-0.5 bg-gray-100"></div>
-              <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 z-10">
-                <CheckCircle2 size={14} className="text-emerald-600" />
+            <div>
+              <div className="flex items-end gap-2">
+                <p className="text-5xl font-serif font-bold text-text-primary">{completion.score}%</p>
               </div>
-              <div>
-                <h3 className="font-bold text-gray-900">Workspace Created</h3>
-                <p className="text-sm text-gray-500">You created your ScanVista workspace.</p>
-              </div>
-            </div>
-            
-            <div className="flex gap-4 relative">
-              <div className="absolute top-8 bottom-[-2rem] left-[11px] w-0.5 bg-gray-100"></div>
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 z-10 ${isBrandSetup ? 'bg-emerald-100' : 'bg-gray-100'}`}>
-                {isBrandSetup ? <CheckCircle2 size={14} className="text-emerald-600" /> : <div className="w-2 h-2 rounded-full bg-gray-300" />}
-              </div>
-              <div>
-                <h3 className={`font-bold ${isBrandSetup ? 'text-gray-900' : 'text-gray-400'}`}>Brand Identity Configured</h3>
-                <p className="text-sm text-gray-500">{isBrandSetup ? 'Restaurant name and location saved.' : 'Pending configuration.'}</p>
-              </div>
-            </div>
-
-            <div className="flex gap-4 relative">
-              <div className="absolute top-8 bottom-[-2rem] left-[11px] w-0.5 bg-gray-100 hidden"></div>
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 z-10 ${isMenuSetup ? 'bg-emerald-100' : 'bg-gray-100'}`}>
-                {isMenuSetup ? <CheckCircle2 size={14} className="text-emerald-600" /> : <div className="w-2 h-2 rounded-full bg-gray-300" />}
-              </div>
-              <div>
-                <h3 className={`font-bold ${isMenuSetup ? 'text-gray-900' : 'text-gray-400'}`}>Digital Menu Published</h3>
-                <p className="text-sm text-gray-500">{isMenuSetup ? `${dishes?.length} dishes available for guests.` : 'Pending menu creation.'}</p>
+              <div className="w-full h-1.5 bg-surface-hover rounded-full mt-2 overflow-hidden">
+                <div className="h-full bg-primary rounded-full" style={{ width: `${completion.score}%` }} />
               </div>
             </div>
           </div>
-        </Card>
-      </div>
 
-      </ManagerLayout>
+          <div className="md:col-span-2 bg-text-primary border border-divider rounded-sm p-8 shadow-premium text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-10 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-20 -mt-20"></div>
+            <div className="relative z-10">
+              <h3 className="text-lg font-medium mb-1">
+                {status.hasChanges ? 'Changes Pending Publication' : 'Up to Date'}
+              </h3>
+              <p className="text-sm text-text-muted/80 opacity-90">
+                {status.hasChanges 
+                  ? `You have ${status.diffResult?.messages.length || 1} pending modification(s).` 
+                  : 'All your changes are live for guests.'}
+              </p>
+            </div>
+            <button 
+              onClick={handlePublish}
+              disabled={!status.hasChanges || completion.score < 100 || publishing}
+              className={`relative z-10 flex items-center gap-2 px-6 py-2.5 rounded-full font-medium shadow-premium transition whitespace-nowrap ${
+                status.hasChanges && completion.score === 100 
+                  ? "bg-primary hover:bg-primary-hover text-white shadow-premium cursor-pointer" 
+                  : "bg-surface/10 text-white/40 cursor-not-allowed"
+              }`}
+            >
+              {publishing ? <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : <Send size={16} />} 
+              {publishing ? "Publishing..." : "Publish to Live"}
+            </button>
+          </div>
+        </div>
+
+        {/* Main Content Area */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+          
+          {/* Left Column: Quick Actions & Tasks */}
+          <div className="lg:col-span-2 space-y-6">
+            <div className="bg-surface border border-divider rounded-sm p-8 shadow-premium">
+              <h2 className="text-lg font-medium text-text-primary mb-4 flex items-center gap-2">
+                <Zap size={18} className="text-amber-500" /> Quick Actions
+              </h2>
+              <div className="grid grid-cols-2 gap-3">
+                <button 
+                  onClick={handleAddMenuClick}
+                  disabled={isNavigating}
+                  className="flex items-center justify-between p-8 rounded-sm border border-divider hover:border-divider hover:bg-primary/5/50 transition-colors group text-left disabled:opacity-50 cursor-pointer"
+                >
+                  <div>
+                    <span className="block font-medium text-text-primary mb-1">Add Menu Item</span>
+                    <span className="text-xs text-text-secondary opacity-60">Update your restaurant offerings</span>
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-surface shadow-premium flex items-center justify-center text-text-muted group-hover:text-primary transition-colors">
+                    {isNavigating ? <div className="w-4 h-4 rounded-full border-2 border-divider border-t-emerald-600 animate-spin" /> : <Plus size={16} />}
+                  </div>
+                </button>
+                
+                <Link to="/manager/experience" className="flex items-center justify-between p-8 rounded-sm border border-divider hover:border-indigo-200 hover:bg-primary-light/20/50 transition-colors group">
+                  <div>
+                    <span className="block font-medium text-text-primary mb-1">Edit Brand</span>
+                    <span className="text-xs text-text-secondary opacity-60">Change colors and logos</span>
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-surface shadow-premium flex items-center justify-center text-text-muted group-hover:text-primary-hover transition-colors">
+                    <Settings size={16} />
+                  </div>
+                </Link>
+              </div>
+            </div>
+
+            {completion.score < 100 && (
+              <div className="bg-surface border border-divider rounded-sm p-8 shadow-premium">
+                <h2 className="text-lg font-medium text-text-primary mb-4 flex items-center gap-2">
+                  <CheckCircle2 size={18} className="text-primary" /> Setup Progress
+                </h2>
+                <div className="space-y-3">
+                  {completion.missing.map((reqName: string, i: number) => (
+                    <div key={i} className="flex items-center justify-between p-3 rounded-sm bg-red-50/50 border border-red-100">
+                      <div className="flex items-center gap-3">
+                        <div className="w-4 h-4 rounded-full border-2 border-red-400" />
+                        <span className="font-medium text-text-primary">{reqName}</span>
+                      </div>
+                      <Link to="/manager/experience" className="text-xs font-medium text-red-600 hover:text-red-700 bg-surface px-3 py-1.5 rounded-full shadow-premium">
+                        Fix Now
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right Column: Live Guest Preview Link & Activity */}
+          <div className="space-y-6">
+            <div className="bg-surface border border-[#EAE8E1] rounded-xl p-6 shadow-sm relative overflow-hidden">
+              <h2 className="text-lg font-serif font-medium text-[#1A1A1A] mb-1">Guest View</h2>
+              <p className="text-xs text-text-secondary mb-6">See exactly what your guests see on their mobile device.</p>
+              
+              <Link 
+                to={`/preview/${property.previewToken}`} 
+                target="_blank" 
+                rel="noreferrer" 
+                className="flex items-center justify-center gap-2 w-full py-3 bg-[#1A1A1A] text-white hover:bg-[#2A2A2A] transition-all text-xs uppercase tracking-wider rounded-lg font-medium shadow-sm"
+              >
+                <Eye size={16} /> Open Guest Preview
+              </Link>
+            </div>
+            
+            <div className="bg-surface border border-divider rounded-sm p-8 shadow-premium">
+               <h2 className="text-sm font-medium text-text-primary uppercase tracking-wider mb-4">Recent Activity</h2>
+               <div className="space-y-4">
+                 <div className="flex items-start gap-3">
+                   <div className="w-8 h-8 rounded-full bg-background flex items-center justify-center shrink-0 mt-0.5 border border-divider">
+                     <Clock size={14} className="text-text-muted" />
+                   </div>
+                   <div>
+                     <p className="text-sm font-medium text-text-primary">System logged state</p>
+                     <p className="text-xs text-text-secondary opacity-60 mt-0.5">{lastSaved}</p>
+                   </div>
+                 </div>
+               </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </ManagerLayout>
   );
 }

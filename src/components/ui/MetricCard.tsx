@@ -42,14 +42,14 @@ export const MetricCard = React.forwardRef<HTMLDivElement, MetricCardProps>(
         </div>
         
         <div className="flex items-baseline gap-3 mt-1">
-          <p className="text-[length:var(--mc-value-size)] [font-family:var(--mc-font-sans)] font-bold text-[var(--mc-value-color)] m-0 leading-none">
+          <p className="text-[length:var(--mc-value-size)] [font-family:var(--mc-font-sans)] font-medium text-[var(--mc-value-color)] m-0 leading-none">
             {value}
           </p>
           {trend && (
             <span 
               className={cn(
                 "text-sm font-medium",
-                trend.isPositive ? "text-emerald-600" : "text-red-600"
+                trend.isPositive ? "text-primary" : "text-red-600"
               )}
             >
               {trend.isPositive ? '+' : '-'}{Math.abs(trend.value)}%

@@ -49,14 +49,14 @@ export const EmptyState = React.forwardRef<HTMLDivElement, EmptyStateProps>(
         {...props}
       >
         <div 
-          className="flex items-center justify-center rounded-full bg-[var(--es-icon-bg)] shadow-sm"
+          className="flex items-center justify-center rounded-full bg-[var(--es-icon-bg)] shadow-premium"
           style={{ width: 'var(--es-icon-size)', height: 'var(--es-icon-size)' }}
         >
           <Icon className="w-1/2 h-1/2 text-[var(--es-icon-color)]" />
         </div>
         
         <div className="flex flex-col gap-2 max-w-sm">
-          <h3 className="text-[length:var(--es-title-size)] [font-family:var(--es-font-serif)] font-bold text-[var(--es-text-primary)] m-0">
+          <h3 className="text-[length:var(--es-title-size)] [font-family:var(--es-font-serif)] font-medium text-[var(--es-text-primary)] m-0">
             {title}
           </h3>
           {description && (

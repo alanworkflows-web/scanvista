@@ -22,7 +22,7 @@ export const GlobalHeader = React.forwardRef<HTMLDivElement, GlobalHeaderProps>(
     
     return (
       <div ref={ref} className={cn("flex flex-col mb-2", className)} {...props}>
-        <nav className="flex items-center text-sm font-medium mb-3 text-gray-500 overflow-x-auto whitespace-nowrap hide-scrollbar">
+        <nav className="flex items-center text-sm font-medium mb-3 text-text-secondary opacity-60 overflow-x-auto whitespace-nowrap hide-scrollbar">
           {breadcrumbs.map((crumb, idx) => {
             const isLast = idx === breadcrumbs.length - 1;
             return (
@@ -30,18 +30,18 @@ export const GlobalHeader = React.forwardRef<HTMLDivElement, GlobalHeaderProps>(
                 {crumb.href && !isLast ? (
                   <Link 
                     to={crumb.href} 
-                    className="hover:text-gray-900 transition-colors"
+                    className="hover:text-text-primary transition-colors"
                   >
                     {crumb.label}
                   </Link>
                 ) : (
-                  <span className={cn(isLast ? "text-gray-900" : "")}>
+                  <span className={cn(isLast ? "text-text-primary" : "")}>
                     {crumb.label}
                   </span>
                 )}
                 
                 {!isLast && (
-                  <ChevronRight className="w-4 h-4 mx-2 text-gray-400 shrink-0" />
+                  <ChevronRight className="w-4 h-4 mx-2 text-text-muted shrink-0" />
                 )}
               </React.Fragment>
             );
@@ -51,7 +51,7 @@ export const GlobalHeader = React.forwardRef<HTMLDivElement, GlobalHeaderProps>(
           title={title} 
           description={description} 
           actions={actions} 
-          className="mb-8" // Override margin for the global header structure
+          className="mb-12" // Override margin for the global header structure
         />
       </div>
     );

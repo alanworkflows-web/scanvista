@@ -26,14 +26,14 @@ export const PageHeader = React.forwardRef<HTMLDivElement, PageHeaderProps>(
         ref={ref}
         style={style}
         className={cn(
-          "flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 w-full",
+          "flex flex-col sm:flex-row sm:items-center sm:justify-between gap-10 w-full",
           "mb-[var(--ph-margin-bottom)]",
           className
         )}
         {...props}
       >
         <div className="flex flex-col">
-          <h1 className="text-[length:var(--ph-title-size)] [font-family:var(--ph-font-serif)] font-bold text-[var(--ph-title-color)] m-0 leading-tight">
+          <h1 className="text-[length:var(--ph-title-size)] [font-family:var(--ph-font-serif)] font-medium text-[var(--ph-title-color)] m-0 leading-tight">
             {title}
           </h1>
           {description && (

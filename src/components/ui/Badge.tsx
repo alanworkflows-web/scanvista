@@ -3,7 +3,7 @@ import { cn } from './Button';
 import { theme } from '../../design/theme';
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
-  variant?: 'default' | 'success' | 'warning' | 'neutral';
+  variant?: 'default' | 'success' | 'warning' | 'neutral' | 'primary' | 'secondary';
 }
 
 export const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
@@ -24,12 +24,14 @@ export const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
             '--badge-border': '#fcd34d', // amber-300
           };
         case 'neutral':
+        case 'secondary':
           return {
             '--badge-bg': theme.colors.bg.tertiary,
             '--badge-text': theme.colors.text.secondary,
             '--badge-border': theme.colors.border.default,
           };
         case 'default':
+        case 'primary':
         default:
           return {
             '--badge-bg': theme.colors.bg.primary,

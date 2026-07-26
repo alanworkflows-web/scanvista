@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,121 +8,232 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+model Organization {
+  id               String                   @id @default(uuid())
+  slug             String                   @unique
+  name             String
+  timezone         String                   @default("UTC")
+  currency         String                   @default("USD")
+  country          String?
+  language         String                   @default("en")
+  subscriptionPlan String?
+  status           String                   @default("ACTIVE")
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  memberships      OrganizationMembership[]
+  invitations      OrganizationInvitation[]
+  properties       Property[]
+  ActivityEvent    ActivityEvent[]
+}
+
+model OrganizationMembership {
+  id        String       @id @default(uuid())
+  userId    String
+  orgId     String
+  role      String       @default("MEMBER") // OWNER, ADMIN, MEMBER
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, orgId])
+  @@index([orgId])
+}
+
+model OrganizationInvitation {
+  id        String       @id @default(uuid())
+  orgId     String
+  email     String
+  role      String       @default("MEMBER")
+  token     String       @unique
+  status    String       @default("PENDING") // PENDING, ACCEPTED, EXPIRED
+  expiresAt DateTime
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+}
+
 model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
+  id            String                   @id @default(uuid())
+  email         String                   @unique
   name          String?
   picture       String?
-  googleId      String?   @unique
-  role          String    @default("MANAGER") // MANAGER, ADMIN
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  properties    Property[]
+  googleId      String?                  @unique
+  role          String                   @default("MANAGER") // Fallback, but memberships dictate actual Org role
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+  memberships   OrganizationMembership[]
+  properties    Property[] // Legacy direct property relation, to be phased out
+  ActivityEvent ActivityEvent[]
 }
 
 model Subscription {
-  id                  String    @id @default(uuid())
-  propertyId          String    @unique
-  paddleCustomerId    String?
+  id                   String    @id @default(uuid())
+  propertyId           String    @unique
+  paddleCustomerId     String?
   paddleSubscriptionId String?
-  status              String    @default("inactive") // active, past_due, canceled, inactive
-  planId              String?
-  currentPeriodEnd    DateTime?
-  cancelAtPeriodEnd   Boolean   @default(false)
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-  property            Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  status               String    @default("inactive")
+  planId               String?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean   @default(false)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  property             Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 }
 
 model Property {
-  id           String     @id @default(uuid())
-  ownerId      String
-  slug         String     @unique
-  name         String
-  description  String?
-  bannerUrl    String?
-  propertyType String     @default("HOTEL") // HOTEL, HOMESTAY, RESORT, RETREAT
+  id                  String             @id @default(uuid())
+  ownerId             String
+  slug                String             @unique
+  name                String
+  description         String?
+  bannerUrl           String?
+  propertyType        String             @default("HOTEL")
+  wifiNetwork         String?
+  wifiPassword        String?
+  hostInfo            String?
+  houseRules          String?
+  experiences         String?
+  receptionPhone      String?
+  housekeepingPhone   String?
+  emergencyPhone      String?
+  roomServicePhone    String?
+  tagline             String?
+  welcomeMessage      String?
+  checkInTime         String?
+  checkOutTime        String?
+  paymentMethods      Json?
+  wifiCoverage        String?
+  wifiTroubleshooting String?
+  themeColors         Json?
+  logoUrl             String?
+  contacts            Json?
+  conciergeServices   Json?
+  hotelRules          Json?
+  galleryImages       Json?
+  heroImage           String?
+  previewToken        String?            @unique
+  gallery             Json?
+  personality         String             @default("LUXURY")
+  highlights          Json?
+  maintenanceMode     Json?
+  translations        Json?
+  snapshots           PropertySnapshot[]
+  mediaAssets         MediaAsset[]
+  guestInteractions   GuestInteraction[]
+  activities          Activity[]
+  localAttractions    LocalAttraction[]
+  faqs                FAQ[]
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  firstMenuAt         DateTime?
+  firstScanAt         DateTime?
+  onboardedAt         DateTime?
+  qrPrintedAt         DateTime?
+  renewalRisk         String             @default("LOW")
+  orgId               String
+  amenities           Amenity[]
+  feedbacks           Feedback[]
+  guests              Guest[]
+  categories          MenuCategory[]
+  owner               User               @relation(fields: [ownerId], references: [id])
+  org                 Organization       @relation(fields: [orgId], references: [id])
+  subscription        Subscription?
+  ActivityEvent       ActivityEvent[]
 
-  // Dynamic fields based on propertyType
-  wifiNetwork       String?
-  wifiPassword      String?
-  hostInfo          String?
-  houseRules        String?
-  experiences       String?
-  receptionPhone    String?
-  housekeepingPhone String?
-  emergencyPhone    String?
-  roomServicePhone  String?
-  
-  // CRM Tracking
-  onboardedAt       DateTime?
-  firstMenuAt       DateTime?
-  qrPrintedAt       DateTime?
-  firstScanAt       DateTime?
-  renewalRisk       String     @default("LOW") // LOW, MEDIUM, HIGH
-
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-
-  owner        User       @relation(fields: [ownerId], references: [id])
-  categories   MenuCategory[]
-  amenities    Amenity[]
-  feedbacks    Feedback[]
-  guests       Guest[]
-  subscription Subscription?
+  @@index([ownerId])
+  @@index([orgId])
 }
 
 model Feedback {
   id         String   @id @default(uuid())
   propertyId String
-  type       String   // "BUG", "FEATURE_REQUEST", "GENERAL"
+  type       String
   message    String
   status     String   @default("OPEN")
   createdAt  DateTime @default(now())
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
 }
 
 model MenuCategory {
-  id           String     @id @default(uuid())
-  propertyId   String
-  name         String
-  displayOrder Int        @default(0)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  property     Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  dishes       Dish[]
+  id            String   @id @default(uuid())
+  propertyId    String
+  name          String
+  displayOrder  Int      @default(0)
+  alwaysVisible Boolean  @default(true)
+  visibleFrom   String?
+  visibleUntil  String?
+  daysActive    Json?
+  status        String   @default("ACTIVE")
+  heroImage     String?
+  gallery       Json?
+  priority      Int      @default(100)
+  seasonalRules Json?
+  crossLinks    Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  dishes        Dish[]
+  property      Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
 }
 
 model Dish {
-  id               String     @id @default(uuid())
-  categoryId       String
-  name             String
-  description      String?
-  price            Float
-  imageUrl         String?
-  dietaryCategory  String?    // e.g., "Vegan", "Vegetarian", "Gluten-Free"
-  allergens        String     @default("[]") // JSON string array of 14 EU allergens
-  healthTips       String?    // Toggles for admin
-  isPopular        Boolean    @default(false)
-  isChefRec        Boolean    @default(false)
-  isOutOfStock     Boolean    @default(false)
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
-  category         MenuCategory   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  id              String       @id @default(uuid())
+  categoryId      String
+  name            String
+  description     String?
+  price           Float
+  imageUrl        String?
+  dietaryCategory String?
+  allergens       String       @default("[]")
+  healthTips      String?
+  isPopular       Boolean      @default(false)
+  isChefRec       Boolean      @default(false)
+  isOutOfStock    Boolean      @default(false)
+  preparationTime String?
+  isVeg           Boolean      @default(false)
+  spiceLevel      String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  category        MenuCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([categoryId])
 }
 
 model Amenity {
-  id           String     @id @default(uuid())
-  propertyId   String
-  name         String
+  id                  String   @id @default(uuid())
+  propertyId          String
+  name                String
   description         String?
   icon                String?
   openTime            String?
   closeTime           String?
-  requiresReservation Boolean    @default(false)
-  createdAt           DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  property     Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  requiresReservation Boolean  @default(false)
+  rules               String?
+  location            String?
+  floor               String?
+  directions          String?
+  contact             String?
+  alwaysVisible       Boolean  @default(true)
+  visibleFrom         String?
+  visibleUntil        String?
+  daysActive          Json?
+  status              String   @default("ACTIVE")
+  heroImage           String?
+  gallery             Json?
+  priority            Int      @default(100)
+  seasonalRules       Json?
+  crossLinks          Json?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  property            Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
 }
 
 model Session {
@@ -144,7 +252,7 @@ model WebhookEvent {
 model OAuthState {
   id          String    @id @default(uuid())
   stateHash   String    @unique
-  sessionHash String?   // optional session binding
+  sessionHash String?
   returnTo    String
   expiresAt   DateTime
   consumedAt  DateTime?
@@ -152,36 +260,26 @@ model OAuthState {
 }
 
 model Guest {
-  id             String      @id @default(cuid())
-  token          String      @unique @default(cuid())
+  id            String      @id @default(cuid())
+  token         String      @unique @default(cuid())
+  propertyId    String
+  name          String
+  phone         String
+  roomNumber    String?
+  language      String?     @default("en")
+  arrivalDate   DateTime?
+  departureDate DateTime?
+  arrivalTime   DateTime?
+  notes         String?
+  preferences   Json?
+  communication Json?
+  status        GuestStatus @default(BOOKED)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  linkViewedAt  DateTime?
+  property      Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
-  propertyId     String
-
-  name           String
-  phone          String
-
-  roomNumber     String?
-
-  language       String?      @default("en")
-
-  arrivalDate    DateTime?
-  departureDate  DateTime?
-  arrivalTime    DateTime?
-
-  notes          String?
-
-  preferences    Json?
-  communication  Json?
-
-  status         GuestStatus  @default(BOOKED)
-  linkViewedAt   DateTime?
-
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  property Property @relation(fields:[propertyId], references:[id], onDelete:Cascade)
-
-  @@index([propertyId, arrivalDate])
+  @@index([propertyId])
 }
 
 enum GuestStatus {
@@ -192,3 +290,206 @@ enum GuestStatus {
   CHECKED_OUT
 }
 
+enum ResourceType {
+  PROPERTY
+  GUEST
+  MENU
+  DISH
+  ORDER
+  PLAYBOOK
+  INVENTORY
+  STAFF
+  ROOM
+  RECOMMENDATION
+  SUBSCRIPTION
+  ORGANIZATION
+}
+
+enum ActionType {
+  GENERATED
+  CREATED
+  UPDATED
+  DELETED
+  CHECKED_IN
+  CHECKED_OUT
+  APPROVED
+  REJECTED
+  ACCEPTED
+  DISMISSED
+  LOGIN
+  LOGOUT
+  VIEWED
+  EXECUTED
+}
+
+enum EventSource {
+  WEB
+  MOBILE
+  API
+  SYSTEM
+  AI
+  IMPORT
+  WEBHOOK
+}
+
+enum EventOutcome {
+  SUCCESS
+  FAILED
+  DENIED
+  RETRY
+}
+
+enum RetentionCategory {
+  PERMANENT
+  AUDIT
+  ANALYTICS
+  TELEMETRY
+}
+
+model ActivityEvent {
+  id             String  @id @default(uuid())
+  schemaVersion  Int     @default(1)
+  organizationId String
+  propertyId     String?
+  actorId        String?
+  correlationId  String?
+
+  resourceType ResourceType
+  resourceId   String?
+  action       ActionType
+
+  source    EventSource       @default(API)
+  outcome   EventOutcome      @default(SUCCESS)
+  retention RetentionCategory @default(AUDIT)
+
+  metadata  Json?
+  ipAddress String?
+  device    String?
+  timestamp DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property     Property?    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  actor        User?        @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, timestamp])
+  @@index([propertyId, timestamp])
+  @@index([organizationId, action])
+  @@index([organizationId, resourceType])
+  @@index([actorId])
+}
+
+model MetricSnapshot {
+  id             String   @id @default(uuid())
+  organizationId String?
+  propertyId     String?
+  metricKey      String
+  bucket         String // e.g. "2026-07-17", "2026-W28", "2026-07"
+  bucketType     String // "DAILY", "WEEKLY", "MONTHLY"
+  value          Float
+  metadata       Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([organizationId, propertyId, metricKey, bucket, bucketType])
+  @@index([organizationId, bucket, bucketType])
+}
+
+model Activity {
+  id              String   @id @default(uuid())
+  propertyId      String
+  name            String
+  description     String?
+  location        String?
+  time            String?
+  bookingRequired Boolean  @default(false)
+  alwaysVisible   Boolean  @default(true)
+  visibleFrom     String?
+  visibleUntil    String?
+  daysActive      Json?
+  status          String   @default("ACTIVE")
+  heroImage       String?
+  gallery         Json?
+  capacity        Int?
+  priority        Int      @default(100)
+  seasonalRules   Json?
+  crossLinks      Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  property        Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+}
+
+model LocalAttraction {
+  id            String   @id @default(uuid())
+  propertyId    String
+  name          String
+  imageUrl      String?
+  distance      String?
+  travelTime    String?
+  openingHours  String?
+  mapLink       String?
+  alwaysVisible Boolean  @default(true)
+  visibleFrom   String?
+  visibleUntil  String?
+  daysActive    Json?
+  status        String   @default("ACTIVE")
+  heroImage     String?
+  gallery       Json?
+  priority      Int      @default(100)
+  seasonalRules Json?
+  crossLinks    Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  property      Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+}
+
+model FAQ {
+  id           String   @id @default(uuid())
+  propertyId   String
+  category     String?
+  question     String
+  answer       String
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  property     Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+}
+
+model PropertySnapshot {
+  id          String   @id @default(uuid())
+  propertyId  String
+  data        Json
+  publishedAt DateTime @default(now())
+  publishedBy String?
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+}
+
+model MediaAsset {
+  id         String   @id @default(uuid())
+  propertyId String
+  url        String
+  altText    String?
+  tags       Json?
+  createdAt  DateTime @default(now())
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+}
+
+model GuestInteraction {
+  id         String   @id @default(uuid())
+  propertyId String
+  guestToken String?
+  section    String
+  timestamp  DateTime @default(now())
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+}

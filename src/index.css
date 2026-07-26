@@ -1,16 +1,51 @@
 @import "tailwindcss";
 
+@theme {
+  --font-serif: "Cormorant Garamond", serif;
+  --font-sans: "Inter", sans-serif;
+
+  /* Semantic Colors */
+  --color-background: #FFFFFF; /* Bright White */
+  --color-surface: #FFFFFF; /* Bright White for cards */
+  --color-sidebar: #FCFAF7; /* Very subtle warmth for sidebar only */
+  --color-surface-hover: #FCFAF7; /* Subtle interaction state */
+  
+  --color-primary: #C29A4B; /* Primary Gold */
+  --color-primary-hover: #AE8535; /* Hover Gold */
+  --color-primary-light: #E7D7BA;
+  
+  --color-text-primary: #262626; /* Dark Charcoal */
+  --color-text-secondary: #666666; /* Secondary */
+  --color-text-muted: #909090; /* Muted */
+  
+  --color-divider: #ECE6DD; /* Warm Border */
+  --color-divider-gold: #E7D7BA; /* Gold Border */
+  
+  --color-success: #6B705C; /* Muted Olive */
+  --color-danger: #7A2828; /* Muted Burgundy */
+  
+  /* Standardized Shadows */
+  --shadow-premium: 0 4px 20px rgba(194, 154, 75, 0.08); /* Warm champagne shadow */
+  --shadow-premium-hover: 0 8px 30px rgba(194, 154, 75, 0.15);
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+}
 html {
   scroll-behavior: smooth;
 }
 
 @media print {
-  body {
+  /* QR Code Print Mode */
+  body:not(.is-printing-legal) {
     visibility: hidden;
     margin: 0;
     padding: 0;
   }
-  #print-only-qr, #print-only-qr * {
+  body:not(.is-printing-legal) #print-only-qr, body:not(.is-printing-legal) #print-only-qr * {
     visibility: visible;
   }
   #print-only-qr {
@@ -20,5 +55,33 @@ html {
     width: 100vw;
     height: 100vh;
     display: flex !important;
+  }
+
+  /* Legal Document Print Mode */
+  body.is-printing-legal {
+    visibility: visible;
+    background-color: white !important;
+    color: black !important;
+  }
+  .legal-document {
+    font-size: 12pt !important;
+    background-color: white !important;
+    color: black !important;
+  }
+  .legal-document * {
+    widows: 4;
+    orphans: 4;
+  }
+  .legal-document p, .legal-document h1, .legal-document h2, .legal-document h3, .legal-document li {
+    page-break-inside: avoid;
+  }
+  .legal-document a[href]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.9em;
+    word-break: break-all;
+    text-decoration: underline;
+  }
+  .legal-no-print {
+    display: none !important;
   }
 }

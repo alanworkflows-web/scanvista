@@ -1,113 +1,41 @@
 import React from 'react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { theme } from '../../design/theme';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
   isLoading?: boolean;
-  status?: 'idle' | 'loading' | 'success';
 }
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = 'primary', size = 'md', isLoading, status = 'idle', children, ...props }, ref) => {
+  ({ className, variant = 'primary', size = 'md', isLoading, children, ...props }, ref) => {
     
-    const getVariantStyles = () => {
-      switch (variant) {
-        case 'secondary':
-          return {
-            '--btn-bg': theme.colors.bg.primary,
-            '--btn-hover-bg': theme.colors.bg.secondary,
-            '--btn-text': theme.colors.text.primary,
-            '--btn-border': theme.colors.border.default,
-            '--btn-shadow': theme.shadows.sm,
-          };
-        case 'danger':
-          return {
-            '--btn-bg': theme.colors.bg.primary,
-            '--btn-hover-bg': '#fef2f2', // light red
-            '--btn-text': '#ef4444', // red-500
-            '--btn-border': '#f87171',
-            '--btn-shadow': theme.shadows.sm,
-          };
-        case 'ghost':
-          return {
-            '--btn-bg': 'transparent',
-            '--btn-hover-bg': theme.colors.bg.secondary,
-            '--btn-text': theme.colors.text.secondary,
-            '--btn-border': 'transparent',
-            '--btn-shadow': 'none',
-          };
-        case 'primary':
-        default:
-          return {
-            '--btn-bg': theme.colors.action.primary,
-            '--btn-hover-bg': theme.colors.action.primaryHover,
-            '--btn-text': theme.colors.text.inverse,
-            '--btn-border': 'transparent',
-            '--btn-shadow': theme.shadows.sm,
-          };
-      }
-    };
+    const baseClasses = "inline-flex items-center justify-center font-sans transition-all duration-200 ease-out min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 rounded-lg active:scale-[0.98] focus:outline-none focus:ring-0 focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 disabled:hover:translate-y-0";
+    
+    let variantClasses = "";
+    if (variant === 'primary') {
+      variantClasses = "bg-primary text-white border border-transparent shadow-sm hover:bg-primary-hover hover:-translate-y-px active:translate-y-0";
+    } else if (variant === 'secondary') {
+      variantClasses = "bg-surface text-text-primary border border-divider shadow-sm hover:bg-surface-hover hover:border-primary/40 hover:-translate-y-px active:translate-y-0";
+    } else if (variant === 'ghost') {
+      variantClasses = "bg-transparent text-text-secondary border border-transparent hover:text-text-primary hover:bg-surface hover:-translate-y-px";
+    }
 
-    const getSizeStyles = () => {
-      switch (size) {
-        case 'sm':
-          return {
-            '--btn-pad-y': theme.spacing[4],
-            '--btn-pad-x': theme.spacing[8],
-            '--btn-text-size': theme.typography.sizes.xs,
-          };
-        case 'lg':
-          return {
-            '--btn-pad-y': theme.spacing[12],
-            '--btn-pad-x': theme.spacing[24],
-            '--btn-text-size': theme.typography.sizes.base,
-          };
-        case 'md':
-        default:
-          return {
-            '--btn-pad-y': theme.spacing[8],
-            '--btn-pad-x': theme.spacing[16],
-            '--btn-text-size': theme.typography.sizes.sm,
-          };
-      }
-    };
-
-    const style = {
-      ...getVariantStyles(),
-      ...getSizeStyles(),
-      '--btn-radius': theme.radius.xl,
-      '--btn-transition': theme.motion.durations.normal,
-      '--btn-easing': theme.motion.easings.default,
-      '--btn-font-weight': theme.typography.weights.medium,
-      '--btn-font-family': theme.typography.fonts.sans,
-    } as React.CSSProperties;
+    let sizeClasses = "";
+    if (size === 'sm') sizeClasses = "py-2 px-4 text-xs font-medium uppercase tracking-widest";
+    else if (size === 'md') sizeClasses = "py-3 px-6 text-sm font-medium";
+    else if (size === 'lg') sizeClasses = "py-4 px-8 text-base font-medium";
 
     return (
       <button
         ref={ref}
-        style={style}
-        disabled={isLoading || status === 'loading' || props.disabled}
-        className={cn(
-          "inline-flex items-center justify-center border min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0",
-          status === 'success' ? "bg-emerald-500 hover:bg-emerald-600 text-white border-transparent" : "bg-[var(--btn-bg)] hover:bg-[var(--btn-hover-bg)] text-[var(--btn-text)]",
-          "border-[var(--btn-border)]",
-          "rounded-[var(--btn-radius)]",
-          "py-[var(--btn-pad-y)] px-[var(--btn-pad-x)]",
-          "text-[length:var(--btn-text-size)] font-[var(--btn-font-weight)]",
-          "shadow-[var(--btn-shadow)]",
-          "transition-all duration-[var(--btn-transition)] ease-[var(--btn-easing)]",
-          "active:scale-[0.98] hover:-translate-y-px",
-          "disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 disabled:hover:translate-y-0",
-          "[font-family:var(--btn-font-family)]",
-          className
-        )}
+        disabled={isLoading || props.disabled}
+        className={cn(baseClasses, variantClasses, sizeClasses, className)}
         {...props}
       >
         {isLoading ? (
@@ -122,3 +50,4 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   }
 );
 Button.displayName = 'Button';
+

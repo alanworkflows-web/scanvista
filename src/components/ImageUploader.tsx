@@ -51,11 +51,11 @@ export function ImageUploader({ label, onImageSelected, currentImage }: ImageUpl
 
   return (
     <div className="w-full">
-      <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+      <label className="block text-sm font-medium text-text-secondary mb-2">{label}</label>
       <div 
         className={cn(
-          "relative flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-2xl transition-all cursor-pointer overflow-hidden",
-          isDragging ? "border-gray-900 bg-gray-50" : "border-gray-200 bg-gray-50/50 hover:bg-gray-50 hover:border-gray-300",
+          "relative flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-sm transition-all cursor-pointer overflow-hidden",
+          isDragging ? "border-gray-900 bg-background" : "border-divider bg-surface/50 hover:bg-background hover:border-primary",
           preview ? "p-0 aspect-[21/9]" : "min-h-[160px]"
         )}
         onDragOver={onDragOver}
@@ -81,11 +81,11 @@ export function ImageUploader({ label, onImageSelected, currentImage }: ImageUpl
           </>
         ) : (
           <div className="flex flex-col items-center text-center">
-            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-100 mb-3 text-gray-400">
+            <div className="w-12 h-12 bg-surface rounded-full flex items-center justify-center shadow-premium border border-divider mb-3 text-text-muted">
               <ImageIcon size={24} />
             </div>
-            <p className="text-sm font-medium text-gray-900 mb-1">Click to upload or drag & drop</p>
-            <p className="text-xs text-gray-500">SVG, PNG, JPG or GIF (max. 5MB)</p>
+            <p className="text-sm font-medium text-text-primary mb-1">Click to upload or drag & drop</p>
+            <p className="text-xs text-text-secondary opacity-60">SVG, PNG, JPG or GIF (max. 5MB)</p>
           </div>
         )}
       </div>

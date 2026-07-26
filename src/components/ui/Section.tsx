@@ -33,10 +33,10 @@ export const Section = React.forwardRef<HTMLDivElement, SectionProps>(
         {...props}
       >
         {(title || headerAction) && (
-          <div className="flex items-center justify-between gap-4 mb-[var(--sec-gap)]">
+          <div className="flex items-center justify-between gap-10 mb-[var(--sec-gap)]">
             <div className="flex flex-col">
               {title && (
-                <h2 className="text-[length:var(--sec-title-size)] [font-family:var(--sec-font-serif)] font-bold text-[var(--sec-title-color)] m-0">
+                <h2 className="text-[length:var(--sec-title-size)] [font-family:var(--sec-font-serif)] font-medium text-[var(--sec-title-color)] m-0">
                   {title}
                 </h2>
               )}

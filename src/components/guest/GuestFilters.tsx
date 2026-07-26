@@ -14,9 +14,9 @@ export function GuestFilters({ searchQuery, onSearchChange, activeFilter, onFilt
   return (
     <div className="px-8 pb-6 space-y-4">
       <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} aria-hidden="true" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={18} aria-hidden="true" />
         <Input
-          className="pl-10 py-5 w-full bg-white border-gray-200"
+          className="pl-10 py-5 w-full bg-surface border-divider"
           placeholder="Search by name, phone, or room..."
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
@@ -35,7 +35,7 @@ export function GuestFilters({ searchQuery, onSearchChange, activeFilter, onFilt
             className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
               activeFilter === filter
                 ? "bg-gray-900 text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                : "bg-surface-hover text-text-secondary opacity-80 hover:bg-gray-200"
             }`}
           >
             {filter}

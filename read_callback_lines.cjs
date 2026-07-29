@@ -1,0 +1,5 @@
+const fs = require('fs');
+const lines = fs.readFileSync('server.ts', 'utf8').split('\n');
+const start = lines.findIndex(l => l.includes('app.get("/auth/google/callback"'));
+console.log('callback starts at', start);
+console.log(lines.slice(start, start + 80).join('\n'));

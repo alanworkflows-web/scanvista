@@ -55,7 +55,7 @@ export function GuestWelcome() {
 
   if (!journey) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-8 text-center text-[#2A2A2A]">
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center text-[#2A2A2A]">
         <h1 className="text-3xl font-serif mb-4">Journey Not Found</h1>
         <p className="text-[#7A7A7A] font-light">The link you followed is invalid or has expired.</p>
       </div>
@@ -112,7 +112,7 @@ export function GuestWelcome() {
       
       <HeroSection property={property} guestName={name} />
       
-      <div className="-mt-6 relative z-20 flex justify-center mb-12">
+      <div className="-mt-6 relative z-20 flex justify-center mb-8">
          <button 
           onClick={() => document.getElementById('status-start')?.scrollIntoView({ behavior: 'smooth' })}
           className="bg-surface shadow-[0_10px_30px_-10px_rgba(0,0,0,0.1)] rounded-full px-10 py-4 text-[10px] tracking-[0.2em] uppercase font-medium text-[#2A2A2A] hover:bg-background transition-colors border border-[#EAE8E1]/40"
@@ -129,11 +129,11 @@ export function GuestWelcome() {
 
         {/* HIGHLIGHTS - Only show during Stay */}
         {guestStage === 'STAY' && property.highlights && property.highlights.length > 0 && (
-          <div className="mb-12 px-4">
-            <h3 className="text-center font-serif text-3xl mb-12 text-[#1A1A1A]">Today's Highlights</h3>
+          <div className="mb-8 px-4">
+            <h3 className="text-center font-serif text-3xl mb-8 text-[#1A1A1A]">Today's Highlights</h3>
             <div className="space-y-4">
               {(property.highlights || []).map((hl: any, idx: number) => (
-                <div key={idx} className="flex gap-10 items-center bg-surface p-8 border border-[#EAE8E1]/50 rounded-sm">
+                <div key={idx} className="flex gap-6 items-center bg-surface p-6 border border-[#EAE8E1]/50 rounded-sm">
                   {hl.image && <img src={hl.image} className="w-16 h-16 object-cover rounded-sm" alt="Highlight" />}
                   <div>
                     <h4 className="font-serif text-xl">{hl.title}</h4>
@@ -152,8 +152,8 @@ export function GuestWelcome() {
           isOpen={activeSection === "stay-info"} 
           onToggle={() => toggleSection("stay-info")}
         >
-          <div className="bg-surface border border-[#EAE8E1]/40 p-8 rounded-sm shadow-premium space-y-6">
-            <div className="grid grid-cols-2 gap-10 border-b border-[#EAE8E1]/30 pb-6">
+          <div className="bg-surface border border-[#EAE8E1]/40 p-6 rounded-sm shadow-premium space-y-6">
+            <div className="grid grid-cols-2 gap-6 border-b border-[#EAE8E1]/30 pb-6">
               <div>
                 <p className="text-[9px] uppercase tracking-[0.2em] text-[#A3A095] mb-2">Check-In</p>
                 <p className="text-lg font-serif text-[#2A2A2A]">{property.checkInTime || "2:00 PM"}</p>
@@ -164,7 +164,7 @@ export function GuestWelcome() {
               </div>
             </div>
             
-            <div className="grid grid-cols-2 gap-10">
+            <div className="grid grid-cols-2 gap-6">
               {property.wifiNetwork && (
                 <div>
                   <p className="text-[9px] uppercase tracking-[0.2em] text-[#A3A095] mb-2">WiFi Network</p>
@@ -194,19 +194,19 @@ export function GuestWelcome() {
               {visibleCategories.map((cat: any) => (
                 <div key={cat.id}>
                   {cat.heroImage ? (
-                    <div className="h-[280px] w-full mb-12 relative rounded-sm overflow-hidden">
+                    <div className="h-[280px] w-full mb-8 relative rounded-sm overflow-hidden">
                       <img src={cat.heroImage} alt={cat.name} className="w-full h-full object-cover" />
                       <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                          <h3 className="text-background font-serif text-4xl tracking-wide">{cat.name}</h3>
                       </div>
                     </div>
                   ) : (
-                    <h3 className="font-serif text-3xl text-[#1A1A1A] mb-12">{cat.name}</h3>
+                    <h3 className="font-serif text-3xl text-[#1A1A1A] mb-8">{cat.name}</h3>
                   )}
                   
                   <div className="space-y-6 px-2">
                     {cat.dishes?.map((dish: any) => (
-                      <div key={dish.id} className="flex gap-10 items-start group border-b border-[#EAE8E1]/30 pb-6 last:border-0 last:pb-0">
+                      <div key={dish.id} className="flex gap-6 items-start group border-b border-[#EAE8E1]/30 pb-6 last:border-0 last:pb-0">
                         {dish.imageUrl && (
                           <img src={dish.imageUrl} className="w-24 h-24 object-cover shrink-0 rounded-sm" alt={dish.name} />
                         )}
@@ -274,7 +274,7 @@ export function GuestWelcome() {
            isOpen={activeSection === "checkout"} 
            onToggle={() => toggleSection("checkout")}
          >
-           <div className="grid grid-cols-2 gap-10 pt-4 mb-12">
+           <div className="grid grid-cols-2 gap-6 pt-4 mb-8">
               <ServiceCard icon="🚕" title="Airport Transfer" actionText="Book" />
               <ServiceCard icon="🧾" title="View Invoice" actionText="View" />
               <ServiceCard icon="⏰" title="Late Checkout" actionText="Request" />
@@ -291,7 +291,7 @@ export function GuestWelcome() {
             isOpen={activeSection === "concierge"} 
             onToggle={() => toggleSection("concierge")}
           >
-            <div className="grid grid-cols-2 gap-10 pt-4 mb-12">
+            <div className="grid grid-cols-2 gap-6 pt-4 mb-8">
               {(property.conciergeServices || []).map((c: any, idx: number) => (
                 <ServiceCard 
                   key={idx}

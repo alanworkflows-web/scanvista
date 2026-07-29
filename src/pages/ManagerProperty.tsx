@@ -95,7 +95,7 @@ export function ManagerProperty() {
 
       if (!res.ok) throw new Error("Failed to save property");
       
-      toast.success("Property updated successfully");
+      toast.success("Property saved as Draft. Publish to make it visible to guests.");
       refreshProperty();
     } catch (err) {
       toast.error("Failed to save changes");

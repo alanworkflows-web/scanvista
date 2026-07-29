@@ -407,6 +407,13 @@ async function startServer() {
         </div>
       `;
 
+      // Handle Double Requests gracefully
+      // @ts-ignore
+      if (req.session && req.session.userId) {
+        // User is already logged in (likely a browser double-request)
+        return res.redirect('/manager/setup');
+      }
+
       if (!queryState) {
         return res.status(400).send(errorHtml);
       }
@@ -460,6 +467,25 @@ async function startServer() {
           googleId: payload.sub,
         }
       });
+
+      // Ensure user has an Organization
+      let membership = await prisma.organizationMembership.findFirst({
+        where: { userId: user.id }
+      });
+      
+      if (!membership) {
+        const orgName = user.name ? `${user.name.split(' ')[0]}'s Organization` : 'My Organization';
+        const newOrg = await prisma.organization.create({
+          data: { name: orgName, slug: await generateUniqueSlug(orgName) }
+        });
+        membership = await prisma.organizationMembership.create({
+          data: {
+            userId: user.id,
+            orgId: newOrg.id,
+            role: 'OWNER'
+          }
+        });
+      }
 
       // Safe returnTo retrieved from state data
 

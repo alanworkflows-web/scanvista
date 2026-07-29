@@ -1,84 +1,87 @@
 const fs = require('fs');
 
-const serverFile = 'c:\\Users\\alok anand magada\\Documents\\scanvista\\server.ts';
-let content = fs.readFileSync(serverFile, 'utf8');
+let c = fs.readFileSync('server.ts', 'utf8');
 
-// 1. POST Property Fix
-const postStart = content.indexOf('app.post("/api/manager/properties", requireAuth, async (req, res) => {');
-const postEndStr = '      res.status(500).json({ error: "Failed to create property" });\r\n    }\r\n  });';
-const postEndStrUnix = '      res.status(500).json({ error: "Failed to create property" });\n    }\n  });';
-let postEnd = content.indexOf(postEndStr, postStart);
-let endLen = postEndStr.length;
-if (postEnd === -1) {
-  postEnd = content.indexOf(postEndStrUnix, postStart);
-  endLen = postEndStrUnix.length;
-}
+// 1. Revert the first mistaken upsert back to demo
+const demoUpsertStart = c.indexOf('      console.warn("⚠️ GOOGLE_CLIENT_ID not configured, using development bypass login");');
+const demoUpsertEnd = c.indexOf('      const rawReturnTo = req.query.returnTo as string;');
+if (demoUpsertStart > -1 && demoUpsertEnd > -1) {
+  const originalDemo = `      console.warn("⚠️ GOOGLE_CLIENT_ID not configured, using development bypass login");
 
-if (postStart !== -1 && postEnd !== -1) {
-  const newPostProperty = `app.post("/api/manager/properties", requireAuth, async (req, res, next) => {
-    try {
-      const { name } = z.object({ name: z.string().trim().min(1).max(255).default("New Property") }).parse(req.body);
-      const slug = await generateUniqueSlug(name);
-      
-      const userId = req.session.userId;
-      if (!userId) return res.status(401).json({ error: "Unauthorized" });
-
-      let membership = await prisma.organizationMembership.findFirst({
-        where: { userId, role: "OWNER" }
+      const user = await prisma.user.upsert({
+        where: { email: "demo@example.com" },
+        update: {},
+        create: {
+          email: "demo@example.com",
+          name: "Demo Manager",
+          picture: "https://api.dicebear.com/7.x/avataaars/svg?seed=Demo",
+          googleId: "demo-google-id",
+        }
       });
-
-      let orgId;
-      if (membership) {
-        orgId = membership.orgId;
-      } else {
-        const org = await prisma.organization.create({
+      
+      // Ensure user has an Organization
+      let membership = await prisma.organizationMembership.findFirst({
+        where: { userId: user.id }
+      });
+      
+      if (!membership) {
+        const orgName = user.name ? \`\${user.name.split(' ')[0]}'s Organization\` : 'My Organization';
+        const newOrg = await prisma.organization.create({
+          data: { name: orgName, slug: await generateUniqueSlug(orgName) }
+        });
+        membership = await prisma.organizationMembership.create({
           data: {
-            name: "Personal Org",
-            slug: \`org-\${crypto.randomUUID()}\`,
-            memberships: {
-              create: { userId: userId, role: "OWNER" }
-            }
+            userId: user.id,
+            orgId: newOrg.id,
+            role: 'OWNER'
           }
         });
-        orgId = org.id;
       }
 
-      const property = await prisma.property.create({
-        data: {
-          name,
-          slug,
-          owner: { connect: { id: userId } },
-          org: { connect: { id: orgId } }
-        },
-        include: { subscription: true }
-      });
-      res.json({
-        ...property,
-        entitlement: resolveEntitlement(property.subscription)
-      });
-    } catch (err) {
-      if (err instanceof z.ZodError) return next(err);
-      logger.error(err);
-      res.status(500).json({ error: "Failed to create property" });
-    }
-  });`;
-  
-  content = content.substring(0, postStart) + newPostProperty + content.substring(postEnd + endLen);
-  console.log("Replaced POST property endpoint");
-} else {
-  console.log("Could not find POST property bounds");
+`;
+  c = c.substring(0, demoUpsertStart) + originalDemo + c.substring(demoUpsertEnd);
 }
 
-// 2. Fix PUT Property endpoint where ownerId was causing error in updateMany
-content = content.replace(
-  /ownerId: req\.session\.userId/,
-  '// @ts-ignore\\n          ownerId: req.session.userId'
-);
+// 2. Fix the REAL upsert
+const realUpsertStart = c.indexOf('      const user = await prisma.user.upsert({');
+if (realUpsertStart > -1) {
+  const realUpsertFix = `      const user = await prisma.user.upsert({
+        where: { email: payload.email },
+        update: {
+          name: payload.name,
+          picture: payload.picture,
+          googleId: payload.sub
+        },
+        create: {
+          email: payload.email,
+          name: payload.name,
+          picture: payload.picture,
+          googleId: payload.sub,
+        }
+      });
 
-content = content.replace(
-  /      res\.status\(500\)\.json\(\{ error: "Failed to update property" \}\);/g,
-  '      logger.error("PUT ERROR:", err);\n      res.status(500).json({ error: "Failed to update property" });'
-);
+      // Ensure user has an Organization
+      let membership = await prisma.organizationMembership.findFirst({
+        where: { userId: user.id }
+      });
+      
+      if (!membership) {
+        const orgName = user.name ? \`\${user.name.split(' ')[0]}'s Organization\` : 'My Organization';
+        const newOrg = await prisma.organization.create({
+          data: { name: orgName, slug: await generateUniqueSlug(orgName) }
+        });
+        membership = await prisma.organizationMembership.create({
+          data: {
+            userId: user.id,
+            orgId: newOrg.id,
+            role: 'OWNER'
+          }
+        });
+      }`;
+  
+  const endOfUpsert = c.indexOf('// Safe returnTo retrieved from state data', realUpsertStart);
+  c = c.substring(0, realUpsertStart) + realUpsertFix + "\n\n      " + c.substring(endOfUpsert);
+}
 
-fs.writeFileSync(serverFile, content, 'utf8');
-console.log("Server.ts fixed!");
+fs.writeFileSync('server.ts', c);
+console.log('Fixed server.ts');

@@ -8,7 +8,7 @@ import { calculateCompletion } from "../lib/completionEngine";
 import { getPublishingStatus } from "../lib/publishingState";
 import { 
   CheckCircle2, Send, Globe, Zap, Settings, Plus, Eye,
-  LayoutDashboard, CheckSquare, Trash2, Calendar, FileText, Image, AlignLeft,
+  Hotel, LayoutDashboard, CheckSquare, Trash2, Calendar, FileText, Image, AlignLeft,
   Utensils, MapPin, Shield, MessageSquare, PhoneCall, Link2, Activity
 } from "lucide-react";
 import confetti from "canvas-confetti";
@@ -130,7 +130,30 @@ export function ManagerHome() {
     );
   }
 
-  if (!property) return null;
+  if (!property) {
+    return (
+      <ManagerLayout>
+        <div className="flex flex-col items-center justify-center h-[70vh] max-w-md mx-auto text-center space-y-6 animate-in fade-in zoom-in duration-500">
+          <div className="w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-2">
+            <Hotel size={40} />
+          </div>
+          <h2 className="text-3xl font-serif font-medium text-text-primary">Welcome to ScanVista</h2>
+          <p className="text-text-secondary text-lg">Your account is ready. Let's create your first property to get started.</p>
+          <Button 
+            size="lg" 
+            className="w-full text-lg h-14 mt-4 shadow-premium hover:shadow-premium-hover transition-all"
+            onClick={() => {
+              // Direct them to setup or manually trigger creation if needed
+              // Given auto-provisioning is fixed, they might just need a reload
+              window.location.reload();
+            }}
+          >
+            <Plus className="mr-2" /> Initialize Dashboard
+          </Button>
+        </div>
+      </ManagerLayout>
+    );
+  }
 
   const completion = calculateCompletion(property);
   const status = getPublishingStatus(property, snapshots, draftData);
@@ -207,7 +230,7 @@ export function ManagerHome() {
                   <p className="text-sm font-medium text-text-secondary">No ScanVista activity recorded yesterday.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-2 gap-4">
                   <div className="bg-background border border-divider rounded-lg p-4 text-center">
                     <p className="text-3xl font-serif text-text-primary mb-1">{activityData.yesterday.scans}</p>
                     <p className="text-xs uppercase font-semibold text-text-muted tracking-wider">QR Scans</p>
@@ -216,6 +239,23 @@ export function ManagerHome() {
                     <p className="text-3xl font-serif text-text-primary mb-1">{activityData.yesterday.guestPageVisits}</p>
                     <p className="text-xs uppercase font-semibold text-text-muted tracking-wider">Page Visits</p>
                   </div>
+                </div>
+              )}
+            </div>
+
+            {/* Yesterday's Interaction Analytics */}
+            <div className="bg-surface border border-divider rounded-xl p-6 shadow-sm">
+              <h2 className="text-lg font-medium text-text-primary mb-4 flex items-center gap-2">
+                <Activity size={18} className="text-blue-500" /> Yesterday's Interaction Analytics
+              </h2>
+              
+              {!activityData?.yesterday || activityData.yesterday.scans === 0 ? (
+                <div className="bg-surface-hover/50 border border-dashed border-divider rounded-lg p-8 text-center">
+                  <Activity size={32} className="text-text-muted mx-auto mb-3 opacity-50" />
+                  <p className="text-sm font-medium text-text-secondary">No interaction activity recorded yesterday.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
                   <div className="bg-background border border-divider rounded-lg p-4 text-center">
                     <p className="text-3xl font-serif text-text-primary mb-1">{activityData.yesterday.menuViews}</p>
                     <p className="text-xs uppercase font-semibold text-text-muted tracking-wider">Menu Views</p>

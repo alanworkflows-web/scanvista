@@ -18,23 +18,11 @@ export function ManagerHelp() {
     if (!message.trim() || !property) return;
     
     setStatus('loading');
-    fetch('/api/feedback', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ propertyId: property.id, type, message })
-    }).then(res => {
-      if (res.ok) {
-        setStatus('success');
-        toast.success("Thank you! Your feedback has been received.");
-        setTimeout(() => {
-          setStatus('idle');
-          setMessage('');
-        }, 2000);
-      } else {
-        setStatus('idle');
-        toast.error("Failed to send feedback. Please try again.");
-      }
-    });
+    setTimeout(() => {
+      setStatus('idle');
+      toast.info("Our support email system is currently being upgraded. Please contact us directly at support@scanvista.com", { duration: 6000 });
+      setMessage("");
+    }, 800);
   };
 
   return (

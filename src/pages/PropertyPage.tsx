@@ -107,7 +107,7 @@ export function PropertyPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background max-w-2xl mx-auto flex flex-col p-8 space-y-6">
+      <div className="min-h-screen bg-background max-w-2xl mx-auto flex flex-col p-6 space-y-6">
         <Skeleton className="h-48 w-full rounded-3xl" />
         <Skeleton className="h-10 w-3/4" />
         <Skeleton className="h-6 w-full" />
@@ -187,7 +187,7 @@ export function PropertyPage() {
     <>
       {!isScanned && (
         <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/30 backdrop-blur-sm pointer-events-auto">
-          <div className="bg-surface/95 p-8 rounded-sm shadow-premium-hover max-w-lg text-center mx-4">
+          <div className="bg-surface/95 p-6 rounded-sm shadow-premium-hover max-w-lg text-center mx-4">
             <h2 className="text-3xl font-serif text-text-primary mb-4">
               🖥️ Management Administrative Preview Mode
             </h2>
@@ -218,7 +218,7 @@ export function PropertyPage() {
             />
 
             {/* Overlay Property Info */}
-            <div className="absolute bottom-6 left-4 right-4 md:bottom-10 md:left-10 md:right-10 z-30 max-w-5xl mx-auto flex flex-col md:flex-row md:items-end justify-between gap-10">
+            <div className="absolute bottom-6 left-4 right-4 md:bottom-10 md:left-10 md:right-10 z-30 max-w-5xl mx-auto flex flex-col md:flex-row md:items-end justify-between gap-6">
               <div>
                 <h1 className="text-4xl md:text-5xl font-serif font-medium text-white mb-2 drop-shadow-premium-hover">
                   {property.name}
@@ -234,7 +234,7 @@ export function PropertyPage() {
         {/* Main Content Area */}
         <div className="max-w-5xl mx-auto px-4 sm:px-6 mt-6">
           {/* Navigation Tabs */}
-          <div className="mb-12">
+          <div className="mb-8">
             <div className="bg-surface/80 backdrop-blur-md rounded-sm shadow-premium border border-divider p-1 flex justify-between gap-1 w-full max-w-sm">
               {tabs.map((tab) => (
                 <button
@@ -254,7 +254,7 @@ export function PropertyPage() {
           </div>
 
           {activeTab === "menu" && (
-            <div className="flex flex-col gap-10">
+            <div className="flex flex-col gap-6">
               
               {/* Sticky Category Nav & Filters */}
               <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl py-3 -mx-4 px-4 sm:mx-0 sm:px-0 border-b border-divider/50">
@@ -279,7 +279,7 @@ export function PropertyPage() {
                 <FilterBar filters={filters} setFilters={setFilters} compact />
               </div>
 
-              <div className="flex flex-col gap-10 pb-12">
+              <div className="flex flex-col gap-6 pb-8">
                 {categories.length === 0 ? (
                   <div className="px-2 mt-4">
                     <EmptyState 
@@ -322,7 +322,7 @@ export function PropertyPage() {
                           {category.name}
                         </h2>
 
-                        <div className="bg-surface rounded-sm shadow-premium border border-divider p-8">
+                        <div className="bg-surface rounded-sm shadow-premium border border-divider p-6">
                           <div className="flex flex-col w-full">
                             {categoryItems.map((item) => (
                               <DishCard
@@ -346,7 +346,7 @@ export function PropertyPage() {
               <h2 className="text-2xl font-serif font-semibold text-text-primary">
                 Amenities
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {(amenities || []).map((am) => {
                   const IconComponent =
                     am.icon && IconMap[am.icon] ? IconMap[am.icon] : Dumbbell;
@@ -374,10 +374,10 @@ export function PropertyPage() {
                   return (
                     <div
                       key={am.id}
-                      className="bg-surface p-8 rounded-sm shadow-premium border border-divider flex flex-col gap-10"
+                      className="bg-surface p-6 rounded-sm shadow-premium border border-divider flex flex-col gap-6"
                     >
                       <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-10">
+                        <div className="flex items-center gap-6">
                           <div className="p-3 bg-primary-light/20 rounded-sm text-primary-hover shrink-0">
                             <IconComponent size={24} />
                           </div>
@@ -437,8 +437,8 @@ export function PropertyPage() {
                 Information & Support
               </h2>
 
-              <div className="bg-surface rounded-sm shadow-premium border border-divider overflow-hidden mb-12">
-                <div className="p-8 border-b border-gray-50 flex items-start gap-10">
+              <div className="bg-surface rounded-sm shadow-premium border border-divider overflow-hidden mb-8">
+                <div className="p-6 border-b border-gray-50 flex items-start gap-6">
                   <div className="p-3 bg-blue-50 rounded-sm text-blue-600">
                     <Wifi size={24} />
                   </div>
@@ -465,11 +465,11 @@ export function PropertyPage() {
               </div>
 
               {/* Direct Team Communication Actions */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {property.receptionPhone && (
                   <a
                     href={`tel:${property.receptionPhone}`}
-                    className="flex flex-col items-center justify-center gap-2 p-8 bg-surface rounded-sm shadow-premium border border-divider hover:shadow-premium-hover hover:border-indigo-200 transition-all text-text-secondary hover:text-indigo-700"
+                    className="flex flex-col items-center justify-center gap-2 p-6 bg-surface rounded-sm shadow-premium border border-divider hover:shadow-premium-hover hover:border-indigo-200 transition-all text-text-secondary hover:text-indigo-700"
                   >
                     <div className="p-3 bg-primary-light/20 rounded-full text-primary-hover">
                       <PhoneCall size={24} />
@@ -480,7 +480,7 @@ export function PropertyPage() {
                 {property.housekeepingPhone && (
                   <a
                     href={`tel:${property.housekeepingPhone}`}
-                    className="flex flex-col items-center justify-center gap-2 p-8 bg-surface rounded-sm shadow-premium border border-divider hover:shadow-premium-hover hover:border-teal-200 transition-all text-text-secondary hover:text-teal-700"
+                    className="flex flex-col items-center justify-center gap-2 p-6 bg-surface rounded-sm shadow-premium border border-divider hover:shadow-premium-hover hover:border-teal-200 transition-all text-text-secondary hover:text-teal-700"
                   >
                     <div className="p-3 bg-teal-50 rounded-full text-teal-600">
                       <LifeBuoy size={24} />
@@ -491,7 +491,7 @@ export function PropertyPage() {
                 {property.emergencyPhone && (
                   <a
                     href={`tel:${property.emergencyPhone}`}
-                    className="flex flex-col items-center justify-center gap-2 p-8 bg-surface rounded-sm shadow-premium border border-divider hover:shadow-premium-hover hover:border-rose-200 transition-all text-text-secondary hover:text-rose-700"
+                    className="flex flex-col items-center justify-center gap-2 p-6 bg-surface rounded-sm shadow-premium border border-divider hover:shadow-premium-hover hover:border-rose-200 transition-all text-text-secondary hover:text-rose-700"
                   >
                     <div className="p-3 bg-rose-50 rounded-full text-rose-600">
                       <HeartPulse size={24} />
@@ -508,7 +508,7 @@ export function PropertyPage() {
               <h2 className="text-2xl font-serif font-semibold text-text-primary">
                 Your Host
               </h2>
-              <div className="bg-surface p-8 rounded-sm shadow-premium border border-divider flex items-start gap-10">
+              <div className="bg-surface p-6 rounded-sm shadow-premium border border-divider flex items-start gap-6">
                 <div className="p-3 bg-amber-50 rounded-sm text-amber-600">
                   <User size={24} />
                 </div>
@@ -527,7 +527,7 @@ export function PropertyPage() {
                 Info & Experiences
               </h2>
 
-              <div className="bg-surface p-8 rounded-sm shadow-premium border border-divider flex items-start gap-10">
+              <div className="bg-surface p-6 rounded-sm shadow-premium border border-divider flex items-start gap-6">
                 <div className="p-3 bg-rose-50 rounded-sm text-rose-600">
                   <FileText size={24} />
                 </div>
@@ -547,7 +547,7 @@ export function PropertyPage() {
                 </div>
               </div>
 
-              <div className="bg-surface p-8 rounded-sm shadow-premium border border-divider flex items-start gap-10">
+              <div className="bg-surface p-6 rounded-sm shadow-premium border border-divider flex items-start gap-6">
                 <div className="p-3 bg-teal-50 rounded-sm text-teal-600">
                   <Map size={24} />
                 </div>
@@ -567,11 +567,11 @@ export function PropertyPage() {
                   <h3 className="font-medium text-text-primary mb-4">
                     Support & Contacts
                   </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {property.receptionPhone && (
                       <a
                         href={`tel:${property.receptionPhone}`}
-                        className="flex flex-col items-center justify-center gap-2 p-8 bg-surface rounded-sm shadow-premium border border-divider hover:shadow-premium-hover hover:border-indigo-200 transition-all text-text-secondary hover:text-indigo-700"
+                        className="flex flex-col items-center justify-center gap-2 p-6 bg-surface rounded-sm shadow-premium border border-divider hover:shadow-premium-hover hover:border-indigo-200 transition-all text-text-secondary hover:text-indigo-700"
                       >
                         <div className="p-3 bg-primary-light/20 rounded-full text-primary-hover">
                           <PhoneCall size={24} />
@@ -582,7 +582,7 @@ export function PropertyPage() {
                     {property.emergencyPhone && (
                       <a
                         href={`tel:${property.emergencyPhone}`}
-                        className="flex flex-col items-center justify-center gap-2 p-8 bg-surface rounded-sm shadow-premium border border-divider hover:shadow-premium-hover hover:border-rose-200 transition-all text-text-secondary hover:text-rose-700"
+                        className="flex flex-col items-center justify-center gap-2 p-6 bg-surface rounded-sm shadow-premium border border-divider hover:shadow-premium-hover hover:border-rose-200 transition-all text-text-secondary hover:text-rose-700"
                       >
                         <div className="p-3 bg-rose-50 rounded-full text-rose-600">
                           <HeartPulse size={24} />
@@ -600,7 +600,7 @@ export function PropertyPage() {
       
       {/* Floating Bottom Bar (Only visible if scanned) */}
       {isScanned && property && (
-        <div className="fixed bottom-0 left-0 right-0 p-8 z-50 bg-gradient-to-t from-gray-50 via-gray-50/80 to-transparent pointer-events-none pb-safe">
+        <div className="fixed bottom-0 left-0 right-0 p-6 z-50 bg-gradient-to-t from-gray-50 via-gray-50/80 to-transparent pointer-events-none pb-safe">
           <div className="max-w-md mx-auto w-full pointer-events-auto">
             {(property.roomServicePhone || property.receptionPhone) ? (
               <a 

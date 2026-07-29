@@ -290,6 +290,7 @@ async function startServer() {
 
   const CategorySchema = z.object({
     name: z.string().trim().min(1).max(255),
+    displayOrder: z.number().optional(),
   });
 
   // OAuth Setup
@@ -551,6 +552,8 @@ async function startServer() {
         wifiPassword: property.wifiPassword,
         hostInfo: property.hostInfo,
         houseRules: property.houseRules,
+        hotelRules: property.hotelRules,
+        contacts: property.contacts,
         experiences: property.experiences,
         receptionPhone: property.receptionPhone,
         housekeepingPhone: property.housekeepingPhone,
@@ -726,6 +729,7 @@ async function startServer() {
       const guest = await prisma.guest.create({
         data: {
           ...data,
+          phone: data.phone || "",
           propertyId: property.id,
           arrivalDate: data.arrivalDate ? new Date(data.arrivalDate) : null,
           departureDate: data.departureDate ? new Date(data.departureDate) : null,
@@ -925,13 +929,19 @@ async function startServer() {
     try {
       const name = String(req.body.name || 'New Property');
       const slug = await generateUniqueSlug(name);
-      // @ts-ignore
+      const membership = await prisma.organizationMembership.findFirst({
+        where: { userId: req.session.userId as string }
+      });
+      if (!membership) {
+        return res.status(403).json({ error: "User is not part of an organization" });
+      }
+
       const property = await prisma.property.create({
         data: {
           name,
           slug,
-          // @ts-ignore
-          ownerId: req.session.userId,
+          ownerId: req.session.userId as string,
+          orgId: membership.orgId,
         },
         include: { subscription: true }
       });
@@ -1123,6 +1133,7 @@ async function startServer() {
               directions: a.directions || "",
               contact: a.contact || "",
               heroImage: a.imageUrl || a.heroImage || "",
+              status: a.status || "ACTIVE",
               priority: i + 1
             }))
           });
@@ -1305,7 +1316,11 @@ async function startServer() {
       }
 
       const category = await prisma.menuCategory.create({
-        data: { name: validatedData.name, propertyId: property.id }
+        data: { 
+          name: validatedData.name, 
+          propertyId: property.id,
+          displayOrder: validatedData.displayOrder ?? 0
+        }
       });
 
       publicPropertyCache.delete(req.params.slug);
@@ -1336,7 +1351,10 @@ async function startServer() {
 
       const updated = await prisma.menuCategory.update({
         where: { id },
-        data: { name: validatedData.name }
+        data: { 
+          name: validatedData.name,
+          displayOrder: validatedData.displayOrder ?? category.displayOrder
+        }
       });
       res.json(updated);
     } catch (err) {
@@ -1364,6 +1382,112 @@ async function startServer() {
 
     await prisma.menuCategory.delete({ where: { id } });
     res.json({ success: true });
+  });
+
+  // ============================================================
+  // DASHBOARD & ACTIVITY
+  // ============================================================
+
+  app.get("/api/manager/properties/:slug/activity", requireAuth, async (req, res) => {
+    try {
+      const { slug } = req.params;
+      // @ts-ignore
+      const { userId } = req.session;
+
+      const property = await prisma.property.findFirst({
+        where: { slug, ownerId: userId }
+      });
+
+      if (!property) {
+        return res.status(403).json({ error: "Unauthorized or property not found" });
+      }
+
+      // We need to return structured data for the dashboard.
+      // Since tracking is not yet implemented, ActivityEvent will be empty.
+      // We will safely query it anyway so it's ready for the future.
+      const now = new Date();
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      yesterday.setHours(0, 0, 0, 0);
+      const today = new Date(now);
+      today.setHours(0, 0, 0, 0);
+
+      // Recent events (last 5)
+      const recentActivity = await prisma.activityEvent.findMany({
+        where: { propertyId: property.id },
+        orderBy: { timestamp: "desc" },
+        take: 5
+      });
+
+      // Yesterday's metrics
+      const yesterdayScans = await prisma.activityEvent.count({
+        where: { propertyId: property.id, timestamp: { gte: yesterday, lt: today }, action: 'VIEWED', resourceType: 'PROPERTY' }
+      });
+      const yesterdayMenuViews = await prisma.activityEvent.count({
+        where: { propertyId: property.id, timestamp: { gte: yesterday, lt: today }, action: 'VIEWED', resourceType: 'MENU' }
+      });
+      const yesterdayAmenityViews = await prisma.activityEvent.count({
+        where: { propertyId: property.id, timestamp: { gte: yesterday, lt: today }, action: 'VIEWED', resourceType: 'RECOMMENDATION' }
+      });
+
+      // Guest interactions (e.g. WhatsApp, Reception calls)
+      const interactions = await prisma.activityEvent.findMany({
+        where: { 
+          propertyId: property.id,
+          action: 'EXECUTED',
+          resourceType: 'RECOMMENDATION'
+        },
+        orderBy: { timestamp: "desc" },
+        take: 5
+      });
+
+      res.json({
+        recent: recentActivity,
+        yesterday: {
+          scans: yesterdayScans,
+          menuViews: yesterdayMenuViews,
+          guestPageVisits: yesterdayScans, // Proxy for now
+          amenityViews: yesterdayAmenityViews,
+          houseRulesViews: 0
+        },
+        interactions: interactions
+      });
+
+    } catch (err: any) {
+      console.error("[Activity] Error:", err);
+      res.status(500).json({ error: "Failed to fetch activity" });
+    }
+  });
+
+  // ============================================================
+  // PUBLIC TRACKING
+  // ============================================================
+
+  app.post("/api/tracking/event", async (req, res) => {
+    try {
+      const { propertyId, action, resourceType, metadata } = req.body;
+      if (!propertyId || !action || !resourceType) {
+        return res.status(400).json({ error: "Missing tracking data" });
+      }
+
+      const property = await prisma.property.findUnique({ where: { id: propertyId } });
+      if (!property) return res.status(404).json({ error: "Property not found" });
+
+      await prisma.activityEvent.create({
+        data: {
+          organizationId: property.orgId,
+          propertyId: property.id,
+          action,
+          resourceType,
+          source: 'WEB',
+          metadata: metadata || {}
+        }
+      });
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("[Tracking] Error:", err);
+      res.status(500).json({ error: "Failed to track event" });
+    }
   });
 
   // ============================================================
@@ -1466,6 +1590,8 @@ async function startServer() {
           wifiPassword: property.wifiPassword,
           hostInfo: property.hostInfo,
           houseRules: property.houseRules,
+          hotelRules: property.hotelRules,
+          contacts: property.contacts,
           experiences: property.experiences,
           receptionPhone: property.receptionPhone,
           housekeepingPhone: property.housekeepingPhone,
@@ -1473,7 +1599,7 @@ async function startServer() {
           roomServicePhone: property.roomServicePhone,
           checkInTime: property.checkInTime,
           checkOutTime: property.checkOutTime,
-          contacts: property.contacts,
+
           conciergeServices: property.conciergeServices,
           galleryImages: property.galleryImages,
           gallery: property.gallery,

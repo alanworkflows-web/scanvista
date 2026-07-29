@@ -535,9 +535,15 @@ export function PropertyPage() {
                   <h3 className="font-medium text-text-primary mb-2">
                     House Rules
                   </h3>
-                  <p className="text-text-secondary opacity-80 text-sm leading-relaxed">
-                    {property.houseRules || "No house rules listed."}
-                  </p>
+                  <div className="text-text-secondary opacity-80 text-sm leading-relaxed whitespace-pre-wrap">
+                    {(() => {
+                      const rules = property.hotelRules || property.houseRules;
+                      if (!rules) return "No house rules listed.";
+                      if (typeof rules === 'string') return rules;
+                      if (Array.isArray(rules)) return rules.map((r: any) => typeof r === 'string' ? r : r.text || JSON.stringify(r)).join('\n');
+                      return JSON.stringify(rules);
+                    })()}
+                  </div>
                 </div>
               </div>
 

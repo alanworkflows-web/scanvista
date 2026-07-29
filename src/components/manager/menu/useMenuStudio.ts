@@ -3,11 +3,13 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 export interface Category {
   id: string;
   name: string;
+  displayOrder?: number;
 }
 
 export interface Dish {
   id: string;
   name: string;
+  description?: string;
   price: number;
   categoryId: string;
   allergens: string;
@@ -15,6 +17,10 @@ export interface Dish {
   isOutOfStock: boolean;
   imageUrl?: string;
   dietaryCategory?: string;
+  isVeg?: boolean;
+  isPopular?: boolean;
+  spiceLevel?: string;
+  preparationTime?: string;
 }
 
 export function useMenuStudio(propertySlug: string) {
@@ -35,9 +41,12 @@ export function useMenuStudio(propertySlug: string) {
     try {
       const res = await fetch(`/api/properties/${propertySlug}`);
       const data = await res.json();
-      setOriginalCategories(data.categories || []);
+      const fetchedCategories = data.categories || [];
+      fetchedCategories.sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0));
+      
+      setOriginalCategories(fetchedCategories);
       setOriginalDishes(data.dishes || []);
-      setCategories(data.categories || []);
+      setCategories(fetchedCategories);
       setDishes(data.dishes || []);
       setDeletedCategoryIds(new Set());
       setDeletedDishIds(new Set());
@@ -63,8 +72,10 @@ export function useMenuStudio(propertySlug: string) {
       const orig = originalCategories.find(oc => oc.id === c.id);
       return !orig || orig.name !== c.name;
     });
-    
     if (categoriesChanged) return true;
+
+    const categoryOrderChanged = categories.some((c, i) => c.id !== originalCategories[i]?.id);
+    if (categoryOrderChanged) return true;
     
     const dishesChanged = dishes.some(d => {
       const orig = originalDishes.find(od => od.id === d.id);
@@ -74,7 +85,12 @@ export function useMenuStudio(propertySlug: string) {
              orig.categoryId !== d.categoryId ||
              orig.allergens !== d.allergens ||
              orig.healthTips !== d.healthTips ||
-             orig.isOutOfStock !== d.isOutOfStock;
+             orig.isOutOfStock !== d.isOutOfStock ||
+             orig.isVeg !== d.isVeg ||
+             orig.isPopular !== d.isPopular ||
+             orig.spiceLevel !== d.spiceLevel ||
+             orig.preparationTime !== d.preparationTime ||
+             orig.imageUrl !== d.imageUrl;
     });
     
     return dishesChanged;
@@ -82,6 +98,10 @@ export function useMenuStudio(propertySlug: string) {
 
   const addCategory = (name: string) => {
     setCategories(prev => [...prev, { id: `temp-cat-${crypto.randomUUID()}`, name }]);
+  };
+
+  const reorderCategories = (newOrder: Category[]) => {
+    setCategories(newOrder);
   };
 
   const updateCategory = (id: string, name: string) => {
@@ -142,22 +162,24 @@ export function useMenuStudio(propertySlug: string) {
       // We must await creates to get real IDs back so we can map dishes to them.
       const categoryIdMap = new Map<string, string>(); // tempId -> realId
       
-      for (const c of categories) {
+      for (let i = 0; i < categories.length; i++) {
+        const c = categories[i];
         if (c.id.startsWith('temp-')) {
           const res = await fetch(`/api/manager/properties/${propertySlug}/categories`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: c.name })
+            body: JSON.stringify({ name: c.name, displayOrder: i })
           });
           const saved = await res.json();
           categoryIdMap.set(c.id, saved.id);
         } else {
-          const orig = originalCategories.find(oc => oc.id === c.id);
-          if (orig && orig.name !== c.name) {
+          const origIndex = originalCategories.findIndex(oc => oc.id === c.id);
+          const orig = originalCategories[origIndex];
+          if (orig && (orig.name !== c.name || origIndex !== i)) {
             await fetch(`/api/manager/categories/${c.id}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ name: c.name })
+              body: JSON.stringify({ name: c.name, displayOrder: i })
             });
           }
         }
@@ -172,6 +194,11 @@ export function useMenuStudio(propertySlug: string) {
           allergens: d.allergens,
           healthTips: d.healthTips,
           isOutOfStock: d.isOutOfStock,
+          isVeg: d.isVeg || false,
+          isPopular: d.isPopular || false,
+          spiceLevel: d.spiceLevel || 'None',
+          preparationTime: d.preparationTime || '',
+          imageUrl: d.imageUrl || '',
         };
 
         if (d.id.startsWith('temp-')) {
@@ -214,6 +241,7 @@ export function useMenuStudio(propertySlug: string) {
     categories,
     dishes,
     addCategory,
+    reorderCategories,
     updateCategory,
     deleteCategory,
     saveDish,

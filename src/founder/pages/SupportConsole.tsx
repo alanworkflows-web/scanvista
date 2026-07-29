@@ -77,10 +77,10 @@ export function SupportConsole() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-10 p-8 bg-surface/50">
                 <div className="space-y-3">
                   <h4 className="text-xs font-semibold text-text-secondary opacity-60 uppercase tracking-wider">Support Actions</h4>
-                  <Button variant="outline" className="w-full justify-start bg-surface text-blue-700 border-blue-200 hover:bg-blue-50">
+                  <Button variant="secondary" className="w-full justify-start bg-surface text-blue-700 border-blue-200 hover:bg-blue-50">
                     <KeySquare size={16} className="mr-2" /> Impersonate
                   </Button>
-                  <Button variant="outline" className="w-full justify-start bg-surface">
+                  <Button variant="secondary" className="w-full justify-start bg-surface">
                     <FileText size={16} className="mr-2 text-text-muted" /> View Audit Logs
                   </Button>
                 </div>
@@ -101,10 +101,10 @@ export function SupportConsole() {
 
                 <div className="space-y-3">
                   <h4 className="text-xs font-semibold text-text-secondary opacity-60 uppercase tracking-wider">Compliance</h4>
-                  <Button variant="outline" className="w-full justify-start bg-surface text-text-secondary opacity-80">
+                  <Button variant="secondary" className="w-full justify-start bg-surface text-text-secondary opacity-80">
                     <Download size={16} className="mr-2 text-text-muted" /> Export Data
                   </Button>
-                  <Button variant="outline" className="w-full justify-start bg-surface text-red-600 hover:bg-red-50 border-red-100">
+                  <Button variant="secondary" className="w-full justify-start bg-surface text-red-600 hover:bg-red-50 border-red-100">
                     <ShieldAlert size={16} className="mr-2 text-red-400" /> Block Access
                   </Button>
                 </div>

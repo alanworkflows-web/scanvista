@@ -50,6 +50,8 @@ export function ManagerPublishing() {
       const currentPublished = snapshotsList.length > 0 ? snapshotsList[0].data : null;
       
       if (!property.previewToken) return;
+      if (!property.previewToken) return;
+      if (!property.previewToken) return;
       const res = await fetch(`/api/preview/${property.previewToken}`);
       const draftData = await res.json();
 
@@ -188,7 +190,7 @@ export function ManagerPublishing() {
                   let link = "/manager/property";
                   const lower = check.name.toLowerCase();
                   if (lower.includes("hero") || lower.includes("image")) link = "/manager/experience";
-                  if (lower.includes("menu") || lower.includes("dish") || lower.includes("category")) link = "/manager/restaurant";
+                  if (lower.includes("menu") || lower.includes("dish") || lower.includes("category")) link = "/manager/menu";
 
                   return (
                     <div 
@@ -336,9 +338,15 @@ export function ManagerPublishing() {
               </p>
               
               <div className="bg-[#FCFAF7] border border-[#EAE8E1] rounded-lg p-4 font-mono text-xs space-y-2">
-                <div>Added Items: {diffResult.addedCount || 0}</div>
-                <div>Modified Items: {diffResult.modifiedCount || 0}</div>
-                <div>Deleted Items: {diffResult.deletedCount || 0}</div>
+                {diffResult.messages && diffResult.messages.length > 0 ? (
+                  <ul className="list-disc pl-4 space-y-1">
+                    {diffResult.messages.map((m, i) => (
+                      <li key={i}>{m}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div>No major changes detected.</div>
+                )}
               </div>
             </div>
 

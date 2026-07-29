@@ -2,57 +2,88 @@ import React, { useState, useEffect } from "react";
 import { ManagerLayout } from "../components/ManagerLayout";
 import { useManagerProperty } from "../hooks/useManagerProperty";
 import { Link, useNavigate } from "react-router-dom";
+import { Button } from "../components/ui/Button";
 import { toast } from "sonner";
 import { calculateCompletion } from "../lib/completionEngine";
 import { getPublishingStatus } from "../lib/publishingState";
-import { safeFormatTime } from "../lib/dateUtils";
 import { 
-  CheckCircle2, Send, Globe,
-  Clock, Zap, Target, Settings, Plus, Eye
+  CheckCircle2, Send, Globe, Zap, Settings, Plus, Eye,
+  LayoutDashboard, CheckSquare, Trash2, Calendar, FileText, Image, AlignLeft,
+  Utensils, MapPin, Shield, MessageSquare, PhoneCall, Link2, Activity
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { dispatchSync } from "../lib/sync";
+import { safeFormatTime } from "../lib/dateUtils";
+
+interface Task {
+  id: string;
+  title: string;
+  completed: boolean;
+}
+
+const DEFAULT_TASKS: Task[] = [
+  { id: '1', title: 'Review guest requests', completed: false },
+  { id: '2', title: 'Update menu', completed: false },
+  { id: '3', title: 'Verify QR page', completed: false },
+  { id: '4', title: 'Publish changes', completed: false },
+  { id: '5', title: 'Update amenities', completed: false }
+];
 
 export function ManagerHome() {
   const { property, loading, refreshProperty } = useManagerProperty();
   const [publishing, setPublishing] = useState(false);
-  const [isNavigating, setIsNavigating] = useState(false);
   const navigate = useNavigate();
-
-  const handleAddMenuClick = () => {
-    setIsNavigating(true);
-    setTimeout(() => {
-      navigate("/manager/menu");
-    }, 50);
-  };
   
   const [snapshots, setSnapshots] = useState<any[]>([]);
   const [draftData, setDraftData] = useState<any>(null);
+  
+  // Dashboard states
+  const [activityData, setActivityData] = useState<any>(null);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [newTaskText, setNewTaskText] = useState("");
 
   useEffect(() => {
     if (property) {
-      const fetchLiveStatus = async () => {
+      // Load tasks from local storage
+      const savedTasks = localStorage.getItem(`scanvista_tasks_${property.slug}`);
+      if (savedTasks) {
+        setTasks(JSON.parse(savedTasks));
+      } else {
+        setTasks(DEFAULT_TASKS);
+      }
+
+      const fetchData = async () => {
         try {
+          // Snapshots and Drafts
           const liveRes = await fetch(`/api/manager/properties/${property.slug}/snapshots`);
           if (liveRes.ok) {
             const raw = await liveRes.json();
-            const snapshotsList = Array.isArray(raw) ? raw : (raw.snapshots || []);
-            setSnapshots(snapshotsList);
+            setSnapshots(Array.isArray(raw) ? raw : (raw.snapshots || []));
           }
-
           if (property.previewToken) {
             const previewRes = await fetch(`/api/preview/${property.previewToken}`);
-            if (previewRes.ok) {
-              setDraftData(await previewRes.json());
-            }
+            if (previewRes.ok) setDraftData(await previewRes.json());
+          }
+
+          // Activity
+          const actRes = await fetch(`/api/manager/properties/${property.slug}/activity`);
+          if (actRes.ok) {
+            setActivityData(await actRes.json());
           }
         } catch (e) {
           console.error(e);
         }
       };
-      fetchLiveStatus();
+      fetchData();
     }
   }, [property]);
+
+  // Persist tasks when changed
+  useEffect(() => {
+    if (property && tasks.length > 0) {
+      localStorage.setItem(`scanvista_tasks_${property.slug}`, JSON.stringify(tasks));
+    }
+  }, [tasks, property]);
 
   const handlePublish = async () => {
     if (!property?.slug) return;
@@ -74,6 +105,21 @@ export function ManagerHome() {
     }
   };
 
+  const addTask = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTaskText.trim()) return;
+    setTasks([...tasks, { id: Date.now().toString(), title: newTaskText, completed: false }]);
+    setNewTaskText("");
+  };
+
+  const toggleTask = (id: string) => {
+    setTasks(tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
+  };
+
+  const deleteTask = (id: string) => {
+    setTasks(tasks.filter(t => t.id !== id));
+  };
+
   if (loading) {
     return (
       <ManagerLayout>
@@ -88,167 +134,248 @@ export function ManagerHome() {
 
   const completion = calculateCompletion(property);
   const status = getPublishingStatus(property, snapshots, draftData);
-  const lastSaved = safeFormatTime(property.updatedAt);
+  const isReady = completion.score === 100;
 
+  // Determine sub-statuses based on completion logic (we map missing items)
+  const isLogoMissing = completion.missing.includes("Logo");
+  const isCoverMissing = completion.missing.includes("Cover Image");
+  const isHouseRulesMissing = completion.missing.includes("House Rules");
+  
   return (
     <ManagerLayout>
       <div className="max-w-6xl mx-auto pb-20 animate-in fade-in duration-500">
         
-        {/* Command Center Header */}
-        <div className="mb-12">
-          <h1 className="text-3xl font-serif font-medium text-text-primary tracking-tight mb-2">Command Center</h1>
-          <div className="flex items-center gap-2 text-sm">
-            <span className="flex items-center gap-1.5 font-medium text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-              <CheckCircle2 size={14} className="text-emerald-600" /> Systems Operational
-            </span>
-            <span className="text-text-muted">&bull;</span>
-            <span className="text-text-secondary opacity-60">Last saved {lastSaved}</span>
+        {/* Welcome Header */}
+        <div className="mb-10 bg-surface border border-divider rounded-xl p-8 shadow-premium relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div className="relative z-10">
+            <h1 className="text-3xl font-serif font-medium text-text-primary mb-2">Good Morning, {property.owner?.name?.split(' ')[0] || 'Manager'}</h1>
+            <p className="text-text-secondary text-lg">Welcome back to ScanVista.</p>
+            <div className="flex items-center gap-4 mt-6">
+              <span className="text-sm font-medium px-3 py-1 bg-background border border-divider rounded-md flex items-center gap-2">
+                <MapPin size={14} className="text-primary" /> {property.name}
+              </span>
+              <span className={`text-sm font-medium px-3 py-1 rounded-md flex items-center gap-2 ${status.hasChanges ? 'bg-amber-100 text-amber-700 border border-amber-200' : 'bg-emerald-100 text-emerald-700 border border-emerald-200'}`}>
+                {status.hasChanges ? <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" /> : <CheckCircle2 size={14} />} 
+                {status.hasChanges ? 'Drafts Pending' : 'Published'}
+              </span>
+            </div>
+          </div>
+          <div className="relative z-10">
+             <button 
+                onClick={handlePublish}
+                disabled={!status.hasChanges || publishing}
+                className={`flex items-center gap-2 px-8 py-3 rounded-xl font-medium shadow-sm transition whitespace-nowrap ${
+                  status.hasChanges 
+                    ? "bg-text-primary hover:bg-text-primary/90 text-white shadow-premium cursor-pointer" 
+                    : "bg-surface-hover text-text-muted border border-divider cursor-not-allowed"
+                }`}
+              >
+                {publishing ? <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : <Send size={18} />} 
+                {publishing ? "Publishing..." : status.hasChanges ? "Publish Live" : "Up to Date"}
+              </button>
           </div>
         </div>
 
-        {/* Top Operational Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
-          <div className="bg-surface rounded-sm p-8 border border-divider shadow-premium flex flex-col justify-between">
-            <div className="flex items-center gap-2 text-text-secondary opacity-60 mb-4">
-              <Globe size={16} /> <span className="text-xs font-semibold uppercase tracking-widest">Live Status</span>
-            </div>
-            <div>
-              <p className="text-3xl font-serif font-bold text-text-primary mb-1">{status.label}</p>
-              <p className="text-sm text-text-secondary opacity-60">{status.subtext}</p>
-            </div>
-          </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          <div className="bg-surface rounded-sm p-8 border border-divider shadow-premium flex flex-col justify-between">
-            <div className="flex items-center gap-2 text-text-secondary opacity-60 mb-4">
-              <Target size={16} /> <span className="text-xs font-semibold uppercase tracking-widest">Launch Readiness</span>
-            </div>
-            <div>
-              <div className="flex items-end gap-2">
-                <p className="text-5xl font-serif font-bold text-text-primary">{completion.score}%</p>
-              </div>
-              <div className="w-full h-1.5 bg-surface-hover rounded-full mt-2 overflow-hidden">
-                <div className="h-full bg-primary rounded-full" style={{ width: `${completion.score}%` }} />
-              </div>
-            </div>
-          </div>
-
-          <div className="md:col-span-2 bg-text-primary border border-divider rounded-sm p-8 shadow-premium text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-10 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-20 -mt-20"></div>
-            <div className="relative z-10">
-              <h3 className="text-lg font-medium mb-1">
-                {status.hasChanges ? 'Changes Pending Publication' : 'Up to Date'}
-              </h3>
-              <p className="text-sm text-text-muted/80 opacity-90">
-                {status.hasChanges 
-                  ? `You have ${status.diffResult?.messages.length || 1} pending modification(s).` 
-                  : 'All your changes are live for guests.'}
-              </p>
-            </div>
-            <button 
-              onClick={handlePublish}
-              disabled={!status.hasChanges || completion.score < 100 || publishing}
-              className={`relative z-10 flex items-center gap-2 px-6 py-2.5 rounded-full font-medium shadow-premium transition whitespace-nowrap ${
-                status.hasChanges && completion.score === 100 
-                  ? "bg-primary hover:bg-primary-hover text-white shadow-premium cursor-pointer" 
-                  : "bg-surface/10 text-white/40 cursor-not-allowed"
-              }`}
-            >
-              {publishing ? <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : <Send size={16} />} 
-              {publishing ? "Publishing..." : "Publish to Live"}
-            </button>
-          </div>
-        </div>
-
-        {/* Main Content Area */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-          
-          {/* Left Column: Quick Actions & Tasks */}
-          <div className="lg:col-span-2 space-y-6">
-            <div className="bg-surface border border-divider rounded-sm p-8 shadow-premium">
+          {/* Main Column */}
+          <div className="lg:col-span-2 space-y-8">
+            
+            {/* Quick Actions */}
+            <div className="bg-surface border border-divider rounded-xl p-6 shadow-sm">
               <h2 className="text-lg font-medium text-text-primary mb-4 flex items-center gap-2">
                 <Zap size={18} className="text-amber-500" /> Quick Actions
               </h2>
-              <div className="grid grid-cols-2 gap-3">
-                <button 
-                  onClick={handleAddMenuClick}
-                  disabled={isNavigating}
-                  className="flex items-center justify-between p-8 rounded-sm border border-divider hover:border-divider hover:bg-primary/5/50 transition-colors group text-left disabled:opacity-50 cursor-pointer"
-                >
-                  <div>
-                    <span className="block font-medium text-text-primary mb-1">Add Menu Item</span>
-                    <span className="text-xs text-text-secondary opacity-60">Update your restaurant offerings</span>
-                  </div>
-                  <div className="w-8 h-8 rounded-full bg-surface shadow-premium flex items-center justify-center text-text-muted group-hover:text-primary transition-colors">
-                    {isNavigating ? <div className="w-4 h-4 rounded-full border-2 border-divider border-t-emerald-600 animate-spin" /> : <Plus size={16} />}
-                  </div>
-                </button>
-                
-                <Link to="/manager/experience" className="flex items-center justify-between p-8 rounded-sm border border-divider hover:border-indigo-200 hover:bg-primary-light/20/50 transition-colors group">
-                  <div>
-                    <span className="block font-medium text-text-primary mb-1">Edit Brand</span>
-                    <span className="text-xs text-text-secondary opacity-60">Change colors and logos</span>
-                  </div>
-                  <div className="w-8 h-8 rounded-full bg-surface shadow-premium flex items-center justify-center text-text-muted group-hover:text-primary-hover transition-colors">
-                    <Settings size={16} />
-                  </div>
-                </Link>
+              <div className="flex flex-wrap gap-3">
+                <Link to="/manager/experience" className="px-4 py-2 bg-background border border-divider hover:border-primary rounded-lg text-sm font-medium transition-colors text-text-primary">Edit Property</Link>
+                <Link to="/manager/menu" className="px-4 py-2 bg-background border border-divider hover:border-primary rounded-lg text-sm font-medium transition-colors text-text-primary">Edit Menu</Link>
+                <Link to="/manager/amenities" className="px-4 py-2 bg-background border border-divider hover:border-primary rounded-lg text-sm font-medium transition-colors text-text-primary">Edit Amenities</Link>
+                <Link to="/manager/house-rules" className="px-4 py-2 bg-background border border-divider hover:border-primary rounded-lg text-sm font-medium transition-colors text-text-primary">Edit House Rules</Link>
+                <Link to={`/preview/${property.previewToken}`} target="_blank" className="px-4 py-2 bg-background border border-divider hover:border-primary rounded-lg text-sm font-medium transition-colors text-primary flex items-center gap-1.5"><Eye size={14}/> Preview Guest Page</Link>
               </div>
             </div>
 
-            {completion.score < 100 && (
-              <div className="bg-surface border border-divider rounded-sm p-8 shadow-premium">
-                <h2 className="text-lg font-medium text-text-primary mb-4 flex items-center gap-2">
-                  <CheckCircle2 size={18} className="text-primary" /> Setup Progress
-                </h2>
+            {/* Yesterday's ScanVista Activity */}
+            <div className="bg-surface border border-divider rounded-xl p-6 shadow-sm">
+              <h2 className="text-lg font-medium text-text-primary mb-4 flex items-center gap-2">
+                <Calendar size={18} className="text-indigo-500" /> Yesterday's ScanVista Activity
+              </h2>
+              
+              {!activityData?.yesterday || activityData.yesterday.scans === 0 ? (
+                <div className="bg-surface-hover/50 border border-dashed border-divider rounded-lg p-8 text-center">
+                  <Activity size={32} className="text-text-muted mx-auto mb-3 opacity-50" />
+                  <p className="text-sm font-medium text-text-secondary">No ScanVista activity recorded yesterday.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-background border border-divider rounded-lg p-4 text-center">
+                    <p className="text-3xl font-serif text-text-primary mb-1">{activityData.yesterday.scans}</p>
+                    <p className="text-xs uppercase font-semibold text-text-muted tracking-wider">QR Scans</p>
+                  </div>
+                  <div className="bg-background border border-divider rounded-lg p-4 text-center">
+                    <p className="text-3xl font-serif text-text-primary mb-1">{activityData.yesterday.guestPageVisits}</p>
+                    <p className="text-xs uppercase font-semibold text-text-muted tracking-wider">Page Visits</p>
+                  </div>
+                  <div className="bg-background border border-divider rounded-lg p-4 text-center">
+                    <p className="text-3xl font-serif text-text-primary mb-1">{activityData.yesterday.menuViews}</p>
+                    <p className="text-xs uppercase font-semibold text-text-muted tracking-wider">Menu Views</p>
+                  </div>
+                  <div className="bg-background border border-divider rounded-lg p-4 text-center">
+                    <p className="text-3xl font-serif text-text-primary mb-1">{activityData.yesterday.amenityViews}</p>
+                    <p className="text-xs uppercase font-semibold text-text-muted tracking-wider">Amenity Views</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Today's Tasks */}
+            <div className="bg-surface border border-divider rounded-xl p-6 shadow-sm">
+              <h2 className="text-lg font-medium text-text-primary mb-4 flex items-center gap-2">
+                <CheckSquare size={18} className="text-emerald-500" /> Today's Tasks
+              </h2>
+              
+              <div className="space-y-2 mb-4">
+                {tasks.map(task => (
+                  <div key={task.id} className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${task.completed ? 'bg-surface-hover/30 border-transparent opacity-60' : 'bg-background border-divider'}`}>
+                    <label className="flex items-center gap-3 cursor-pointer flex-1">
+                      <input 
+                        type="checkbox" 
+                        checked={task.completed} 
+                        onChange={() => toggleTask(task.id)}
+                        className="w-4 h-4 rounded border-divider text-primary focus:ring-primary"
+                      />
+                      <span className={`text-sm ${task.completed ? 'line-through text-text-muted' : 'text-text-primary'}`}>{task.title}</span>
+                    </label>
+                    <button onClick={() => deleteTask(task.id)} className="p-1.5 text-text-muted hover:text-red-500 rounded-md transition-colors opacity-0 hover:opacity-100 group-hover:opacity-100">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+                {tasks.length === 0 && (
+                   <p className="text-sm text-text-muted text-center py-4">All caught up! No tasks for today.</p>
+                )}
+              </div>
+              
+              <form onSubmit={addTask} className="flex gap-2">
+                <input 
+                  type="text" 
+                  value={newTaskText}
+                  onChange={e => setNewTaskText(e.target.value)}
+                  placeholder="Add a new task..."
+                  className="flex-1 px-4 py-2 text-sm bg-background border border-divider rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                />
+                <Button type="submit" size="sm" className="bg-text-primary hover:bg-text-primary/90 text-white">Add</Button>
+              </form>
+            </div>
+
+            {/* Guest Interactions */}
+            <div className="bg-surface border border-divider rounded-xl p-6 shadow-sm">
+              <h2 className="text-lg font-medium text-text-primary mb-4 flex items-center gap-2">
+                <MessageSquare size={18} className="text-blue-500" /> Guest Interactions
+              </h2>
+              
+              {!activityData?.interactions || activityData.interactions.length === 0 ? (
+                <div className="bg-surface-hover/50 border border-dashed border-divider rounded-lg p-8 text-center">
+                  <p className="text-sm font-medium text-text-secondary">No ScanVista interactions initiated yet.</p>
+                </div>
+              ) : (
                 <div className="space-y-3">
-                  {completion.missing.map((reqName: string, i: number) => (
-                    <div key={i} className="flex items-center justify-between p-3 rounded-sm bg-red-50/50 border border-red-100">
+                  {activityData.interactions.map((interaction: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between p-3 border border-divider rounded-lg bg-background">
                       <div className="flex items-center gap-3">
-                        <div className="w-4 h-4 rounded-full border-2 border-red-400" />
-                        <span className="font-medium text-text-primary">{reqName}</span>
+                        <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><PhoneCall size={14} /></div>
+                        <span className="text-sm font-medium text-text-primary">Reception Call clicked</span>
                       </div>
-                      <Link to="/manager/experience" className="text-xs font-medium text-red-600 hover:text-red-700 bg-surface px-3 py-1.5 rounded-full shadow-premium">
-                        Fix Now
-                      </Link>
+                      <span className="text-xs text-text-muted">{safeFormatTime(interaction.timestamp)}</span>
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+
           </div>
 
-          {/* Right Column: Live Guest Preview Link & Activity */}
-          <div className="space-y-6">
-            <div className="bg-surface border border-[#EAE8E1] rounded-xl p-6 shadow-sm relative overflow-hidden">
-              <h2 className="text-lg font-serif font-medium text-[#1A1A1A] mb-1">Guest View</h2>
-              <p className="text-xs text-text-secondary mb-6">See exactly what your guests see on their mobile device.</p>
-              
-              <Link 
-                to={`/preview/${property.previewToken}`} 
-                target="_blank" 
-                rel="noreferrer" 
-                className="flex items-center justify-center gap-2 w-full py-3 bg-[#1A1A1A] text-white hover:bg-[#2A2A2A] transition-all text-xs uppercase tracking-wider rounded-lg font-medium shadow-sm"
-              >
-                <Eye size={16} /> Open Guest Preview
-              </Link>
-            </div>
+          {/* Right Column */}
+          <div className="space-y-8">
             
-            <div className="bg-surface border border-divider rounded-sm p-8 shadow-premium">
-               <h2 className="text-sm font-medium text-text-primary uppercase tracking-wider mb-4">Recent Activity</h2>
-               <div className="space-y-4">
-                 <div className="flex items-start gap-3">
-                   <div className="w-8 h-8 rounded-full bg-background flex items-center justify-center shrink-0 mt-0.5 border border-divider">
-                     <Clock size={14} className="text-text-muted" />
-                   </div>
-                   <div>
-                     <p className="text-sm font-medium text-text-primary">System logged state</p>
-                     <p className="text-xs text-text-secondary opacity-60 mt-0.5">{lastSaved}</p>
-                   </div>
-                 </div>
+            {/* Publishing Status */}
+            <div className="bg-surface border border-divider rounded-xl p-6 shadow-sm">
+               <h2 className="text-sm font-semibold uppercase tracking-wider text-text-muted mb-4">Publishing Status</h2>
+               <div className="space-y-3">
+                  {[
+                    { label: 'Property Info', icon: <Image size={14}/>, isPublished: !status.hasChanges }, // Simplification for demo
+                    { label: 'Menu', icon: <Utensils size={14}/>, isPublished: !status.hasChanges },
+                    { label: 'Amenities', icon: <MapPin size={14}/>, isPublished: !status.hasChanges },
+                    { label: 'House Rules', icon: <Shield size={14}/>, isPublished: !status.hasChanges },
+                    { label: 'Guest Page', icon: <Globe size={14}/>, isPublished: !status.hasChanges },
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-sm text-text-primary">
+                        <span className="text-text-muted">{item.icon}</span> {item.label}
+                      </div>
+                      <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${item.isPublished ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                        {item.isPublished ? 'Published' : 'Draft'}
+                      </span>
+                    </div>
+                  ))}
                </div>
             </div>
-          </div>
 
+            {/* Property Health */}
+            <div className="bg-surface border border-divider rounded-xl p-6 shadow-sm">
+               <h2 className="text-sm font-semibold uppercase tracking-wider text-text-muted mb-4">Property Health</h2>
+               
+               <div className="mb-4">
+                 <div className="flex items-center justify-between mb-2">
+                   <span className={`text-sm font-semibold ${isReady ? 'text-emerald-600' : 'text-amber-600'}`}>
+                     {isReady ? 'Ready for Guests' : 'Needs Attention'}
+                   </span>
+                   <span className="text-sm font-bold text-text-primary">{completion.score}%</span>
+                 </div>
+                 <div className="w-full h-2 bg-divider rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full transition-all ${isReady ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${completion.score}%` }}></div>
+                 </div>
+               </div>
+
+               <div className="space-y-2.5">
+                  {[
+                    { label: 'Property details complete', ok: !completion.missing.includes("Property Name") },
+                    { label: 'Logo uploaded', ok: !isLogoMissing },
+                    { label: 'Cover image uploaded', ok: !isCoverMissing },
+                    { label: 'House Rules configured', ok: !isHouseRulesMissing },
+                    { label: 'Menu categories created', ok: property.categories?.length > 0 },
+                    { label: 'Amenities added', ok: property.amenities?.length > 0 },
+                  ].map((req, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      {req.ok ? <CheckCircle2 size={14} className="text-emerald-500" /> : <div className="w-3.5 h-3.5 rounded-full border-2 border-divider" />}
+                      <span className={`text-xs ${req.ok ? 'text-text-primary' : 'text-text-muted'}`}>{req.label}</span>
+                    </div>
+                  ))}
+               </div>
+            </div>
+
+            {/* Recent Activity */}
+            <div className="bg-surface border border-divider rounded-xl p-6 shadow-sm">
+               <h2 className="text-sm font-semibold uppercase tracking-wider text-text-muted mb-4">Recent Activity</h2>
+               
+               {!activityData?.recent || activityData.recent.length === 0 ? (
+                 <p className="text-sm text-text-secondary text-center py-2">No recent ScanVista activity.</p>
+               ) : (
+                 <div className="space-y-4">
+                    {activityData.recent.map((evt: any, i: number) => (
+                      <div key={i} className="flex gap-3">
+                         <div className="w-2 h-2 mt-1.5 rounded-full bg-primary flex-shrink-0" />
+                         <div>
+                            <p className="text-xs text-text-muted">{safeFormatTime(evt.timestamp)}</p>
+                            <p className="text-sm text-text-primary font-medium">{evt.action} {evt.resourceType}</p>
+                         </div>
+                      </div>
+                    ))}
+                 </div>
+               )}
+            </div>
+
+          </div>
         </div>
       </div>
     </ManagerLayout>

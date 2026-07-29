@@ -85,7 +85,7 @@ export function ManagerHelp() {
             />
 
             <div className="flex justify-end">
-              <Button type="submit" status={status} disabled={!message.trim()} className="px-8">
+              <Button type="submit"  disabled={!message.trim()} className="px-8">
                 {status === 'loading' ? 'Sending...' : status === 'success' ? 'Received!' : <><Send size={16} className="mr-2" /> Send Message</>}
               </Button>
             </div>

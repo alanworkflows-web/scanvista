@@ -1,6 +1,6 @@
 import React from 'react';
 import { Dish } from './useMenuStudio';
-import { Edit2, Copy, Trash2, Eye, EyeOff, Image as ImageIcon } from 'lucide-react';
+import { Edit2, Copy, Trash2, Eye, EyeOff, Image as ImageIcon, Leaf, Flame, Star } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 
 interface Props {
@@ -48,17 +48,31 @@ export function DishCard({ dish, onEdit, onDuplicate, onDelete, onToggleAvailabi
             )}
           </div>
           
-          <div className="flex items-center gap-3 mt-1">
+          <div className="flex flex-wrap items-center gap-3 mt-1.5">
             <p className="text-sm font-medium text-primary">${dish.price.toFixed(2)}</p>
-            {allergensList.length > 0 && (
-              <div className="flex gap-1 border-l border-divider pl-3">
-                {allergensList.map(a => (
-                  <span key={a} className="text-[10px] uppercase font-medium text-text-secondary opacity-60 bg-surface-hover px-1.5 py-0.5 rounded">
-                    {a}
-                  </span>
-                ))}
-              </div>
-            )}
+            
+            <div className="flex flex-wrap gap-1.5 border-l border-divider pl-3">
+              {dish.isVeg && (
+                <span className="flex items-center gap-1 text-[10px] uppercase font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                  <Leaf size={10} /> Veg
+                </span>
+              )}
+              {dish.isPopular && (
+                <span className="flex items-center gap-1 text-[10px] uppercase font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                  <Star size={10} /> Popular
+                </span>
+              )}
+              {dish.spiceLevel && dish.spiceLevel !== 'None' && (
+                <span className="flex items-center gap-1 text-[10px] uppercase font-semibold text-red-700 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded">
+                  <Flame size={10} /> {dish.spiceLevel}
+                </span>
+              )}
+              {allergensList.map(a => (
+                <span key={a} className="text-[10px] uppercase font-medium text-text-secondary opacity-80 bg-surface-hover border border-divider px-1.5 py-0.5 rounded">
+                  {a}
+                </span>
+              ))}
+            </div>
           </div>
           
           {dish.description && (

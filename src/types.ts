@@ -4,10 +4,12 @@ export interface Property {
   name: string;
   description: string;
   bannerUrl: string;
+  heroImage?: string;
   propertyType: 'HOTEL' | 'HOMESTAY' | 'RESORT' | 'RETREAT';
   wifiNetwork?: string;
   wifiPassword?: string;
   hostInfo?: string;
+  hotelRules?: any;
   houseRules?: string;
   experiences?: string;
   receptionPhone?: string;

@@ -16,6 +16,7 @@ import {
   Smartphone
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import { ImageUploader } from "../components/ImageUploader";
 import { buildGuestUrl } from "../lib/utils";
 
 const PROPERTY_TYPES = [
@@ -182,21 +183,12 @@ export function ManagerOnboarding() {
               <p className="text-text-primary font-medium mb-1">Click to upload logo</p>
               <p className="text-sm text-text-secondary opacity-60">SVG, PNG, or JPG (max. 800x400px)</p>
               
-              {/* Fake hidden file input for prototype purposes */}
-              <input 
-                type="file" 
-                className="hidden" 
-                id="logo-upload"
-                accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    const url = URL.createObjectURL(file);
-                    setFormData({ ...formData, logoUrl: url });
-                  }
-                }}
-              />
-              <label htmlFor="logo-upload" className="absolute inset-0 cursor-pointer"></label>
+              <ImageUploader 
+                  currentImage={formData.logoUrl}
+                  onImageSelected={(val) => setFormData(p => ({ ...p, logoUrl: val }))}
+                  label="Upload Property Logo"
+                  className="mb-8"
+                />
             </div>
 
             <div className="flex items-center gap-10">
@@ -222,7 +214,7 @@ export function ManagerOnboarding() {
             </h1>
             <p className="text-text-secondary opacity-60 mb-12">Upload a beautiful hero image that captures the vibe of {formData.name}.</p>
             
-            <ImageUploader value={formData.bannerUrl} onChange={(val) => setFormData({ ...formData, bannerUrl: val })} label="Hero Image" className="h-64 mb-12 rounded-3xl" />
+            <ImageUploader currentImage={formData.bannerUrl} onImageSelected={(val) => setFormData({ ...formData, bannerUrl: val })} label="Hero Image" className="h-64 mb-12 rounded-3xl" />
 
             <div className="flex items-center gap-10">
               <Button variant="ghost" size="lg" onClick={prevStep} disabled={loading}>Back</Button>
@@ -265,7 +257,7 @@ export function ManagerOnboarding() {
                   <Button size="sm" onClick={() => window.open(guestUrl, '_blank')} className="rounded-full flex items-center gap-2">
                     <Smartphone size={16} /> Preview
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => {
+                  <Button size="sm" variant="secondary" onClick={() => {
                     const svg = document.querySelector('svg');
                     if (svg) {
                       const printWin = window.open('', '', 'width=800,height=800');
@@ -296,7 +288,7 @@ export function ManagerOnboarding() {
                   <div>
                     <h3 className="font-medium text-text-primary">2. Create your first Menu</h3>
                     <p className="text-sm text-text-secondary opacity-60 mb-3">Add categories and dishes so guests have something to browse.</p>
-                    <Button size="sm" variant="outline" onClick={() => navigate("/manager/menu")} className="rounded-full">Go to Menu Editor</Button>
+                    <Button size="sm" variant="secondary" onClick={() => navigate("/manager/menu")} className="rounded-full">Go to Menu Editor</Button>
                   </div>
                 </div>
 
@@ -305,7 +297,7 @@ export function ManagerOnboarding() {
                   <div>
                     <h3 className="font-medium text-text-primary">3. Invite your Team</h3>
                     <p className="text-sm text-text-secondary opacity-60 mb-3">Add staff to help manage orders and guests.</p>
-                    <Button size="sm" variant="outline" onClick={() => navigate("/manager/home")} className="rounded-full">Go to Settings</Button>
+                    <Button size="sm" variant="secondary" onClick={() => navigate("/manager/home")} className="rounded-full">Go to Settings</Button>
                   </div>
                 </div>
               </div>

@@ -298,7 +298,7 @@ export function MenuStudio({
                   <div className="relative w-full aspect-video rounded-sm overflow-hidden bg-surface-hover border border-divider group">
                     <img src={activeDish.imageUrl} alt="Preview" className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <Button variant="danger" size="sm" onClick={() => onUpdateDish(activeDish.id, { imageUrl: "" })}>Remove Image</Button>
+                      <Button variant="secondary" size="sm" onClick={() => onUpdateDish(activeDish.id, { imageUrl: "" })}>Remove Image</Button>
                     </div>
                   </div>
                 ) : (
@@ -423,7 +423,7 @@ export function MenuStudio({
                   }, 600);
                 }}
                 disabled={isReadOnly}
-                status={deleteStatus}
+                
               >
                 {deleteStatus === 'loading' ? 'Deleting...' : 'Delete Dish'}
               </Button>
@@ -438,7 +438,7 @@ export function MenuStudio({
                   }, 600);
                 }}
                 disabled={isReadOnly || !activeDish.name.trim()}
-                status={saveStatus}
+                
                 className="flex-1"
               >
                 {saveStatus === 'loading' ? (

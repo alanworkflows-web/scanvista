@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 
 import { evaluateVisibility, VisibilityConfig } from "../lib/visibilityEngine";
+import { trackEvent } from "../lib/tracking";
 import { HeroSection } from "../components/guest/HeroSection";
 import { PropertyStatusStrip } from "../components/guest/PropertyStatusStrip";
 import { AccordionSection } from "../components/guest/AccordionSection";

@@ -6,9 +6,10 @@ interface ImageUploaderProps {
   label: string;
   onImageSelected: (url: string) => void;
   currentImage?: string | null;
+  className?: string;
 }
 
-export function ImageUploader({ label, onImageSelected, currentImage }: ImageUploaderProps) {
+export function ImageUploader({ label, onImageSelected, currentImage, className }: ImageUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [preview, setPreview] = useState<string | null>(currentImage || null);
   const inputRef = useRef<HTMLInputElement>(null);

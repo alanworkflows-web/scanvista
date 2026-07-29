@@ -15,7 +15,9 @@ import {
   Settings as SettingsIcon,
   LogOut,
   HelpCircle,
-  Users
+  Users,
+  Wifi,
+  FileText
 } from "lucide-react";
 import { cn } from "./ui/Button";
 import { theme } from "../design/theme";
@@ -32,8 +34,10 @@ export function ManagerLayout({ children }: { children: React.ReactNode }) {
   // The mapping uses path + hash combinations.
   const navigation = [
     { name: 'Home', href: '/manager/home', icon: LayoutDashboard },
-    { name: 'Restaurant', href: '/manager/restaurant', icon: Palette },
+    { name: 'Property', href: '/manager/property', icon: Hotel },
     { name: 'Menu', href: '/manager/menu', icon: UtensilsCrossed },
+    { name: 'Amenities', href: '/manager/amenities', icon: Wifi },
+    { name: 'House Rules', href: '/manager/house-rules', icon: FileText },
     { name: 'Guests', href: '/manager/guests', icon: Users },
     { name: 'Publishing', href: '/manager/publishing', icon: QrCode },
     { name: 'Billing', href: '/manager/billing', icon: TrendingUp },

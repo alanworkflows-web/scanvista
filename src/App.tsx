@@ -7,15 +7,15 @@ import { ManagerLanding } from "./ManagerLanding";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { GlobalErrorBoundary } from "./components/GlobalErrorBoundary";
 const ManagerHome = lazyWithPreload(() => import('./pages/ManagerHome').then(m => ({ default: m.ManagerHome })));
-const BrandStudio = lazyWithPreload(() => import('./pages/BrandStudio').then(m => ({ default: m.BrandStudio })));
 const ManagerMenu = lazyWithPreload(() => import('./pages/ManagerMenu').then(m => ({ default: m.ManagerMenu })));
+const ManagerAmenities = lazyWithPreload(() => import('./pages/ManagerAmenities').then(m => ({ default: m.ManagerAmenities })));
+const ManagerHouseRules = lazyWithPreload(() => import('./pages/ManagerHouseRules').then(m => ({ default: m.ManagerHouseRules })));
 const ManagerPublishing = lazyWithPreload(() => import('./pages/ManagerPublishing').then(m => ({ default: m.ManagerPublishing })));
 const ManagerBilling = lazyWithPreload(() => import('./pages/ManagerBilling').then(m => ({ default: m.ManagerBilling })));
 const ManagerHelp = lazyWithPreload(() => import('./pages/ManagerHelp').then(m => ({ default: m.ManagerHelp })));
 const ManagerExperience = lazyWithPreload(() => import('./pages/ManagerExperience').then(m => ({ default: m.ManagerExperience })));
 const AdminCRM = lazyWithPreload(() => import('./pages/AdminCRM').then(m => ({ default: m.AdminCRM })));
 const ManagerGuests = lazyWithPreload(() => import('./pages/ManagerGuests').then(m => ({ default: m.ManagerGuests })));
-const ManagerRestaurant = lazyWithPreload(() => import('./pages/ManagerRestaurant').then(m => ({ default: m.ManagerRestaurant })));
 const GuestWelcome = lazyWithPreload(() => import('./pages/GuestWelcome').then(m => ({ default: m.GuestWelcome })));
 const ManagerProperty = lazyWithPreload(() => import('./pages/ManagerProperty').then(m => ({ default: m.ManagerProperty })));
 const OperationsPlaybook = lazyWithPreload(() => import('./pages/OperationsPlaybook').then(m => ({ default: m.OperationsPlaybook })));
@@ -48,16 +48,16 @@ import { ManagerOnboarding } from "./pages/ManagerOnboarding";
 
 export const routeComponents = {
   '/manager/home': ManagerHome,
-  '/manager/brand': BrandStudio,
+  '/manager/property': ManagerProperty,
   '/manager/menu': ManagerMenu,
+  '/manager/amenities': ManagerAmenities,
+  '/manager/house-rules': ManagerHouseRules,
   '/manager/publishing': ManagerPublishing,
   '/manager/billing': ManagerBilling,
   '/manager/help': ManagerHelp,
   '/manager/experience': ManagerExperience,
   '/manager/guests': ManagerGuests,
-  '/manager/restaurant': ManagerMenu,
   '/admin/crm': AdminCRM,
-  '/manager/property': ManagerProperty,
   '/manager/playbook': OperationsPlaybook,
 };
 
@@ -88,17 +88,18 @@ export default function App() {
         {/* Authenticated Manager Routes */}
         <Route path="/manager/onboarding" element={<ManagerOnboarding />} />
         <Route path="/manager/home" element={<ManagerHome />} />
-        <Route path="/manager/brand" element={<BrandStudio />} />
+        <Route path="/manager/property" element={<ManagerProperty />} />
+        <Route path="/manager/restaurant" element={<Navigate to="/manager/property" replace />} />
         <Route path="/manager/menu" element={<ManagerMenu />} />
+        <Route path="/manager/amenities" element={<ManagerAmenities />} />
+        <Route path="/manager/house-rules" element={<ManagerHouseRules />} />
         <Route path="/manager/publishing" element={<ManagerPublishing />} />
         <Route path="/manager/billing" element={<ManagerBilling />} />
         <Route path="/manager/guests" element={<ManagerGuests />} />
         <Route path="/manager/help" element={<ManagerHelp />} />
         <Route path="/manager/experience" element={<ManagerExperience />} />
-        <Route path="/manager/restaurant" element={<ManagerMenu />} />
-        <Route path="/manager/property" element={<ManagerProperty />} />
-        <Route path="/manager/playbook" element={<OperationsPlaybook />} />
         <Route path="/admin/crm" element={<AdminCRM />} />
+        <Route path="/manager/playbook" element={<OperationsPlaybook />} />
         <Route path="/manager/setup" element={<Navigate to="/manager/home" replace />} />
         
         {/* Founder Layout (Internal Admin) */}

@@ -179,7 +179,7 @@ export function ManagerHome() {
         {/* Welcome Header */}
         <div className="mb-10 bg-surface border border-divider rounded-xl p-8 shadow-premium relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div className="relative z-10">
-            <h1 className="text-3xl font-serif font-medium text-text-primary mb-2">Good Morning, {property.owner?.name?.split(' ')[0] || 'Manager'}</h1>
+            <h1 className="text-3xl font-serif font-medium text-text-primary mb-2">Good Morning, {property.owner?.name?.split(' ')[0] || 'Team'}</h1>
             <p className="text-text-secondary text-lg">Welcome back to ScanVista.</p>
             <div className="flex items-center gap-4 mt-6">
               <span className="text-sm font-medium px-3 py-1 bg-background border border-divider rounded-md flex items-center gap-2">
@@ -217,7 +217,7 @@ export function ManagerHome() {
               <h2 className="text-lg font-medium text-text-primary mb-4 flex items-center gap-2">
                 <Zap size={18} className="text-amber-500" /> Quick Actions
               </h2>
-              <div className="flex flex-wrap gap-3">
+              <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3">
                 <Link to="/manager/experience" className="px-4 py-2 bg-background border border-divider hover:border-primary rounded-lg text-sm font-medium transition-colors text-text-primary">Edit Property</Link>
                 <Link to="/manager/menu" className="px-4 py-2 bg-background border border-divider hover:border-primary rounded-lg text-sm font-medium transition-colors text-text-primary">Edit Menu</Link>
                 <Link to="/manager/amenities" className="px-4 py-2 bg-background border border-divider hover:border-primary rounded-lg text-sm font-medium transition-colors text-text-primary">Edit Amenities</Link>
@@ -235,7 +235,7 @@ export function ManagerHome() {
               {!activityData?.yesterday || activityData.yesterday.scans === 0 ? (
                 <div className="bg-surface-hover/50 border border-dashed border-divider rounded-lg p-8 text-center">
                   <Activity size={32} className="text-text-muted mx-auto mb-3 opacity-50" />
-                  <p className="text-sm font-medium text-text-secondary">No ScanVista activity recorded yesterday.</p>
+                  <p className="text-sm font-medium text-text-secondary">No guest activity yet.\nOnce guests scan your QR code,\nanalytics will appear here automatically.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-2 gap-4">
@@ -260,7 +260,7 @@ export function ManagerHome() {
               {!activityData?.yesterday || activityData.yesterday.scans === 0 ? (
                 <div className="bg-surface-hover/50 border border-dashed border-divider rounded-lg p-8 text-center">
                   <Activity size={32} className="text-text-muted mx-auto mb-3 opacity-50" />
-                  <p className="text-sm font-medium text-text-secondary">No interaction activity recorded yesterday.</p>
+                  <p className="text-sm font-medium text-text-secondary">No guest activity yet.\nOnce guests scan your QR code,\nanalytics will appear here automatically.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-4">
@@ -347,25 +347,19 @@ export function ManagerHome() {
           <div className="space-y-8">
             
             {/* Publishing Status */}
-            <div className="bg-surface border border-divider rounded-xl p-6 shadow-sm">
-               <h2 className="text-sm font-semibold uppercase tracking-wider text-text-muted mb-4">Publishing Status</h2>
-               <div className="space-y-3">
-                  {[
-                    { label: 'Property Info', icon: <Image size={14}/>, isPublished: !status.hasChanges }, // Simplification for demo
-                    { label: 'Menu', icon: <Utensils size={14}/>, isPublished: !status.hasChanges },
-                    { label: 'Amenities', icon: <MapPin size={14}/>, isPublished: !status.hasChanges },
-                    { label: 'House Rules', icon: <Shield size={14}/>, isPublished: !status.hasChanges },
-                    { label: 'Guest Page', icon: <Globe size={14}/>, isPublished: !status.hasChanges },
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-sm text-text-primary">
-                        <span className="text-text-muted">{item.icon}</span> {item.label}
-                      </div>
-                      <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${item.isPublished ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
-                        {item.isPublished ? 'Published' : 'Draft'}
-                      </span>
+            <div className="bg-surface border border-divider rounded-xl p-8 shadow-sm">
+               <h2 className="text-sm font-semibold uppercase tracking-wider text-text-muted mb-6">Publishing Status</h2>
+               <div className="flex flex-col gap-4">
+                  <div className="flex items-start justify-between">
+                    <div>
+                       <span className={`text-xs uppercase font-bold px-3 py-1 rounded-full ${status.badgeColor}`}>
+                         {status.label}
+                       </span>
                     </div>
-                  ))}
+                  </div>
+                  <p className="text-sm text-text-secondary leading-relaxed">
+                    {status.subtext}
+                  </p>
                </div>
             </div>
 

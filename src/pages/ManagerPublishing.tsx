@@ -5,6 +5,7 @@ import { useManagerProperty } from "../hooks/useManagerProperty";
 import { QrCode, Download, Copy, ExternalLink, CheckCircle2, AlertTriangle, FileDiff, RefreshCcw, Send, Sparkles } from "lucide-react";
 import { calculateChanges, DiffResult } from "../lib/diffEngine";
 import { calculateCompletion } from "../lib/completionEngine";
+import { safeFormatTime } from "../lib/dateUtils";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
@@ -140,13 +141,20 @@ export function ManagerPublishing() {
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-1">
             <h1 className="text-3xl font-serif font-medium text-[#1A1A1A]">Publishing & QR Portal</h1>
-            <span className={`text-[10px] uppercase font-semibold px-2.5 py-1 rounded-md border ${
-              isPublished 
-                ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
-                : 'bg-amber-50 text-amber-800 border-amber-200'
-            }`}>
-              {isPublished ? '✓ Live & Published' : '⚠️ Unpublished Draft'}
-            </span>
+            <div className="flex items-center gap-3">
+              <span className={`text-[10px] uppercase font-semibold px-2.5 py-1 rounded-md border ${
+                isPublished 
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+                  : 'bg-amber-50 text-amber-800 border-amber-200'
+              }`}>
+                {isPublished ? '✓ Live & Published' : '⚠️ Unpublished Draft'}
+              </span>
+              {isPublished && property.snapshots && property.snapshots.length > 0 && (
+                <span className="text-xs text-text-muted font-medium bg-surface border border-divider px-2.5 py-1 rounded-md shadow-sm">
+                  Last Published: {safeFormatTime(property.snapshots[0].publishedAt || property.snapshots[0].createdAt)}
+                </span>
+              )}
+            </div>
           </div>
           <p className="text-text-secondary text-sm font-light">
             Validate property readiness, publish updates to live, and generate guest mobile QR codes for <span className="font-medium text-[#1A1A1A]">{property.name}</span>.

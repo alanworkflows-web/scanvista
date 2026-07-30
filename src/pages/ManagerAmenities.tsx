@@ -2,9 +2,9 @@ import React, { useState, useEffect } from "react";
 import { ManagerLayout } from "../components/ManagerLayout";
 import { useManagerProperty } from "../hooks/useManagerProperty";
 import { toast } from "sonner";
-import { 
+import { CheckCircle2,  
   Save, Plus, Trash2, GripVertical, ChevronDown, ChevronUp, Image as ImageIcon, CheckCircle, XCircle
-} from "lucide-react";
+ } from "lucide-react";
 import { Reorder, motion } from "framer-motion";
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
@@ -17,6 +17,8 @@ export function ManagerAmenities() {
   const { property, amenities: initialAmenities, loading, refreshProperty } = useManagerProperty();
   const [amenities, setAmenities] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saved">("idle");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -98,8 +100,8 @@ export function ManagerAmenities() {
           <Button variant="secondary" onClick={addAmenity}>
             <Plus size={18} className="mr-2" /> Add Amenity
           </Button>
-          <Button onClick={handleSave} disabled={saving} className="min-w-[120px]">
-            {saving ? <div className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin"></div> : <><Save size={18} className="mr-2"/> Save Changes</>}
+          <Button onClick={handleSave} disabled={saving || (!isDirty && saveStatus !== "saved")} className="min-w-[120px] transition-all">
+            {saving ? <><div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin mr-2"></div> Saving...</> : saveStatus === "saved" ? <><CheckCircle2 size={18} className="mr-2 text-emerald-400"/> Saved</> : <><Save size={18} className="mr-2"/> Save Changes</>}
           </Button>
         </div>
       </div>

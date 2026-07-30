@@ -2,13 +2,15 @@ import React, { useState, useEffect } from "react";
 import { ManagerLayout } from "../components/ManagerLayout";
 import { useManagerProperty } from "../hooks/useManagerProperty";
 import { toast } from "sonner";
-import { Save, Clock, Moon, Wind, Dog, Waves, Baby, FileText } from "lucide-react";
+import { CheckCircle2, Save, Clock, Moon, Wind, Dog, Waves, Baby, FileText } from "lucide-react";
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
 
 export function ManagerHouseRules() {
   const { property, loading, refreshProperty } = useManagerProperty();
   const [saving, setSaving] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saved">("idle");
 
   const [formData, setFormData] = useState({
     checkInTime: "",
@@ -40,6 +42,8 @@ export function ManagerHouseRules() {
 
   const handleChange = (field: keyof typeof formData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    setIsDirty(true);
+    setSaveStatus("idle");
   };
 
   const handleSave = async () => {
@@ -92,8 +96,8 @@ export function ManagerHouseRules() {
           <h1 className="text-3xl font-serif font-medium text-text-primary tracking-tight">House Rules</h1>
           <p className="text-text-secondary mt-1">Manage policies and guidelines for your property.</p>
         </div>
-        <Button onClick={handleSave} disabled={saving} className="min-w-[120px]">
-          {saving ? <div className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin"></div> : <><Save size={18} className="mr-2"/> Save Changes</>}
+        <Button onClick={handleSave} disabled={saving || (!isDirty && saveStatus !== "saved")} className="min-w-[120px] transition-all">
+          {saving ? <><div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin mr-2"></div> Saving...</> : saveStatus === "saved" ? <><CheckCircle2 size={18} className="mr-2 text-emerald-400"/> Saved</> : <><Save size={18} className="mr-2"/> Save Changes</>}
         </Button>
       </div>
 

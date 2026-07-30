@@ -162,29 +162,18 @@ export function ManagerBilling() {
             <p className="text-text-secondary opacity-60">Manage your billing plan and features.</p>
           </div>
           <div>
-            {isPremium ? (
-              <Badge variant="warning">
-                Premium Active
-              </Badge>
-            ) : (
-              <Badge variant="neutral">
-                Free Plan
-              </Badge>
-            )}
+            <Badge variant="neutral">
+              Free Plan
+            </Badge>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
           {/* Free Plan Card */}
-          <div className={cn(
-            "border rounded-sm p-8 relative transition-all",
-            !isPremium && !isExpired ? "border-gray-900 bg-surface ring-1 ring-gray-900 shadow-premium-hover" : "border-divider bg-surface/50"
-          )}>
-            {!isPremium && !isExpired && (
-              <div className="absolute top-0 right-6 -translate-y-1/2 bg-gray-900 text-white text-xs font-medium px-3 py-1 rounded-full uppercase tracking-wide">
-                Current
-              </div>
-            )}
+          <div className="border rounded-sm p-8 relative transition-all border-gray-900 bg-surface ring-1 ring-gray-900 shadow-premium-hover">
+            <div className="absolute top-0 right-6 -translate-y-1/2 bg-gray-900 text-white text-xs font-medium px-3 py-1 rounded-full uppercase tracking-wide">
+              Current
+            </div>
             <h3 className="text-lg font-medium text-text-primary mb-1">Free Tier</h3>
             <div className="text-4xl font-serif text-text-primary mb-4">$0 <span className="text-base font-normal text-text-secondary opacity-60">/mo</span></div>
 
@@ -195,59 +184,22 @@ export function ManagerBilling() {
           </div>
 
           {/* Premium Plan Card */}
-          <div className={cn(
-            "border-2 rounded-sm p-8 transition-all",
-            isPremium ? "border-[var(--card-hover-border)] bg-primary/5/30 relative shadow-premium-hover" : isExpired ? "border-red-500 bg-red-50/10 relative shadow-premium-hover" : "border-divider"
-          )}>
-            {isPremium && (
-              <div className="absolute top-0 right-6 -translate-y-1/2 bg-[var(--card-hover-border)] text-white text-xs font-medium px-3 py-1 rounded-full uppercase tracking-wider">
-                Current
-              </div>
-            )}
-            {isExpired && (
-              <div className="absolute top-0 right-6 -translate-y-1/2 bg-red-600 text-white text-xs font-medium px-3 py-1 rounded-full uppercase tracking-wide">
-                Expired
-              </div>
-            )}
-            <h3 className="text-lg font-medium text-text-primary mb-1">Premium Plan</h3>
-            <div className="text-4xl font-serif text-text-primary mb-4">$10 <span className="text-base font-normal text-text-secondary opacity-60">/mo</span></div>
+          <div className="border-2 rounded-sm p-8 transition-all border-divider bg-surface/50">
+            <h3 className="text-lg font-medium text-text-primary mb-1 text-text-muted">Premium Plan</h3>
+            <div className="text-4xl font-serif text-text-primary mb-4 text-text-muted">$10 <span className="text-base font-normal text-text-secondary opacity-60">/mo</span></div>
 
-            <ul className="space-y-3 mb-12">
+            <ul className="space-y-3 mb-12 opacity-50">
               <li className="flex items-center gap-2 text-text-secondary font-medium"><CheckCircle2 className="w-5 h-5 text-[var(--card-hover-border)]" /> Dynamic Digital Menu</li>
               <li className="flex items-center gap-2 text-text-secondary font-medium"><CheckCircle2 className="w-5 h-5 text-[var(--card-hover-border)]" /> Unlimited Categories & Dishes</li>
               <li className="flex items-center gap-2 text-text-secondary font-medium"><CheckCircle2 className="w-5 h-5 text-[var(--card-hover-border)]" /> Hotel Amenities & Services</li>
               <li className="flex items-center gap-2 text-text-secondary font-medium"><CheckCircle2 className="w-5 h-5 text-[var(--card-hover-border)]" /> Priority Support</li>
             </ul>
 
-            {billingError && (
-              <div role="alert" className="mb-4 bg-red-50 border border-red-200 text-red-800 text-sm font-medium px-4 py-3 rounded-sm flex items-start gap-2">
-                <span className="text-red-500 mt-0.5">⚠️</span>
-                <span>{billingError}</span>
+            <div className="mt-auto">
+              <div role="alert" className="bg-amber-50 border border-amber-200 text-amber-800 text-sm font-medium px-4 py-3 rounded-sm flex items-start gap-2 justify-center">
+                <span>Premium plans are coming soon.</span>
               </div>
-            )}
-
-            {isPremium ? (
-              <Button
-                onClick={handlePortal}
-                disabled={checkoutLoading}
-                isLoading={checkoutLoading}
-                variant="secondary"
-                className="w-full"
-              >
-                <CreditCard size={18} className="mr-2" />
-                Manage Subscription
-              </Button>
-            ) : (
-              <Button
-                onClick={handlePaddleCheckout}
-                disabled={checkoutLoading}
-                isLoading={checkoutLoading}
-                className="w-full"
-              >
-                <CreditCard size={18} className="mr-2" />
-                {checkoutLoading ? "Opening secure checkout..." : (isExpired ? "Renew Subscription" : "Upgrade to Premium")}
-              </Button>
-            )}
+            </div>
           </div>
         </div>
       </Card>

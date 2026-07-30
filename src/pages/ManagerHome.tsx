@@ -142,10 +142,18 @@ export function ManagerHome() {
           <Button 
             size="lg" 
             className="w-full text-lg h-14 mt-4 shadow-premium hover:shadow-premium-hover transition-all"
-            onClick={() => {
-              // Direct them to setup or manually trigger creation if needed
-              // Given auto-provisioning is fixed, they might just need a reload
-              window.location.reload();
+            onClick={async () => {
+              try {
+                await fetch("/api/manager/properties", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ name: "My Property" })
+                });
+                window.location.reload();
+              } catch (e) {
+                console.error("Initialization failed", e);
+                window.location.reload();
+              }
             }}
           >
             <Plus className="mr-2" /> Initialize Dashboard

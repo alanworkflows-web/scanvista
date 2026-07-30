@@ -34,7 +34,23 @@ export function resolveEntitlement(subscription: any): Entitlement {
 }
 
 async function startServer() {
-  const app = express();
+  
+function logAuthLookup(req, property, endpoint) {
+  console.log(`=== AUTHENTICATION DIAGNOSTIC (${endpoint}) ===`);
+  console.log(`- req.session.userId: `, req.session?.userId);
+  console.log(`- property: `, property ? {
+    id: property.id,
+    slug: property.slug,
+    ownerId: property.ownerId,
+    orgId: property.orgId
+  } : null);
+  if (property && req.session?.userId) {
+    console.log(`- owner matches userId?: `, property.ownerId === req.session.userId);
+  }
+  console.log(`===============================================`);
+}
+
+const app = express();
   const PORT = 3000;
   const isDev = process.env.NODE_ENV !== "production";
 
@@ -476,7 +492,7 @@ async function startServer() {
       if (!membership) {
         const orgName = user.name ? `${user.name.split(' ')[0]}'s Organization` : 'My Organization';
         const newOrg = await prisma.organization.create({
-          data: { name: orgName, slug: await generateUniqueSlug(orgName) }
+          data: { name: orgName, slug: await generateUniqueOrgSlug(orgName) }
         });
         membership = await prisma.organizationMembership.create({
           data: {
@@ -914,6 +930,31 @@ async function startServer() {
   });
 
 
+  
+  async function generateUniqueOrgSlug(baseName: string): Promise<string> {
+    let base = baseName
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9\s-]/g, "")
+      .trim()
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+
+    if (!base || base.length === 0) {
+      base = "organization";
+    }
+    base = base.substring(0, 50).replace(/-$/, "");
+
+    let uniqueSlug = base;
+    let counter = 1;
+    while (await prisma.organization.findUnique({ where: { slug: uniqueSlug } })) {
+      uniqueSlug = `${base}-${counter}`;
+      counter++;
+    }
+    return uniqueSlug;
+  }
+
   async function generateUniqueSlug(baseName: string): Promise<string> {
     let base = baseName
       .toLowerCase()
@@ -990,6 +1031,7 @@ async function startServer() {
         where: { slug: req.params.slug },
         include: { subscription: true }
       });
+      logAuthLookup(req, currentProperty, 'PUT /api/manager/properties/:slug');
       if (!currentProperty || currentProperty.ownerId !== req.session.userId) {
         return res.status(403).json({ error: "Forbidden or property not found" });
       }

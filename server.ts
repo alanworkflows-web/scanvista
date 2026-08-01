@@ -914,6 +914,38 @@ const app = express();
     return slug;
   }
 
+  // --- MANAGER APIS ---
+  app.get("/api/manager/properties", requireAuth, async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.session.userId as string;
+
+      // 1. Fetch user's organization memberships
+      const memberships = await prisma.organizationMembership.findMany({
+        where: { userId }
+      });
+      const orgIds = memberships.map((m: any) => m.orgId);
+
+      // 2. Find properties either owned directly by the user OR belonging to their organizations
+      const properties = await prisma.property.findMany({
+        where: {
+          OR: [
+            { ownerId: userId },
+            { orgId: { in: orgIds } }
+          ]
+        },
+        include: { subscription: true }
+      });
+
+      res.json(properties.map((p: any) => ({
+        ...p,
+        entitlement: resolveEntitlement(p.subscription)
+      })));
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch properties" });
+    }
+  });
+
   app.post("/api/manager/properties", requireAuth, async (req, res) => {
     try {
       const name = String(req.body.name || 'New Property');

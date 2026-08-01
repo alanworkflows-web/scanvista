@@ -915,6 +915,40 @@ const app = express();
   }
 
   // --- MANAGER APIS ---
+  app.get("/api/admin/debug-db", async (req, res) => {
+    try {
+      const email = req.query.email as string || 'bharatchronicleshq@gmail.com';
+      const properties = await prisma.property.findMany({
+        where: { owner: { email } },
+        include: {
+          categories: { include: { dishes: true } },
+          amenities: true,
+          owner: true,
+          org: true
+        }
+      });
+      const dbUrl = process.env.DATABASE_URL || '';
+      res.json({
+        databaseInfo: {
+          urlPrefix: dbUrl.substring(0, 30) + '...',
+          dbHash: dbUrl.length
+        },
+        properties: properties.map(p => ({
+          id: p.id,
+          name: p.name,
+          slug: p.slug,
+          createdAt: p.createdAt,
+          amenitiesCount: p.amenities.length,
+          dishesCount: p.categories.reduce((acc, cat) => acc + cat.dishes.length, 0),
+          orgId: p.orgId
+        })),
+        totalPropertiesCount: await prisma.property.count()
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   app.get("/api/manager/properties", requireAuth, async (req, res) => {
     try {
       // @ts-ignore

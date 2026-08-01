@@ -8,7 +8,10 @@ interface ContactCardProps {
   phone?: string;
   whatsapp?: string;
   email?: string;
+  propertyId?: string;
 }
+
+import { trackEvent } from "../../lib/tracking";
 
 export function ContactCard({ key, title, hours, languages, responseTime, phone, whatsapp, email }: ContactCardProps) {
   return (

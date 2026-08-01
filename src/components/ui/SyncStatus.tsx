@@ -33,7 +33,7 @@ export function SyncStatus() {
           <span className="relative flex h-2 w-2">
             <span className="relative inline-flex rounded-full h-2 w-2 bg-primary/50 animate-pulse"></span>
           </span>
-          Everything synced
+          Draft pending
         </span>
       )}
       
@@ -52,7 +52,7 @@ export function SyncStatus() {
           <span className="relative flex h-2 w-2">
             <span className="relative inline-flex rounded-full h-2 w-2 bg-primary/50"></span>
           </span>
-          Everything synced just now
+          Draft pending
         </span>
       )}
     </div>

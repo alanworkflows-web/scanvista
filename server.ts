@@ -629,217 +629,139 @@ const app = express();
     }
   });
 
-  app.get("/api/preview/:token", async (req, res) => {
+  app.get("/api/guests/:token", async (req, res) => {
     try {
       const { token } = req.params;
-      let property = await prisma.property.findFirst({
-        where: { OR: [{ previewToken: token }, { slug: token }] },
+
+      // 1. Try finding a registered guest by their unique token
+      const guest = await prisma.guest.findUnique({
+        where: { token },
+        include: {
+          property: {
+            include: {
+              amenities: true,
+              categories: { include: { dishes: true } },
+            }
+          }
+        }
+      });
+
+      if (guest) {
+        await prisma.guest.update({
+          where: { id: guest.id },
+          data: { linkViewedAt: new Date() }
+        });
+
+        // Analytics
+        await prisma.activityEvent.create({
+          data: {
+            organizationId: guest.property.orgId,
+            propertyId: guest.property.id,
+            action: 'VIEWED',
+            resourceType: 'PROPERTY',
+            source: 'WEB',
+            metadata: { guestId: guest.id }
+          }
+        }).catch(() => {});
+
+        const safeGuest = {
+          token: guest.token,
+          name: guest.name,
+          roomNumber: guest.roomNumber,
+          language: guest.language,
+          arrivalDate: guest.arrivalDate,
+          departureDate: guest.departureDate,
+          arrivalTime: guest.arrivalTime,
+          preferences: guest.preferences,
+          communication: guest.communication,
+          status: guest.status,
+          property: {
+            ...guest.property,
+            heroImage: guest.property.heroImage || guest.property.bannerUrl,
+            bannerUrl: guest.property.bannerUrl || guest.property.heroImage
+          }
+        };
+
+        return res.json(safeGuest);
+      }
+
+      // 2. Not a guest token. Check if it's a property slug (Public QR access)
+      const publishedProperty = await prisma.property.findUnique({
+        where: { slug: token },
+        include: {
+          snapshots: {
+            orderBy: { publishedAt: 'desc' },
+            take: 1
+          }
+        }
+      });
+
+      if (publishedProperty && publishedProperty.snapshots.length > 0) {
+        console.log(`[GuestAPI] Found published snapshot for slug: ${token}`);
+        
+        // Analytics
+        await prisma.activityEvent.create({
+          data: {
+            organizationId: publishedProperty.orgId,
+            propertyId: publishedProperty.id,
+            action: 'VIEWED',
+            resourceType: 'PROPERTY',
+            source: 'WEB'
+          }
+        }).catch(() => {});
+
+        const snapshotData = publishedProperty.snapshots[0].data as any;
+
+        const safeGuest = {
+          token: 'public-guest',
+          name: 'Guest',
+          status: 'CHECKED_IN',
+          property: {
+            ...snapshotData.property,
+            heroImage: snapshotData.property.heroImage || snapshotData.property.bannerUrl,
+            bannerUrl: snapshotData.property.bannerUrl || snapshotData.property.heroImage,
+            categories: snapshotData.categories || [],
+            amenities: snapshotData.amenities || []
+          }
+        };
+
+        return res.json(safeGuest);
+      }
+
+      // 3. Fallback for Preview Token (Legacy / Draft access)
+      // This is still here for backwards compatibility if Guest app uses /api/guests/:previewToken
+      // However, we recommend /api/preview/:previewToken for previews.
+      const previewProperty = await prisma.property.findUnique({
+        where: { previewToken: token },
         include: {
           amenities: true,
           categories: { include: { dishes: true } },
-          subscription: true
         }
       });
-      if (!property) return res.status(404).json({ error: "Invalid preview token" });
 
-      const safeGuest = {
-        token: 'preview-mode',
-        name: 'Manager Preview',
-        status: 'PREVIEW',
-        property: {
-          ...property,
-          heroImage: property.heroImage || property.bannerUrl,
-          bannerUrl: property.bannerUrl || property.heroImage
-        }
-      };
-      res.json(safeGuest);
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: "Failed to fetch preview" });
-    }
-  });
-
-  app.get("/api/manager/properties", requireAuth, async (req, res) => {
-    try {
-      // @ts-ignore
-      const properties = await prisma.property.findMany({
-        // @ts-ignore
-        where: { ownerId: req.session.userId },
-        include: { subscription: true }
-      });
-      res.json(properties.map(p => ({
-        ...p,
-        entitlement: resolveEntitlement(p.subscription)
-      })));
-    } catch (err) {
-      res.status(500).json({ error: "Failed to fetch properties" });
-    }
-  });
-
-  // Guest Management APIs
-  const isoDatetime = z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Must be a valid ISO 8601 date" });
-  const phoneRegex = /^\+?[\d\s\-().]{7,20}$/;
-  const guestSchema = z.object({
-    name: z.string().min(1, "Name is required"),
-    phone: z.string().regex(phoneRegex, "Invalid phone number format").optional().nullable().or(z.literal("")),
-    roomNumber: z.string().optional().nullable(),
-    language: z.string().optional().nullable(),
-    arrivalDate: isoDatetime.optional().nullable(),
-    departureDate: isoDatetime.optional().nullable(),
-    arrivalTime: isoDatetime.optional().nullable(),
-    notes: z.string().optional().nullable(),
-    preferences: z.any().optional(),
-    communication: z.any().optional(),
-    status: z.enum(["BOOKED", "ARRIVING", "CHECKED_IN", "STAYING", "CHECKED_OUT"]).optional()
-  }).refine((data) => {
-    if (data.arrivalDate && data.departureDate) {
-      return new Date(data.arrivalDate) < new Date(data.departureDate);
-    }
-    return true;
-  }, { message: "Departure date must be after arrival date", path: ["departureDate"] });
-
-  app.get("/api/manager/properties/:slug/guests", requireAuth, async (req, res) => {
-    try {
-      const { slug } = req.params;
-      const property = await prisma.property.findUnique({
-        where: { slug },
-        // @ts-ignore
-        select: { id: true, ownerId: true }
-      });
-      // @ts-ignore
-      if (!property || property.ownerId !== req.session.userId) {
-        return res.status(403).json({ error: "Forbidden" });
-      }
-
-      let guests = await prisma.guest.findMany({
-        where: { propertyId: property.id },
-        orderBy: { arrivalDate: 'asc' }
-      });
-      
-      const now = new Date();
-      // Auto-update statuses
-      const updates = guests.map(async (guest) => {
-        let newStatus = guest.status;
-        
-        if (guest.status === "BOOKED" && guest.arrivalDate) {
-          const arr = new Date(guest.arrivalDate);
-          if (arr.toDateString() === now.toDateString() || arr < now) {
-            newStatus = "ARRIVING";
+      if (previewProperty) {
+        console.log(`[GuestAPI] Preview Token fallback hit: ${token}`);
+        const safeGuest = {
+          token: 'public-guest',
+          name: 'Guest',
+          status: 'CHECKED_IN',
+          property: {
+            ...previewProperty,
+            heroImage: previewProperty.heroImage || previewProperty.bannerUrl,
+            bannerUrl: previewProperty.bannerUrl || previewProperty.heroImage
           }
-        }
-        
-        if (guest.status === "CHECKED_IN") {
-          // Check-in + 30 min -> STAYING
-          const thirtyMinsAgo = new Date(now.getTime() - 30 * 60000);
-          if (guest.updatedAt < thirtyMinsAgo) {
-            newStatus = "STAYING";
-          }
-        }
+        };
+        return res.json(safeGuest);
+      }
 
-        // NOTE: Checkout -> CHECKED_OUT is usually a manual trigger from receptionist.
-
-        if (newStatus !== guest.status) {
-          guest.status = newStatus;
-          await prisma.guest.update({ where: { id: guest.id }, data: { status: newStatus as any } });
-        }
-        return guest;
-      });
-      
-      guests = await Promise.all(updates);
-      res.json(guests);
+      // 4. Nothing found, return 404 (Guest URL Isolation)
+      return res.status(404).json({ error: "Guest journey not found" });
     } catch (err) {
       console.error(err);
-      res.status(500).json({ error: "Failed to fetch guests" });
+      res.status(500).json({ error: "Failed to fetch guest journey" });
     }
   });
 
-  app.post("/api/manager/properties/:slug/guests", requireAuth, async (req, res) => {
-    try {
-      const { slug } = req.params;
-      const property = await prisma.property.findUnique({
-        where: { slug },
-        // @ts-ignore
-        select: { id: true, ownerId: true }
-      });
-      // @ts-ignore
-      if (!property || property.ownerId !== req.session.userId) {
-        return res.status(403).json({ error: "Forbidden" });
-      }
-
-      const data = guestSchema.parse(req.body);
-
-      const guest = await prisma.guest.create({
-        data: {
-          ...data,
-          phone: data.phone || "",
-          propertyId: property.id,
-          arrivalDate: data.arrivalDate ? new Date(data.arrivalDate) : null,
-          departureDate: data.departureDate ? new Date(data.departureDate) : null,
-          arrivalTime: data.arrivalTime ? new Date(data.arrivalTime) : null,
-        }
-      });
-      res.json(guest);
-    } catch (err) {
-      console.error(err);
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid data", details: err.issues });
-      }
-      res.status(500).json({ error: "Failed to create guest" });
-    }
-  });
-
-  app.patch("/api/manager/guests/:id", requireAuth, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const guest = await prisma.guest.findUnique({
-        where: { id },
-        include: { property: true }
-      });
-      // @ts-ignore
-      if (!guest || guest.property.ownerId !== req.session.userId) {
-        return res.status(403).json({ error: "Forbidden" });
-      }
-
-      // Allow partial updates
-      const data = guestSchema.partial().parse(req.body);
-
-      const updateData: any = { ...data };
-      if (data.arrivalDate !== undefined) updateData.arrivalDate = data.arrivalDate ? new Date(data.arrivalDate) : null;
-      if (data.departureDate !== undefined) updateData.departureDate = data.departureDate ? new Date(data.departureDate) : null;
-      if (data.arrivalTime !== undefined) updateData.arrivalTime = data.arrivalTime ? new Date(data.arrivalTime) : null;
-
-      const updatedGuest = await prisma.guest.update({
-        where: { id },
-        data: updateData
-      });
-      res.json(updatedGuest);
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: "Failed to update guest" });
-    }
-  });
-
-  app.delete("/api/manager/guests/:id", requireAuth, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const guest = await prisma.guest.findUnique({
-        where: { id },
-        include: { property: true }
-      });
-      // @ts-ignore
-      if (!guest || guest.property.ownerId !== req.session.userId) {
-        return res.status(403).json({ error: "Forbidden" });
-      }
-
-      await prisma.guest.delete({ where: { id } });
-      res.json({ success: true });
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: "Failed to delete guest" });
-    }
-  });
-
-  // Public Guest Endpoint
   app.get("/api/guests/:token", async (req, res) => {
     try {
       const { token } = req.params;

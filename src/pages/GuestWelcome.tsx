@@ -42,7 +42,15 @@ export function GuestWelcome() {
 
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(new Date()), 60000);
-    return () => clearInterval(interval);
+    const handleSectionClick = (sectionId: string) => {
+    setActiveSection(activeSection === sectionId ? null : sectionId);
+    if (activeSection !== sectionId && journey?.property?.id && !isPreview) {
+      if (sectionId === 'menu') trackEvent(journey.property.id, 'VIEWED', 'MENU', { section: sectionId });
+      else trackEvent(journey.property.id, 'VIEWED', 'RECOMMENDATION', { section: sectionId });
+    }
+  };
+
+  return () => clearInterval(interval);
   }, []);
 
   if (loading) {
@@ -104,6 +112,7 @@ export function GuestWelcome() {
     ...visibleActivities.map(ac => ({ name: ac.name, config: ac as VisibilityConfig }))
   ];
 
+    const hasAssistanceOptions = property.receptionPhone || property.housekeepingPhone || property.emergencyPhone || property.contacts?.phone || property.contacts?.whatsapp || property.contacts?.email || property.contacts?.website;
   const galleryImages = property.galleryImages || [];
   if (property.gallery) galleryImages.push(...property.gallery);
 
@@ -213,9 +222,14 @@ export function GuestWelcome() {
                         <div className="flex-1">
                           <div className="flex justify-between items-start mb-1">
                             <h4 className="font-medium text-[#2A2A2A] text-lg">{dish.name}</h4>
-                            <span className="text-[#A3A095] font-light text-[15px]">${(dish.price || 0).toFixed(2)}</span>
+                            <span className="text-[#A3A095] font-light text-[15px]">{new Intl.NumberFormat(journey?.language || "en-US", { style: "currency", currency: property.currency || "USD" }).format(dish.price || 0)}</span>
                           </div>
                           {dish.description && <p className="text-[#7A7A7A] text-[14px] leading-relaxed font-light">{dish.description}</p>}
+                          {dish.allergens && dish.allergens !== "[]" && (
+                            <p className="text-[#D4AF37] text-[12px] font-medium mt-1">
+                              Contains: {(() => { try { const a = JSON.parse(dish.allergens); return Array.isArray(a) ? a.join(", ") : dish.allergens; } catch { return dish.allergens; } })()}
+                            </p>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -305,27 +319,80 @@ export function GuestWelcome() {
           </AccordionSection>
         )}
 
-        {/* CONTACT */}
-        {property.contacts && property.contacts.length > 0 && (
+        {/* GUEST ASSISTANCE */}
+        {hasAssistanceOptions && (
           <AccordionSection 
-            title="Contact" 
+            title="Guest Assistance" 
             icon={<Phone size={24} strokeWidth={1} />} 
-            isOpen={activeSection === "contact"} 
-            onToggle={() => toggleSection("contact")}
+            isOpen={activeSection === "assistance"} 
+            onToggle={() => toggleSection("assistance")}
           >
-            <div className="pt-4">
-              {(property.contacts || []).map((c: any, idx: number) => (
-                <ContactCard 
-                  key={idx}
-                  title={c.title}
-                  hours={c.hours}
-                  languages={c.languages}
-                  responseTime={c.responseTime}
-                  phone={c.phone}
-                  whatsapp={c.whatsapp}
-                  email={c.email}
-                />
-              ))}
+            <div className="bg-surface border border-[#EAE8E1]/40 p-6 rounded-sm shadow-premium space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {property.receptionPhone && (
+                  <a href={`tel:${property.receptionPhone}`} className="flex items-center p-4 border border-[#EAE8E1]/40 rounded hover:bg-background transition-colors" onClick={() => { if(property.id && !isPreview) trackEvent(property.id, 'EXECUTED', 'RECOMMENDATION', { type: 'RECEPTION_CALL_CLICK' }) }}>
+                    <Phone size={18} className="text-[#D4AF37] mr-3 shrink-0" />
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest text-[#A3A095]">Reception</p>
+                      <p className="text-sm text-[#2A2A2A]">{property.receptionPhone}</p>
+                    </div>
+                  </a>
+                )}
+                {property.housekeepingPhone && (
+                  <a href={`tel:${property.housekeepingPhone}`} className="flex items-center p-4 border border-[#EAE8E1]/40 rounded hover:bg-background transition-colors" onClick={() => { if(property.id && !isPreview) trackEvent(property.id, 'EXECUTED', 'RECOMMENDATION', { type: 'HOUSEKEEPING_CALL_CLICK' }) }}>
+                    <Phone size={18} className="text-[#D4AF37] mr-3 shrink-0" />
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest text-[#A3A095]">Housekeeping</p>
+                      <p className="text-sm text-[#2A2A2A]">{property.housekeepingPhone}</p>
+                    </div>
+                  </a>
+                )}
+                {property.emergencyPhone && (
+                  <a href={`tel:${property.emergencyPhone}`} className="flex items-center p-4 border border-red-100 rounded hover:bg-red-50 transition-colors" onClick={() => { if(property.id && !isPreview) trackEvent(property.id, 'EXECUTED', 'RECOMMENDATION', { type: 'EMERGENCY_CALL_CLICK' }) }}>
+                    <Phone size={18} className="text-red-500 mr-3 shrink-0" />
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest text-red-400">Emergency</p>
+                      <p className="text-sm text-[#2A2A2A]">{property.emergencyPhone}</p>
+                    </div>
+                  </a>
+                )}
+                {property.contacts?.phone && (
+                  <a href={`tel:${property.contacts.phone}`} className="flex items-center p-4 border border-[#EAE8E1]/40 rounded hover:bg-background transition-colors" onClick={() => { if(property.id && !isPreview) trackEvent(property.id, 'EXECUTED', 'RECOMMENDATION', { type: 'PHONE_CLICK' }) }}>
+                    <Phone size={18} className="text-[#D4AF37] mr-3 shrink-0" />
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest text-[#A3A095]">Direct Line</p>
+                      <p className="text-sm text-[#2A2A2A]">{property.contacts.phone}</p>
+                    </div>
+                  </a>
+                )}
+                {property.contacts?.whatsapp && (
+                  <a href={`https://wa.me/${property.contacts.whatsapp.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" className="flex items-center p-4 border border-[#EAE8E1]/40 rounded hover:bg-background transition-colors" onClick={() => { if(property.id && !isPreview) trackEvent(property.id, 'EXECUTED', 'RECOMMENDATION', { type: 'WHATSAPP_CLICK' }) }}>
+                    <span className="text-[#25D366] mr-3 text-lg shrink-0">💬</span>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest text-[#A3A095]">WhatsApp</p>
+                      <p className="text-sm text-[#2A2A2A]">{property.contacts.whatsapp}</p>
+                    </div>
+                  </a>
+                )}
+                {property.contacts?.email && (
+                  <a href={`mailto:${property.contacts.email}`} className="flex items-center p-4 border border-[#EAE8E1]/40 rounded hover:bg-background transition-colors" onClick={() => { if(property.id && !isPreview) trackEvent(property.id, 'EXECUTED', 'RECOMMENDATION', { type: 'EMAIL_CLICK' }) }}>
+                    <span className="text-[#D4AF37] mr-3 text-lg shrink-0">✉️</span>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest text-[#A3A095]">Email</p>
+                      <p className="text-sm text-[#2A2A2A] break-all">{property.contacts.email}</p>
+                    </div>
+                  </a>
+                )}
+                {property.contacts?.website && (
+                  <a href={property.contacts.website.startsWith('http') ? property.contacts.website : `https://${property.contacts.website}`} target="_blank" rel="noreferrer" className="flex items-center p-4 border border-[#EAE8E1]/40 rounded hover:bg-background transition-colors" onClick={() => { if(property.id && !isPreview) trackEvent(property.id, 'EXECUTED', 'RECOMMENDATION', { type: 'WEBSITE_CLICK' }) }}>
+                    <span className="text-[#D4AF37] mr-3 text-lg shrink-0">🌐</span>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest text-[#A3A095]">Website</p>
+                      <p className="text-sm text-[#2A2A2A] break-all">{property.contacts.website}</p>
+                    </div>
+                  </a>
+                )}
+              </div>
             </div>
           </AccordionSection>
         )}
@@ -344,6 +411,25 @@ export function GuestWelcome() {
         )}
 
       </div>
+      
+      {/* FAB for Reception */}
+      {property.receptionPhone && (
+        <div className="fixed bottom-8 left-0 right-0 flex justify-center z-50 pointer-events-none px-4">
+          <a
+            href={`tel:${property.receptionPhone}`}
+            className="pointer-events-auto bg-[#D4AF37] text-white px-8 py-3.5 rounded-full shadow-[0_8px_30px_rgba(212,175,55,0.4)] font-medium tracking-wide flex items-center gap-3 hover:bg-[#C5A030] transition-transform active:scale-95"
+            onClick={() => {
+              if (property.id && !isPreview) {
+                trackEvent(property.id, 'EXECUTED', 'RECOMMENDATION', { type: 'RECEPTION_CALL_CLICK' });
+              }
+            }}
+          >
+            <Phone size={20} className="animate-pulse" />
+            Call Reception
+          </a>
+        </div>
+      )}
+
       <GlobalFooter />
     </div>
   );

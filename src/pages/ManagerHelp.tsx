@@ -30,7 +30,7 @@ export function ManagerHelp() {
       <div className="max-w-3xl space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div>
           <h1 className="text-3xl font-serif font-medium text-text-primary mb-2">Help & Feedback</h1>
-          <p className="text-text-secondary opacity-80">We're here to support your restaurant's growth.</p>
+          <p className="text-text-secondary opacity-80">We're here to support your business's growth.</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-12">

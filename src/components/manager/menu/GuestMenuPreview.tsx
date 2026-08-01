@@ -60,7 +60,7 @@ export function GuestMenuPreview({ categories, dishes, propertyName = "Restauran
                               {dish.allergens && (
                                 <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-sm">
                                   <Info size={10} />
-                                  Contains: {dish.allergens}
+                                  Contains: {(() => { try { const a = JSON.parse(dish.allergens); return Array.isArray(a) ? a.join(", ") : dish.allergens; } catch { return dish.allergens; } })()}
                                 </span>
                               )}
                             </div>

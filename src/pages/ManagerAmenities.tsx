@@ -152,7 +152,7 @@ export function ManagerAmenities() {
                       )}
                     >
                       {amenity.status === 'ACTIVE' ? <CheckCircle size={14}/> : <XCircle size={14}/>}
-                      {amenity.status === 'ACTIVE' ? 'Published' : amenity.status === 'UNSAVED' ? 'Unsaved Draft' : 'Draft'}
+                      {amenity.status === 'ACTIVE' ? 'Published' : 'Draft pending'}
                     </button>
                     
                     <button 

@@ -42,16 +42,9 @@ export function GuestWelcome() {
 
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(new Date()), 60000);
-    const handleSectionClick = (sectionId: string) => {
-    setActiveSection(activeSection === sectionId ? null : sectionId);
-    if (activeSection !== sectionId && journey?.property?.id && !isPreview) {
-      if (sectionId === 'menu') trackEvent(journey.property.id, 'VIEWED', 'MENU', { section: sectionId });
-      else trackEvent(journey.property.id, 'VIEWED', 'RECOMMENDATION', { section: sectionId });
-    }
-  };
-
-  return () => clearInterval(interval);
+    return () => clearInterval(interval);
   }, []);
+
 
   if (loading) {
     return (
@@ -112,7 +105,24 @@ export function GuestWelcome() {
     ...visibleActivities.map(ac => ({ name: ac.name, config: ac as VisibilityConfig }))
   ];
 
-    const hasAssistanceOptions = property.receptionPhone || property.housekeepingPhone || property.emergencyPhone || property.contacts?.phone || property.contacts?.whatsapp || property.contacts?.email || property.contacts?.website;
+    const contacts = (() => {
+    try {
+      if (typeof property.contacts === 'string') return JSON.parse(property.contacts || '{}');
+      return property.contacts || {};
+    } catch {
+      return {};
+    }
+  })();
+
+  const receptionPhone = property.receptionPhone || contacts.receptionPhone;
+  const housekeepingPhone = property.housekeepingPhone || contacts.housekeepingPhone;
+  const emergencyPhone = property.emergencyPhone || contacts.emergencyPhone;
+  const directPhone = contacts.phone || property.phone;
+  const whatsappNumber = contacts.whatsapp || property.whatsapp;
+  const emailAddress = contacts.email || property.email;
+  const websiteUrl = contacts.website || property.website;
+
+  const hasAssistanceOptions = !!(receptionPhone || housekeepingPhone || emergencyPhone || directPhone || whatsappNumber || emailAddress || websiteUrl);
   const galleryImages = property.galleryImages || [];
   if (property.gallery) galleryImages.push(...property.gallery);
 
@@ -181,10 +191,10 @@ export function GuestWelcome() {
                   {property.wifiPassword && <p className="text-[14px] text-[#5A5A5A] mt-1 font-mono">{property.wifiPassword}</p>}
                 </div>
               )}
-              {property.receptionPhone && (
+              {receptionPhone && (
                 <div>
                   <p className="text-[9px] uppercase tracking-[0.2em] text-[#A3A095] mb-2">Reception</p>
-                  <a href={`tel:${property.receptionPhone}`} className="text-[14px] text-[#D4AF37]">{property.receptionPhone}</a>
+                  <a href={`tel:${receptionPhone}`} className="text-[14px] text-[#D4AF37] hover:underline" onClick={() => { if(property.id && !isPreview) trackEvent(property.id, 'EXECUTED', 'RECOMMENDATION', { type: 'RECEPTION_CALL_CLICK' }) }}>{receptionPhone}</a>
                 </div>
               )}
             </div>
@@ -329,66 +339,66 @@ export function GuestWelcome() {
           >
             <div className="bg-surface border border-[#EAE8E1]/40 p-6 rounded-sm shadow-premium space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {property.receptionPhone && (
-                  <a href={`tel:${property.receptionPhone}`} className="flex items-center p-4 border border-[#EAE8E1]/40 rounded hover:bg-background transition-colors" onClick={() => { if(property.id && !isPreview) trackEvent(property.id, 'EXECUTED', 'RECOMMENDATION', { type: 'RECEPTION_CALL_CLICK' }) }}>
+                {receptionPhone && (
+                  <a href={`tel:${receptionPhone}`} className="flex items-center p-4 border border-[#EAE8E1]/40 rounded hover:bg-background transition-colors" onClick={() => { if(property.id && !isPreview) trackEvent(property.id, 'EXECUTED', 'RECOMMENDATION', { type: 'RECEPTION_CALL_CLICK' }) }}>
                     <Phone size={18} className="text-[#D4AF37] mr-3 shrink-0" />
                     <div>
                       <p className="text-[10px] uppercase tracking-widest text-[#A3A095]">Reception</p>
-                      <p className="text-sm text-[#2A2A2A]">{property.receptionPhone}</p>
+                      <p className="text-sm text-[#2A2A2A]">{receptionPhone}</p>
                     </div>
                   </a>
                 )}
-                {property.housekeepingPhone && (
-                  <a href={`tel:${property.housekeepingPhone}`} className="flex items-center p-4 border border-[#EAE8E1]/40 rounded hover:bg-background transition-colors" onClick={() => { if(property.id && !isPreview) trackEvent(property.id, 'EXECUTED', 'RECOMMENDATION', { type: 'HOUSEKEEPING_CALL_CLICK' }) }}>
+                {housekeepingPhone && (
+                  <a href={`tel:${housekeepingPhone}`} className="flex items-center p-4 border border-[#EAE8E1]/40 rounded hover:bg-background transition-colors" onClick={() => { if(property.id && !isPreview) trackEvent(property.id, 'EXECUTED', 'RECOMMENDATION', { type: 'HOUSEKEEPING_CALL_CLICK' }) }}>
                     <Phone size={18} className="text-[#D4AF37] mr-3 shrink-0" />
                     <div>
                       <p className="text-[10px] uppercase tracking-widest text-[#A3A095]">Housekeeping</p>
-                      <p className="text-sm text-[#2A2A2A]">{property.housekeepingPhone}</p>
+                      <p className="text-sm text-[#2A2A2A]">{housekeepingPhone}</p>
                     </div>
                   </a>
                 )}
-                {property.emergencyPhone && (
-                  <a href={`tel:${property.emergencyPhone}`} className="flex items-center p-4 border border-red-100 rounded hover:bg-red-50 transition-colors" onClick={() => { if(property.id && !isPreview) trackEvent(property.id, 'EXECUTED', 'RECOMMENDATION', { type: 'EMERGENCY_CALL_CLICK' }) }}>
+                {emergencyPhone && (
+                  <a href={`tel:${emergencyPhone}`} className="flex items-center p-4 border border-red-100 rounded hover:bg-red-50 transition-colors" onClick={() => { if(property.id && !isPreview) trackEvent(property.id, 'EXECUTED', 'RECOMMENDATION', { type: 'EMERGENCY_CALL_CLICK' }) }}>
                     <Phone size={18} className="text-red-500 mr-3 shrink-0" />
                     <div>
                       <p className="text-[10px] uppercase tracking-widest text-red-400">Emergency</p>
-                      <p className="text-sm text-[#2A2A2A]">{property.emergencyPhone}</p>
+                      <p className="text-sm text-[#2A2A2A]">{emergencyPhone}</p>
                     </div>
                   </a>
                 )}
-                {property.contacts?.phone && (
-                  <a href={`tel:${property.contacts.phone}`} className="flex items-center p-4 border border-[#EAE8E1]/40 rounded hover:bg-background transition-colors" onClick={() => { if(property.id && !isPreview) trackEvent(property.id, 'EXECUTED', 'RECOMMENDATION', { type: 'PHONE_CLICK' }) }}>
+                {directPhone && (
+                  <a href={`tel:${directPhone}`} className="flex items-center p-4 border border-[#EAE8E1]/40 rounded hover:bg-background transition-colors" onClick={() => { if(property.id && !isPreview) trackEvent(property.id, 'EXECUTED', 'RECOMMENDATION', { type: 'PHONE_CLICK' }) }}>
                     <Phone size={18} className="text-[#D4AF37] mr-3 shrink-0" />
                     <div>
                       <p className="text-[10px] uppercase tracking-widest text-[#A3A095]">Direct Line</p>
-                      <p className="text-sm text-[#2A2A2A]">{property.contacts.phone}</p>
+                      <p className="text-sm text-[#2A2A2A]">{directPhone}</p>
                     </div>
                   </a>
                 )}
-                {property.contacts?.whatsapp && (
-                  <a href={`https://wa.me/${property.contacts.whatsapp.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" className="flex items-center p-4 border border-[#EAE8E1]/40 rounded hover:bg-background transition-colors" onClick={() => { if(property.id && !isPreview) trackEvent(property.id, 'EXECUTED', 'RECOMMENDATION', { type: 'WHATSAPP_CLICK' }) }}>
+                {whatsappNumber && (
+                  <a href={`https://wa.me/${whatsappNumber.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" className="flex items-center p-4 border border-[#EAE8E1]/40 rounded hover:bg-background transition-colors" onClick={() => { if(property.id && !isPreview) trackEvent(property.id, 'EXECUTED', 'RECOMMENDATION', { type: 'WHATSAPP_CLICK' }) }}>
                     <span className="text-[#25D366] mr-3 text-lg shrink-0">💬</span>
                     <div>
                       <p className="text-[10px] uppercase tracking-widest text-[#A3A095]">WhatsApp</p>
-                      <p className="text-sm text-[#2A2A2A]">{property.contacts.whatsapp}</p>
+                      <p className="text-sm text-[#2A2A2A]">{whatsappNumber}</p>
                     </div>
                   </a>
                 )}
-                {property.contacts?.email && (
-                  <a href={`mailto:${property.contacts.email}`} className="flex items-center p-4 border border-[#EAE8E1]/40 rounded hover:bg-background transition-colors" onClick={() => { if(property.id && !isPreview) trackEvent(property.id, 'EXECUTED', 'RECOMMENDATION', { type: 'EMAIL_CLICK' }) }}>
+                {emailAddress && (
+                  <a href={`mailto:${emailAddress}`} className="flex items-center p-4 border border-[#EAE8E1]/40 rounded hover:bg-background transition-colors" onClick={() => { if(property.id && !isPreview) trackEvent(property.id, 'EXECUTED', 'RECOMMENDATION', { type: 'EMAIL_CLICK' }) }}>
                     <span className="text-[#D4AF37] mr-3 text-lg shrink-0">✉️</span>
                     <div>
                       <p className="text-[10px] uppercase tracking-widest text-[#A3A095]">Email</p>
-                      <p className="text-sm text-[#2A2A2A] break-all">{property.contacts.email}</p>
+                      <p className="text-sm text-[#2A2A2A] break-all">{emailAddress}</p>
                     </div>
                   </a>
                 )}
-                {property.contacts?.website && (
-                  <a href={property.contacts.website.startsWith('http') ? property.contacts.website : `https://${property.contacts.website}`} target="_blank" rel="noreferrer" className="flex items-center p-4 border border-[#EAE8E1]/40 rounded hover:bg-background transition-colors" onClick={() => { if(property.id && !isPreview) trackEvent(property.id, 'EXECUTED', 'RECOMMENDATION', { type: 'WEBSITE_CLICK' }) }}>
+                {websiteUrl && (
+                  <a href={websiteUrl.startsWith('http') ? websiteUrl : `https://${websiteUrl}`} target="_blank" rel="noreferrer" className="flex items-center p-4 border border-[#EAE8E1]/40 rounded hover:bg-background transition-colors" onClick={() => { if(property.id && !isPreview) trackEvent(property.id, 'EXECUTED', 'RECOMMENDATION', { type: 'WEBSITE_CLICK' }) }}>
                     <span className="text-[#D4AF37] mr-3 text-lg shrink-0">🌐</span>
                     <div>
                       <p className="text-[10px] uppercase tracking-widest text-[#A3A095]">Website</p>
-                      <p className="text-sm text-[#2A2A2A] break-all">{property.contacts.website}</p>
+                      <p className="text-sm text-[#2A2A2A] break-all">{websiteUrl}</p>
                     </div>
                   </a>
                 )}
@@ -413,10 +423,10 @@ export function GuestWelcome() {
       </div>
       
       {/* FAB for Reception */}
-      {property.receptionPhone && (
+      {receptionPhone && (
         <div className="fixed bottom-8 left-0 right-0 flex justify-center z-50 pointer-events-none px-4">
           <a
-            href={`tel:${property.receptionPhone}`}
+            href={`tel:${receptionPhone}`}
             className="pointer-events-auto bg-[#D4AF37] text-white px-8 py-3.5 rounded-full shadow-[0_8px_30px_rgba(212,175,55,0.4)] font-medium tracking-wide flex items-center gap-3 hover:bg-[#C5A030] transition-transform active:scale-95"
             onClick={() => {
               if (property.id && !isPreview) {

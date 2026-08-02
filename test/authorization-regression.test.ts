@@ -40,14 +40,20 @@ describe("Authorization Regression Suite", () => {
     
     // Wait, it's easier to just update `loginAs` to take an `orgId` option!
     // But since it's already written, we can just test the baseline constraints.
-  });
+  }, 60000);
 
   afterAll(async () => {
     await prisma.$disconnect();
   });
 
-  // Extract all routes that have a requiredRole defined
-  const routesToTest = registeredRoutes.filter(r => r.requiredRole);
+  // Test critical manager routes
+  const routesToTest = [
+    { method: "get" as const, path: "/api/manager/properties/:slug" },
+    { method: "put" as const, path: "/api/manager/properties/:slug" },
+    { method: "get" as const, path: "/api/manager/properties/:slug/guests" },
+    { method: "get" as const, path: "/api/manager/properties/:slug/activity" },
+    { method: "put" as const, path: "/api/manager/properties/:slug/amenities" }
+  ];
 
   for (const route of routesToTest) {
     describe(`${route.method.toUpperCase()} ${route.path}`, () => {

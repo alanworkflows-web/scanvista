@@ -1,64 +1,99 @@
 export interface DiffResult {
   hasChanges: boolean;
   messages: string[];
+  counts?: {
+    property: number;
+    dishes: number;
+    amenities: number;
+    rules: number;
+    total: number;
+  };
 }
 
 export function calculateChanges(draft: any, snapshot: any): DiffResult {
   if (!snapshot) {
-    return { hasChanges: true, messages: ['First time publishing this property.'] };
+    const draftDishCount = draft?.categories?.reduce((acc: number, c: any) => acc + (c.dishes?.length || 0), 0) || 0;
+    const draftAmenityCount = draft?.amenities?.length || 0;
+    return { 
+      hasChanges: true, 
+      messages: ['First time publishing this property.'],
+      counts: {
+        property: 1,
+        dishes: draftDishCount,
+        amenities: draftAmenityCount,
+        rules: 1,
+        total: 1 + draftDishCount + draftAmenityCount + 1
+      }
+    };
   }
 
   const messages: string[] = [];
-  
+  let propertyChanges = 0;
+  let dishChanges = 0;
+  let amenityChanges = 0;
+  let ruleChanges = 0;
+
   // Basic Info
-  if (draft.name !== snapshot.name) messages.push('Property Name updated');
-  if (draft.heroImage !== snapshot.heroImage) messages.push('Hero Image updated');
-  if (draft.checkInTime !== snapshot.checkInTime || draft.checkOutTime !== snapshot.checkOutTime) {
+  const draftProp = draft.property || draft;
+  const snapProp = snapshot.property || snapshot;
+
+  if (draftProp.name !== snapProp.name) {
+    messages.push('Property Name updated');
+    propertyChanges++;
+  }
+  if (draftProp.heroImage !== snapProp.heroImage || draftProp.bannerUrl !== snapProp.bannerUrl) {
+    messages.push('Hero image / banner updated');
+    propertyChanges++;
+  }
+  if (draftProp.checkInTime !== snapProp.checkInTime || draftProp.checkOutTime !== snapProp.checkOutTime) {
     messages.push('Check-in/Check-out timings updated');
+    ruleChanges++;
   }
 
   // Categories & Menus
-  const draftCatCount = draft.categories?.length || 0;
-  const snapCatCount = snapshot.categories?.length || 0;
-  if (draftCatCount !== snapCatCount) {
-    messages.push(`Menu Categories changed (${draftCatCount} total)`);
-  } else {
-    // Quick check if dishes changed
-    const draftDishCount = draft.categories?.reduce((acc: number, c: any) => acc + (c.dishes?.length || 0), 0) || 0;
-    const snapDishCount = snapshot.categories?.reduce((acc: number, c: any) => acc + (c.dishes?.length || 0), 0) || 0;
-    if (draftDishCount !== snapDishCount) {
-       messages.push(`Menu Items updated (${draftDishCount} total)`);
-    }
+  const draftCats = draft.categories || draftProp.categories || [];
+  const snapCats = snapshot.categories || snapProp.categories || [];
+  const draftDishes = draftCats.flatMap((c: any) => c.dishes || []);
+  const snapDishes = snapCats.flatMap((c: any) => c.dishes || []);
+
+  if (draftCats.length !== snapCats.length) {
+    messages.push(`Menu Categories changed (${draftCats.length} total)`);
+    dishChanges += Math.abs(draftCats.length - snapCats.length);
+  }
+  if (draftDishes.length !== snapDishes.length) {
+    messages.push(`Menu Items updated (${draftDishes.length} total)`);
+    dishChanges += Math.abs(draftDishes.length - snapDishes.length);
   }
 
   // Amenities
-  const draftAmenityCount = draft.amenities?.length || 0;
-  const snapAmenityCount = snapshot.amenities?.length || 0;
-  if (draftAmenityCount !== snapAmenityCount) {
-    messages.push(`Amenities changed (${draftAmenityCount} total)`);
+  const draftAmenities = draft.amenities || draftProp.amenities || [];
+  const snapAmenities = snapshot.amenities || snapProp.amenities || [];
+  if (draftAmenities.length !== snapAmenities.length) {
+    const diff = Math.abs(draftAmenities.length - snapAmenities.length);
+    messages.push(`Amenities changed (${draftAmenities.length} total)`);
+    amenityChanges += diff;
   }
 
-  // Activities
-  const draftActivityCount = draft.activities?.length || 0;
-  const snapActivityCount = snapshot.activities?.length || 0;
-  if (draftActivityCount !== snapActivityCount) {
-    messages.push(`Activities changed (${draftActivityCount} total)`);
+  // House Rules
+  const draftRules = draftProp.hotelRules || draftProp.houseRules;
+  const snapRules = snapProp.hotelRules || snapProp.houseRules;
+  if (JSON.stringify(draftRules) !== JSON.stringify(snapRules)) {
+    messages.push('House rules updated');
+    ruleChanges++;
   }
 
-  // Emergency Mode
-  const draftMaint = draft.maintenanceMode ? JSON.stringify(draft.maintenanceMode) : null;
-  const snapMaint = snapshot.maintenanceMode ? JSON.stringify(snapshot.maintenanceMode) : null;
-  if (draftMaint !== snapMaint) {
-    if (draftMaint) messages.push('🚨 Maintenance Mode rules updated');
-    else messages.push('✅ Maintenance Mode deactivated');
-  }
-
-  if (messages.length === 0) {
-    return { hasChanges: false, messages: ['No structural changes detected since last publish.'] };
-  }
+  const total = propertyChanges + dishChanges + amenityChanges + ruleChanges;
+  const hasChanges = messages.length > 0;
 
   return {
-    hasChanges: true,
-    messages
+    hasChanges,
+    messages: hasChanges ? messages : ['No structural changes detected since last publish.'],
+    counts: {
+      property: propertyChanges,
+      dishes: dishChanges,
+      amenities: amenityChanges,
+      rules: ruleChanges,
+      total
+    }
   };
 }

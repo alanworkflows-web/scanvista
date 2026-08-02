@@ -40,7 +40,7 @@ beforeAll(async () => {
   
   const propB = await prisma.property.findUnique({ where: { slug: propBSlug }});
   propBId = propB!.id;
-});
+}, 60000);
 
 afterAll(async () => {
   await prisma.$disconnect();

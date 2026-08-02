@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { trackEvent } from "../lib/tracking";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -571,6 +572,11 @@ export function PropertyPage() {
                     {property.receptionPhone && (
                       <a
                         href={`tel:${property.receptionPhone}`}
+                        onClick={() => {
+                          if (property.id) {
+                            trackEvent(property.id, 'EXECUTED', 'RECOMMENDATION', { type: 'RECEPTION_CALL_CLICK' });
+                          }
+                        }}
                         className="flex flex-col items-center justify-center gap-2 p-6 bg-surface rounded-sm shadow-premium border border-divider hover:shadow-premium-hover hover:border-indigo-200 transition-all text-text-secondary hover:text-indigo-700"
                       >
                         <div className="p-3 bg-primary-light/20 rounded-full text-primary-hover">
@@ -582,6 +588,11 @@ export function PropertyPage() {
                     {property.emergencyPhone && (
                       <a
                         href={`tel:${property.emergencyPhone}`}
+                        onClick={() => {
+                          if (property.id) {
+                            trackEvent(property.id, 'EXECUTED', 'RECOMMENDATION', { type: 'EMERGENCY_CALL_CLICK' });
+                          }
+                        }}
                         className="flex flex-col items-center justify-center gap-2 p-6 bg-surface rounded-sm shadow-premium border border-divider hover:shadow-premium-hover hover:border-rose-200 transition-all text-text-secondary hover:text-rose-700"
                       >
                         <div className="p-3 bg-rose-50 rounded-full text-rose-600">
@@ -605,6 +616,13 @@ export function PropertyPage() {
             {(property.roomServicePhone || property.receptionPhone) ? (
               <a 
                 href={`tel:${property.roomServicePhone || property.receptionPhone}`}
+                onClick={() => {
+                  if (property.id) {
+                    trackEvent(property.id, 'EXECUTED', 'RECOMMENDATION', { 
+                      type: property.roomServicePhone ? 'ROOM_SERVICE_CALL_CLICK' : 'RECEPTION_CALL_CLICK' 
+                    });
+                  }
+                }}
                 className="flex items-center justify-center gap-2 w-full py-3.5 bg-gray-900 text-white rounded-sm font-medium shadow-premium hover:bg-gray-800 transition-all active:scale-95"
               >
                 <Phone className="w-5 h-5" />

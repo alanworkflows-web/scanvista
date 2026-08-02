@@ -2,9 +2,11 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ManagerLayout } from "../components/ManagerLayout";
 import { useManagerProperty } from "../hooks/useManagerProperty";
-import { QrCode, Download, Copy, ExternalLink, CheckCircle2, AlertTriangle, FileDiff, RefreshCcw, Send, Sparkles } from "lucide-react";
-import { calculateChanges, DiffResult } from "../lib/diffEngine";
-import { calculateCompletion } from "../lib/completionEngine";
+import { QrCode, Download, Copy, ExternalLink, CheckCircle2, AlertTriangle, FileDiff, Send, Sparkles } from "lucide-react";
+import { getPropertyStatus, calculateLaunchChecklist } from "../lib/propertyStatusEngine";
+import { detectSensitiveContent } from "../lib/sensitiveContent";
+import { PublishConfirmationModal } from "../components/PublishConfirmationModal";
+import { SensitiveContentModal } from "../components/ui/SensitiveContentModal";
 import { safeFormatTime } from "../lib/dateUtils";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
@@ -15,13 +17,37 @@ export function ManagerPublishing() {
   const { property, amenities, categories, dishes, loading, refreshProperty } = useManagerProperty();
   
   const [publishing, setPublishing] = useState(false);
-  const [showDiff, setShowDiff] = useState(false);
-  const [diffResult, setDiffResult] = useState<DiffResult | null>(null);
+  const [showPublishModal, setShowPublishModal] = useState(false);
+  const [sensitiveSamples, setSensitiveSamples] = useState<string[]>([]);
+  const [showSensitiveModal, setShowSensitiveModal] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [snapshots, setSnapshots] = useState<any[]>([]);
+  const [draftData, setDraftData] = useState<any>(null);
 
   useEffect(() => {
     refreshProperty();
   }, []);
+
+  useEffect(() => {
+    if (property) {
+      const fetchData = async () => {
+        try {
+          const liveRes = await fetch(`/api/manager/properties/${property.slug}/snapshots`);
+          if (liveRes.ok) {
+            const raw = await liveRes.json();
+            setSnapshots(Array.isArray(raw) ? raw : (raw.snapshots || []));
+          }
+          if (property.previewToken) {
+            const previewRes = await fetch(`/api/preview/${property.previewToken}`);
+            if (previewRes.ok) setDraftData(await previewRes.json());
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      };
+      fetchData();
+    }
+  }, [property]);
 
   if (loading) {
     return (
@@ -35,37 +61,35 @@ export function ManagerPublishing() {
 
   if (!property) return null;
 
-  // Calculate live database completion based on real resolved arrays
-  const completion = calculateCompletion({ property, amenities, categories, dishes });
-  const score = completion.score;
-  const isReady = score === 100;
-  // isPublished is now a real boolean returned by GET /api/properties/:slug
-  const isPublished = !!(property.isPublished || (property.snapshots && property.snapshots.length > 0));
+  // Calculate single unified status
+  const statusResult = getPropertyStatus({
+    property,
+    snapshots,
+    draftData
+  });
 
-  const handleReviewChanges = async () => {
-    try {
-      const liveRes = await fetch(`/api/manager/properties/${property.slug}/snapshots`);
-      if (!liveRes.ok) throw new Error("Failed to fetch snapshots");
-      const liveData = await liveRes.json();
-      const snapshotsList = Array.isArray(liveData) ? liveData : (liveData.snapshots || []);
-      const currentPublished = snapshotsList.length > 0 ? snapshotsList[0].data : null;
-      
-      if (!property.previewToken) return;
-      if (!property.previewToken) return;
-      if (!property.previewToken) return;
-      const res = await fetch(`/api/preview/${property.previewToken}`);
-      const draftData = await res.json();
+  const isReady = statusResult.completionPercentage === 100;
+  const isPublished = statusResult.publishState === 'PUBLISHED' || (snapshots && snapshots.length > 0);
 
-      const diff = calculateChanges(draftData, currentPublished);
-      setDiffResult(diff);
-      setShowDiff(true);
-    } catch (e) {
-      console.error(e);
-      toast.error("Failed to calculate changes.");
+  const handleReviewAndPublish = () => {
+    if (!property?.slug) return;
+    
+    // Check for sensitive content
+    const sensitive = detectSensitiveContent({
+      property,
+      draftData
+    });
+
+    if (sensitive.detected) {
+      setSensitiveSamples(sensitive.samples);
+      setShowSensitiveModal(true);
+      return;
     }
+
+    setShowPublishModal(true);
   };
 
-  const handlePublish = async () => {
+  const handleConfirmPublish = async () => {
     setPublishing(true);
     try {
       const res = await fetch(`/api/manager/properties/${property.slug}/publish`, {
@@ -76,6 +100,12 @@ export function ManagerPublishing() {
       const data = await res.json();
 
       if (!res.ok) {
+        if (res.status === 422 && data.samples) {
+          setShowPublishModal(false);
+          setSensitiveSamples(data.samples);
+          setShowSensitiveModal(true);
+          return;
+        }
         const errMsg = data?.error || data?.detail || "Publish failed";
         console.error("[Publish] API error:", data);
         toast.error(errMsg);
@@ -84,9 +114,8 @@ export function ManagerPublishing() {
 
       console.log("[Publish] Success:", data);
 
-      // Refresh property so isPublished, snapshotCount, lastPublishedAt update
       await refreshProperty();
-      setShowDiff(false);
+      setShowPublishModal(false);
 
       // Fire confetti celebration
       confetti({
@@ -96,7 +125,7 @@ export function ManagerPublishing() {
         colors: ['#D4AF37', '#1A1A1A', '#059669']
       });
 
-      toast.success(`✅ Property published live! QR code is now active.`);
+      toast.success(`✅ Property published live! Guest view & QR code are updated.`);
     } catch (e: any) {
       console.error("[Publish] Network error:", e);
       toast.error("Network error while publishing. Please try again.");
@@ -140,51 +169,47 @@ export function ManagerPublishing() {
         
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-1">
-            <h1 className="text-3xl font-serif font-medium text-[#1A1A1A]">Publishing & QR Portal</h1>
+            <h1 className="text-3xl font-serif font-medium text-text-primary">Publishing & QR Portal</h1>
             <div className="flex items-center gap-3">
-              <span className={`text-[10px] uppercase font-semibold px-2.5 py-1 rounded-md border ${
-                isPublished 
-                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
-                  : 'bg-amber-50 text-amber-800 border-amber-200'
-              }`}>
-                {isPublished ? '✓ Live & Published' : '⚠️ Unpublished Draft'}
+              <span className={`text-[10px] uppercase font-semibold px-2.5 py-1 rounded-md border ${statusResult.badgeColor}`}>
+                {statusResult.badgeLabel}
               </span>
-              {isPublished && property.snapshots && property.snapshots.length > 0 && (
+              {isPublished && snapshots.length > 0 && (
                 <span className="text-xs text-text-muted font-medium bg-surface border border-divider px-2.5 py-1 rounded-md shadow-sm">
-                  Last Published: {safeFormatTime(property.snapshots[0].publishedAt || property.snapshots[0].createdAt)}
+                  Last Published: {safeFormatTime(snapshots[0].publishedAt || snapshots[0].createdAt)}
                 </span>
               )}
             </div>
           </div>
           <p className="text-text-secondary text-sm font-light">
-            Validate property readiness, publish updates to live, and generate guest mobile QR codes for <span className="font-medium text-[#1A1A1A]">{property.name}</span>.
+            Validate property readiness, review categorized changes, and publish updates live for <span className="font-medium text-text-primary">{property.name}</span>.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           
           {/* Readiness Card */}
-          <div className="bg-surface rounded-xl border border-[#EAE8E1] shadow-sm p-8 flex flex-col h-full">
-            <div className="flex items-center justify-between mb-6 pb-4 border-b border-[#EAE8E1]">
-              <h2 className="text-lg font-serif font-medium text-[#1A1A1A] flex items-center gap-2">
-                <CheckCircle2 className={isReady ? "text-[#D4AF37]" : "text-amber-500"} size={20} />
+          <div className="bg-surface rounded-xl border border-divider shadow-sm p-8 flex flex-col h-full">
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-divider">
+              <h2 className="text-lg font-serif font-medium text-text-primary flex items-center gap-2">
+                <CheckCircle2 className={isReady ? "text-emerald-600" : "text-amber-500"} size={20} />
                 Publish Readiness Engine
               </h2>
-              <span className="text-xl font-serif font-medium text-[#1A1A1A]">{score}%</span>
+              <span className="text-xl font-serif font-medium text-text-primary">{statusResult.completionPercentage}%</span>
             </div>
             
             <div className="flex-1 space-y-6">
               {/* Progress Bar */}
               <div>
-                <div className="w-full bg-[#FCFAF7] border border-[#EAE8E1] rounded-full h-3 mb-2 overflow-hidden">
+                <div className="w-full bg-background border border-divider rounded-full h-3 mb-2 overflow-hidden">
                   <div 
-                    className={`h-full transition-all duration-500 ${isReady ? "bg-[#D4AF37]" : "bg-amber-500"}`} 
-                    style={{ width: `${score}%` }} 
+                    className={`h-full transition-all duration-500 ${isReady ? "bg-emerald-500" : "bg-amber-500"}`} 
+                    style={{ width: `${statusResult.completionPercentage}%` }} 
                   />
                 </div>
                 <div className="flex justify-between text-[11px] text-text-muted font-mono">
                   <span>Calculated from live database</span>
-                  <span>{isReady ? "100% Ready for QR Launch" : `${100 - score}% incomplete`}</span>
+                  <span>{isReady ? "100% Ready for QR Launch" : `${100 - statusResult.completionPercentage}% incomplete`}</span>
                 </div>
               </div>
 
@@ -194,92 +219,89 @@ export function ManagerPublishing() {
                   System Diagnostics & Data Audit
                 </span>
                 
-                {completion.checks.map((check, i) => {
-                  let link = "/manager/property";
-                  const lower = check.name.toLowerCase();
-                  if (lower.includes("hero") || lower.includes("image")) link = "/manager/experience";
-                  if (lower.includes("menu") || lower.includes("dish") || lower.includes("category")) link = "/manager/menu";
-
-                  return (
-                    <div 
-                      key={i} 
-                      className={`p-3 rounded-lg border text-xs flex items-center justify-between gap-3 transition-all ${
-                        check.passed 
-                          ? "bg-[#FCFAF7] border-[#EAE8E1] text-[#1A1A1A]" 
-                          : "bg-amber-50/60 border-amber-200 text-amber-900"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5 truncate">
-                        {check.passed ? (
-                          <CheckCircle2 size={16} className="shrink-0 text-emerald-600" />
-                        ) : (
-                          <AlertTriangle size={16} className="shrink-0 text-amber-500" />
-                        )}
-                        <div className="truncate">
-                          <span className="font-medium block truncate">{check.name}</span>
-                          <span className="text-[10px] opacity-75 font-mono block truncate">
-                            {check.passed ? check.actual : check.reason}
-                          </span>
-                        </div>
-                      </div>
-
-                      {!check.passed && (
-                        <Link 
-                          to={link} 
-                          className="shrink-0 text-[10px] uppercase font-semibold text-amber-800 hover:text-amber-900 bg-amber-100 hover:bg-amber-200 px-2.5 py-1 rounded transition"
-                        >
-                          Fix &rarr;
-                        </Link>
+                {[
+                  { name: "Brand & Property Name", passed: statusResult.propertyReadiness.isBrandReady, link: "/manager/experience", reason: "Property name or tagline required" },
+                  { name: "Dining Menu", passed: statusResult.propertyReadiness.isMenuReady, link: "/manager/menu", reason: "At least one category and dish required" },
+                  { name: "Amenities & Services", passed: statusResult.propertyReadiness.isAmenitiesReady, link: "/manager/amenities", reason: "At least one amenity required" },
+                  { name: "Contact Phone Numbers", passed: statusResult.propertyReadiness.isContactsReady, link: "/manager/experience", reason: "Emergency or reception phone required" },
+                  { name: "House Rules & Policies", passed: statusResult.propertyReadiness.isRulesReady, link: "/manager/house-rules", reason: "Hotel or guest rules required" },
+                ].map((check, i) => (
+                  <div 
+                    key={i} 
+                    className={`p-3 rounded-lg border text-xs flex items-center justify-between gap-3 transition-all ${
+                      check.passed 
+                        ? "bg-background border-divider text-text-primary" 
+                        : "bg-amber-50/60 border-amber-200 text-amber-900"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 truncate">
+                      {check.passed ? (
+                        <CheckCircle2 size={16} className="shrink-0 text-emerald-600" />
+                      ) : (
+                        <AlertTriangle size={16} className="shrink-0 text-amber-500" />
                       )}
+                      <div className="truncate">
+                        <span className="font-medium block truncate">{check.name}</span>
+                        <span className="text-[10px] opacity-75 font-mono block truncate">
+                          {check.passed ? "Configured & verified" : check.reason}
+                        </span>
+                      </div>
                     </div>
-                  );
-                })}
+
+                    {!check.passed && (
+                      <Link 
+                        to={check.link} 
+                        className="shrink-0 text-[10px] uppercase font-semibold text-amber-800 hover:text-amber-900 bg-amber-100 hover:bg-amber-200 px-2.5 py-1 rounded transition"
+                      >
+                        Fix &rarr;
+                      </Link>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
             
             {/* Actions */}
-            <div className="pt-6 mt-6 border-t border-[#EAE8E1] flex flex-col sm:flex-row gap-3">
+            <div className="pt-6 mt-6 border-t border-divider flex flex-col sm:flex-row gap-3">
               <Button 
-                onClick={handlePublish} 
-                disabled={!isReady || publishing} 
+                onClick={handleReviewAndPublish} 
+                disabled={publishing} 
                 className={`flex-1 ${
-                  isReady 
-                    ? "bg-[#1A1A1A] text-white hover:bg-[#2A2A2A] shadow-md" 
-                    : "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed"
+                  statusResult.hasUnpublishedChanges
+                    ? "bg-text-primary text-white hover:bg-text-primary/90 shadow-md cursor-pointer" 
+                    : "bg-surface-hover text-text-muted border border-divider cursor-not-allowed"
                 }`}
               >
-                {publishing ? "Publishing..." : "Publish Workspace"}
+                {publishing ? "Publishing..." : statusResult.hasUnpublishedChanges ? "Publish Live" : "Up to Date"}
               </Button>
-
-              <Button 
-                onClick={handleReviewChanges} 
-                disabled={!isReady || publishing} 
-                variant="secondary"
-                className="flex-1 border-[#EAE8E1]"
+              <Link
+                to="/manager/checklist"
+                className="px-4 py-2 text-xs font-medium text-text-primary bg-surface hover:bg-surface-hover border border-divider rounded-md flex items-center justify-center gap-1.5 transition-colors"
               >
-                Review Diff
-              </Button>
+                <span>Launch Checklist</span>
+                <span className="text-text-muted">&rarr;</span>
+              </Link>
             </div>
           </div>
 
           {/* Access & QR Distribution Card */}
-          <div className="bg-surface rounded-xl border border-[#EAE8E1] shadow-sm p-8 flex flex-col h-full relative overflow-hidden">
+          <div className="bg-surface rounded-xl border border-divider shadow-sm p-8 flex flex-col h-full relative overflow-hidden">
             {/* Overlay if not published */}
             {!isPublished ? (
               <div className="absolute inset-0 bg-surface/80 backdrop-blur-sm z-20 flex flex-col items-center justify-center p-8 text-center">
-                <div className="w-14 h-14 bg-[#D4AF37]/10 text-[#D4AF37] rounded-full flex items-center justify-center mb-4">
+                <div className="w-14 h-14 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-4">
                   <AlertTriangle size={28} />
                 </div>
-                <h3 className="text-xl font-serif text-[#1A1A1A] mb-2">Publish Required to Generate QR</h3>
+                <h3 className="text-xl font-serif text-text-primary mb-2">Publish Required to Generate QR</h3>
                 <p className="text-xs text-text-secondary max-w-xs mb-4 leading-relaxed">
-                  Complete the 100% readiness checks on the left and click <strong>"Publish Workspace"</strong> to generate live QR codes for hotel guests.
+                  Complete the readiness checklist and click <strong>"Publish Live"</strong> to generate active QR codes for hotel guests.
                 </p>
               </div>
             ) : null}
 
-            <div className="flex items-center justify-between mb-6 pb-4 border-b border-[#EAE8E1]">
-              <h2 className="text-lg font-serif font-medium text-[#1A1A1A] flex items-center gap-2">
-                <QrCode className="text-[#D4AF37]" size={20} />
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-divider">
+              <h2 className="text-lg font-serif font-medium text-text-primary flex items-center gap-2">
+                <QrCode className="text-primary" size={20} />
                 Guest Access & Vector QR Code
               </h2>
               <span className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full font-medium">
@@ -288,7 +310,7 @@ export function ManagerPublishing() {
             </div>
 
             <div className="flex-1 flex flex-col items-center justify-center py-4">
-              <div className="bg-surface p-6 rounded-xl shadow-md border border-[#EAE8E1] mb-6 hover:shadow-lg transition-all">
+              <div className="bg-surface p-6 rounded-xl shadow-md border border-divider mb-6 hover:shadow-lg transition-all">
                 <QRCodeSVG 
                   id="guest-qr-code" 
                   value={`${window.location.origin}/g/${property.slug}`}
@@ -298,12 +320,12 @@ export function ManagerPublishing() {
                   fgColor="#1A1A1A"
                 />
               </div>
-              <p className="text-xs font-mono font-medium text-text-primary text-center bg-[#FCFAF7] border border-[#EAE8E1] px-4 py-2 rounded-lg truncate max-w-full">
+              <p className="text-xs font-mono font-medium text-text-primary text-center bg-background border border-divider px-4 py-2 rounded-lg truncate max-w-full">
                 {window.location.origin}/g/{property.slug}
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 pt-6 border-t border-[#EAE8E1]">
+            <div className="grid grid-cols-2 gap-3 pt-6 border-t border-divider">
               <Button onClick={copyLink} variant="secondary" className="w-full text-xs">
                 {copied ? <CheckCircle2 size={15} className="mr-1.5 text-emerald-600" /> : <Copy size={15} className="mr-1.5" />}
                 {copied ? "Copied" : "Copy Guest Link"}
@@ -318,7 +340,7 @@ export function ManagerPublishing() {
                 href={`/g/${property.slug}`} 
                 target="_blank" 
                 rel="noreferrer"
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-medium text-[#1A1A1A] bg-[#FCFAF7] border border-[#EAE8E1] hover:border-[#D4AF37] rounded-lg transition"
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-medium text-text-primary bg-background border border-divider hover:border-primary rounded-lg transition"
               >
                 <ExternalLink size={14} /> Open Live Guest View
               </a>
@@ -327,48 +349,27 @@ export function ManagerPublishing() {
         </div>
       </div>
 
-      {/* Review Diff Modal */}
-      {showDiff && diffResult && (
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-          <div className="bg-surface rounded-xl border border-[#EAE8E1] shadow-2xl max-w-xl w-full p-8 space-y-6">
-            <div className="flex justify-between items-center border-b border-[#EAE8E1] pb-4">
-              <h3 className="text-xl font-serif text-[#1A1A1A] flex items-center gap-2">
-                <FileDiff size={20} className="text-[#D4AF37]" /> Review Pending Changes
-              </h3>
-              <button onClick={() => setShowDiff(false)} className="text-text-muted hover:text-[#1A1A1A] text-lg font-bold">
-                ✕
-              </button>
-            </div>
+      {/* Publish Confirmation Modal with Pre-Publish Validation Gate */}
+      <PublishConfirmationModal
+        isOpen={showPublishModal}
+        onClose={() => setShowPublishModal(false)}
+        onConfirm={handleConfirmPublish}
+        loading={publishing}
+        changeCounts={statusResult.changeCounts}
+        checklist={calculateLaunchChecklist({
+          ...property,
+          amenities,
+          categories
+        }, snapshots)}
+      />
 
-            <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2">
-              <p className="text-xs text-text-secondary">
-                The following modifications will be published live to guest smartphones:
-              </p>
-              
-              <div className="bg-[#FCFAF7] border border-[#EAE8E1] rounded-lg p-4 font-mono text-xs space-y-2">
-                {diffResult.messages && diffResult.messages.length > 0 ? (
-                  <ul className="list-disc pl-4 space-y-1">
-                    {diffResult.messages.map((m, i) => (
-                      <li key={i}>{m}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div>No major changes detected.</div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-4 border-t border-[#EAE8E1]">
-              <Button variant="secondary" onClick={() => setShowDiff(false)} className="text-xs">
-                Cancel
-              </Button>
-              <Button onClick={handlePublish} disabled={publishing} className="bg-[#1A1A1A] text-white text-xs">
-                {publishing ? "Publishing..." : "Confirm & Publish Live"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Sensitive Content Blocker Modal */}
+      <SensitiveContentModal
+        isOpen={showSensitiveModal}
+        onClose={() => setShowSensitiveModal(false)}
+        samples={sensitiveSamples}
+        isPublishBlock={true}
+      />
     </ManagerLayout>
   );
 }

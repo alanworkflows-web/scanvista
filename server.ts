@@ -10,6 +10,7 @@ import { OAuth2Client } from "google-auth-library";
 import { z } from "zod";
 import crypto from "crypto";
 import { Paddle, Environment } from "@paddle/paddle-node-sdk";
+import { detectSensitiveContent } from "./src/lib/sensitiveContent";
 
 export interface Entitlement {
   plan: "free" | "premium";
@@ -103,7 +104,7 @@ const app = express();
     try {
       const signature = req.headers['paddle-signature'] as string;
       const rawBody = req.body.toString('utf8');
-      const secretKey = process.env.PADDLE_WEBHOOK_SECRET;
+      const secretKey = process.env.PADDLE_WEBHOOK_SECRET || (process.env.NODE_ENV === 'test' ? 'test_webhook_secret' : undefined);
 
       console.log("BEGIN PADDLE AUDIT");
       console.log(`process.env.PADDLE_WEBHOOK_SECRET exists: ${!!secretKey}`);
@@ -151,10 +152,11 @@ const app = express();
       console.dir(eventData, { depth: null });
       console.log("=== END SDK PAYLOAD DUMP ===");
 
-      const eventId = eventData?.eventId || eventData?.id;
+      const eventId = eventData?.eventId || eventData?.event_id || eventData?.id;
+      const eventType = eventData?.eventType || eventData?.event_type || eventData?.type || 'unknown';
       if (eventId) {
         try {
-          await prisma.webhookEvent.create({ data: { id: eventId, type: eventData.eventType || 'unknown' } });
+          await prisma.webhookEvent.create({ data: { id: eventId, type: eventType } });
         } catch (e: any) {
           if (e.code === 'P2002') {
             return res.status(200).send("OK");
@@ -163,15 +165,16 @@ const app = express();
         }
       }
 
-      console.log(`1. Parsed eventType: ${eventData?.eventType}`);
+      console.log(`1. Parsed eventType: ${eventType}`);
 
-      // Use explicit casting to the SDK's expected generic payload shape to access camelCase properties correctly
-      const payload = eventData?.data as any; // Cast as any first to satisfy strict TypeScript before checking properties, but use camelCase below
+      // Support both camelCase (SDK instances) and snake_case (raw JSON)
+      const payload = (eventData?.data || eventData) as any;
+      const customData = payload?.customData || payload?.custom_data;
       
-      console.log(`2. Log customData:`, payload?.customData);
+      console.log(`2. Log customData:`, customData);
 
-      if (payload && payload.customData && payload.customData.slug) {
-        const slug = payload.customData.slug;
+      if (payload && customData && customData.slug) {
+        const slug = customData.slug;
         console.log(`3. Log slug: ${slug}`);
 
         const status = payload.status;
@@ -181,9 +184,8 @@ const app = express();
           return res.status(200).send("Unsupported or missing status safely ignored");
         }
 
-        const customerId = payload.customerId;
-        const subscriptionId = payload.id;
-        // Other SDK properties if we needed them: businessId, addressId, scheduledChange, transactionId
+        const customerId = payload.customerId || payload.customer_id;
+        const subscriptionId = payload.id || payload.subscriptionId || payload.subscription_id;
 
         const property = await prisma.property.findUnique({ where: { slug } });
         console.log(`4. Log property lookup: ${property ? property.id : 'NOT_FOUND'}`);
@@ -287,17 +289,32 @@ const app = express();
     galleryImages: z.any().optional(),
   });
 
+  const SCRIPT_OR_HTML_REGEX = /<[a-z/][\s\S]*>/i;
+  const SQL_INJECTION_REGEX = /(?:union\s+select|insert\s+into|drop\s+table|delete\s+from|update\s+.*\s+set)/i;
+
   const AmenitySchema = z.object({
-    name: z.string().trim().min(1).max(255),
-    description: z.string().max(1000).optional(),
+    name: z.string().trim().min(2, "Amenity name must be at least 2 characters").max(40, "Amenity name cannot exceed 40 characters")
+      .refine(v => !SCRIPT_OR_HTML_REGEX.test(v), "HTML/Script tags not allowed")
+      .refine(v => !SQL_INJECTION_REGEX.test(v), "Invalid SQL characters in amenity name"),
+    description: z.string().max(300, "Description cannot exceed 300 characters").optional(),
     openTime: z.string().max(20).optional(),
     closeTime: z.string().max(20).optional(),
     requiresReservation: z.boolean().optional(),
+    icon: z.string().max(10).optional(),
+    location: z.string().max(100).optional(),
+    floor: z.string().max(50).optional(),
+    directions: z.string().max(200).optional(),
+    contact: z.string().max(50).optional(),
+    heroImage: z.string().optional(),
+    imageUrl: z.string().optional(),
+    status: z.string().optional()
   });
 
   const DishSchema = z.object({
-    name: z.string().trim().min(1).max(255),
-    price: z.number().min(0),
+    name: z.string().trim().min(2, "Dish name must be at least 2 characters").max(80, "Dish name cannot exceed 80 characters")
+      .refine(v => !SCRIPT_OR_HTML_REGEX.test(v), "HTML/Script tags not allowed"),
+    price: z.number().min(0, "Price must be greater than or equal to 0"),
+    description: z.string().max(400, "Description cannot exceed 400 characters").optional(),
     allergens: z.string().optional(),
     healthTips: z.string().optional(),
     isOutOfStock: z.boolean().optional(),
@@ -305,7 +322,8 @@ const app = express();
   });
 
   const CategorySchema = z.object({
-    name: z.string().trim().min(1).max(255),
+    name: z.string().trim().min(1, "Category name is required").max(25, "Category name cannot exceed 25 characters")
+      .refine(v => !SCRIPT_OR_HTML_REGEX.test(v), "HTML/Script tags not allowed"),
     displayOrder: z.number().optional(),
   });
 
@@ -728,9 +746,7 @@ const app = express();
         return res.json(safeGuest);
       }
 
-      // 3. Fallback for Preview Token (Legacy / Draft access)
-      // This is still here for backwards compatibility if Guest app uses /api/guests/:previewToken
-      // However, we recommend /api/preview/:previewToken for previews.
+      // 3. Fallback for Preview Token
       const previewProperty = await prisma.property.findUnique({
         where: { previewToken: token },
         include: {
@@ -762,92 +778,77 @@ const app = express();
     }
   });
 
-  app.get("/api/guests/:token", async (req, res) => {
+  // Dedicated Preview Endpoint for Manager/Staff previews
+  app.get("/api/preview/:token", async (req, res) => {
     try {
       const { token } = req.params;
-
-      // 1. Try finding a registered guest by their unique token
-      const guest = await prisma.guest.findUnique({
-        where: { token },
-        include: {
-          property: {
-            include: {
-              amenities: true,
-              categories: { include: { dishes: true } },
-            }
-          }
-        }
-      });
-
-      if (guest) {
-        // Update linkViewedAt
-        await prisma.guest.update({
-          where: { id: guest.id },
-          data: { linkViewedAt: new Date() }
-        });
-
-        // Return personalized guest journey with full property data
-        const safeGuest = {
-          token: guest.token,
-          name: guest.name,
-          roomNumber: guest.roomNumber,
-          language: guest.language,
-          arrivalDate: guest.arrivalDate,
-          departureDate: guest.departureDate,
-          arrivalTime: guest.arrivalTime,
-          preferences: guest.preferences,
-          communication: guest.communication,
-          status: guest.status,
-          property: {
-            ...guest.property,
-            heroImage: guest.property.heroImage || guest.property.bannerUrl,
-            bannerUrl: guest.property.bannerUrl || guest.property.heroImage
-          }
-        };
-
-        return res.json(safeGuest);
-      }
-
-      // 2. No guest found — fall back to property slug lookup (public QR access)
-      const property = await prisma.property.findFirst({
-        where: { OR: [{ slug: token }, { previewToken: token }] },
+      const property = await prisma.property.findUnique({
+        where: { previewToken: token },
         include: {
           amenities: true,
-          categories: { include: { dishes: true } },
+          categories: {
+            include: { dishes: true },
+            orderBy: { displayOrder: 'asc' }
+          },
+          subscription: true,
+          snapshots: {
+            orderBy: { publishedAt: 'desc' },
+            take: 1
+          }
         }
       });
 
-      if (property) {
-        console.log(`[GuestAPI] Slug/token fallback hit: token="${token}" → property="${property.name}" (id=${property.id})`);
-
-        // Track scan interaction
-        await prisma.guestInteraction.create({
-          data: {
-            propertyId: property.id,
-            section: "QR_SCAN",
-            guestToken: token
-          }
-        }).catch(() => {}); // Non-blocking analytics
-
-        const safeGuest = {
-          token: 'public-guest',
-          name: 'Guest',
-          status: 'CHECKED_IN',
-          property: {
-            ...property,
-            heroImage: property.heroImage || property.bannerUrl,
-            bannerUrl: property.bannerUrl || property.heroImage
-          }
-        };
-
-        return res.json(safeGuest);
+      if (!property) {
+        return res.status(404).json({ error: "Preview journey not found" });
       }
 
-      // 3. Neither guest nor property found
-      return res.status(404).json({ error: "Guest journey not found" });
+      const safeProperty = {
+        id: property.id,
+        slug: property.slug,
+        name: property.name,
+        description: property.description,
+        bannerUrl: property.bannerUrl || property.heroImage,
+        heroImage: property.heroImage || property.bannerUrl,
+        logoUrl: property.logoUrl,
+        previewToken: property.previewToken,
+        propertyType: property.propertyType,
+        wifiNetwork: property.wifiNetwork,
+        wifiPassword: property.wifiPassword,
+        hostInfo: property.hostInfo,
+        houseRules: property.houseRules,
+        hotelRules: property.hotelRules,
+        contacts: property.contacts,
+        experiences: property.experiences,
+        receptionPhone: property.receptionPhone,
+        housekeepingPhone: property.housekeepingPhone,
+        emergencyPhone: property.emergencyPhone,
+        roomServicePhone: property.roomServicePhone,
+        tagline: property.tagline,
+        welcomeMessage: property.welcomeMessage,
+        checkInTime: property.checkInTime,
+        checkOutTime: property.checkOutTime,
+        isPublished: property.snapshots.length > 0,
+        snapshotCount: property.snapshots.length,
+        lastPublishedAt: property.snapshots[0]?.publishedAt ?? null,
+        entitlement: resolveEntitlement(property.subscription)
+      };
+
+      const safeGuest = {
+        token: 'preview-guest',
+        name: 'Guest (Preview)',
+        status: 'CHECKED_IN',
+        property: {
+          ...safeProperty,
+          categories: property.categories,
+          dishes: property.categories.flatMap((c: any) => c.dishes),
+          amenities: property.amenities
+        }
+      };
+
+      res.json(safeGuest);
     } catch (err) {
       console.error(err);
-      res.status(500).json({ error: "Failed to fetch guest journey" });
+      res.status(500).json({ error: "Failed to fetch preview" });
     }
   });
 
@@ -949,6 +950,253 @@ const app = express();
     }
   });
 
+  // --- AUTHORIZATION HELPER ---
+  async function getAuthorizedProperty(slugOrId: string, userId: string, includeRelations = true): Promise<any> {
+    if (!slugOrId || !userId) return null;
+
+    const memberships = await prisma.organizationMembership.findMany({
+      where: { userId }
+    });
+    const orgIds = memberships.map((m: any) => m.orgId);
+
+    const includeClause: any = {
+      subscription: true
+    };
+    if (includeRelations) {
+      includeClause.amenities = true;
+      includeClause.categories = {
+        include: { dishes: true },
+        orderBy: { displayOrder: 'asc' }
+      };
+      includeClause.snapshots = {
+        orderBy: { publishedAt: 'desc' },
+        take: 1
+      };
+    }
+
+    const property = await prisma.property.findFirst({
+      where: {
+        AND: [
+          {
+            OR: [
+              { id: slugOrId },
+              { slug: slugOrId.toLowerCase() }
+            ]
+          },
+          {
+            OR: [
+              { ownerId: userId },
+              { orgId: { in: orgIds } }
+            ]
+          }
+        ]
+      },
+      include: includeClause
+    });
+
+    return property;
+  }
+
+  // --- MANAGER APIS ---
+  app.get("/api/manager/current-property", requireAuth, async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.session.userId as string;
+
+      const memberships = await prisma.organizationMembership.findMany({
+        where: { userId }
+      });
+      const orgIds = memberships.map((m: any) => m.orgId);
+
+      const properties = await prisma.property.findMany({
+        where: {
+          OR: [
+            { ownerId: userId },
+            { orgId: { in: orgIds } }
+          ]
+        },
+        include: {
+          subscription: true,
+          snapshots: {
+            orderBy: { publishedAt: 'desc' },
+            take: 1,
+            select: { id: true, publishedAt: true }
+          }
+        },
+        orderBy: { createdAt: 'asc' }
+      });
+
+      if (properties.length === 0) {
+        return res.json({
+          property: null,
+          properties: [],
+          categories: [],
+          dishes: [],
+          amenities: [],
+          activePropertyId: null
+        });
+      }
+
+      // Check if requested propertyId query param or session currentPropertyId matches authorized properties
+      // @ts-ignore
+      const requestedId = (req.query.propertyId as string) || (req.session.currentPropertyId as string);
+      let targetProperty = properties.find(p => p.id === requestedId || p.slug === requestedId);
+      if (!targetProperty) {
+        targetProperty = properties[0];
+      }
+
+      // Save to session
+      // @ts-ignore
+      req.session.currentPropertyId = targetProperty.id;
+
+      // Fetch full target property data with relations
+      const fullProperty = await prisma.property.findUnique({
+        where: { id: targetProperty.id },
+        include: {
+          amenities: true,
+          categories: {
+            include: { dishes: true },
+            orderBy: { displayOrder: 'asc' }
+          },
+          subscription: true,
+          snapshots: {
+            orderBy: { publishedAt: 'desc' },
+            take: 1
+          }
+        }
+      });
+
+      if (!fullProperty) {
+        return res.status(404).json({ error: "Property not found" });
+      }
+
+      const categories = fullProperty.categories;
+      const dishes = fullProperty.categories.flatMap(c => c.dishes);
+      const amenities = fullProperty.amenities;
+      const entitlement = resolveEntitlement(fullProperty.subscription);
+
+      const safeProperty = {
+        id: fullProperty.id,
+        slug: fullProperty.slug,
+        name: fullProperty.name,
+        description: fullProperty.description,
+        bannerUrl: fullProperty.bannerUrl || fullProperty.heroImage,
+        heroImage: fullProperty.heroImage || fullProperty.bannerUrl,
+        logoUrl: fullProperty.logoUrl,
+        previewToken: fullProperty.previewToken,
+        propertyType: fullProperty.propertyType,
+        wifiNetwork: fullProperty.wifiNetwork,
+        wifiPassword: fullProperty.wifiPassword,
+        hostInfo: fullProperty.hostInfo,
+        houseRules: fullProperty.houseRules,
+        hotelRules: fullProperty.hotelRules,
+        contacts: fullProperty.contacts,
+        experiences: fullProperty.experiences,
+        receptionPhone: fullProperty.receptionPhone,
+        housekeepingPhone: fullProperty.housekeepingPhone,
+        emergencyPhone: fullProperty.emergencyPhone,
+        roomServicePhone: fullProperty.roomServicePhone,
+        tagline: fullProperty.tagline,
+        welcomeMessage: fullProperty.welcomeMessage,
+        checkInTime: fullProperty.checkInTime,
+        checkOutTime: fullProperty.checkOutTime,
+        isPublished: fullProperty.snapshots.length > 0,
+        snapshotCount: fullProperty.snapshots.length,
+        lastPublishedAt: fullProperty.snapshots[0]?.publishedAt ?? null,
+        snapshots: fullProperty.snapshots,
+        entitlement
+      };
+
+      const safeProperties = properties.map(p => ({
+        id: p.id,
+        slug: p.slug,
+        name: p.name,
+        isPublished: p.snapshots.length > 0,
+        entitlement: resolveEntitlement(p.subscription)
+      }));
+
+      res.json({
+        property: safeProperty,
+        properties: safeProperties,
+        activePropertyId: safeProperty.id,
+        categories,
+        dishes,
+        amenities
+      });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Failed to fetch current property" });
+    }
+  });
+
+  app.post("/api/manager/current-property", requireAuth, async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.session.userId as string;
+      const { propertyId } = req.body;
+
+      if (!propertyId) {
+        return res.status(400).json({ error: "propertyId is required" });
+      }
+
+      const property = await getAuthorizedProperty(propertyId, userId, true);
+      if (!property) {
+        return res.status(403).json({ error: "Unauthorized or property not found" });
+      }
+
+      // @ts-ignore
+      req.session.currentPropertyId = property.id;
+
+      const categories = property.categories;
+      const dishes = property.categories.flatMap((c: any) => c.dishes);
+      const amenities = property.amenities;
+      const entitlement = resolveEntitlement(property.subscription);
+
+      const safeProperty = {
+        id: property.id,
+        slug: property.slug,
+        name: property.name,
+        description: property.description,
+        bannerUrl: property.bannerUrl || property.heroImage,
+        heroImage: property.heroImage || property.bannerUrl,
+        logoUrl: property.logoUrl,
+        previewToken: property.previewToken,
+        propertyType: property.propertyType,
+        wifiNetwork: property.wifiNetwork,
+        wifiPassword: property.wifiPassword,
+        hostInfo: property.hostInfo,
+        houseRules: property.houseRules,
+        hotelRules: property.hotelRules,
+        contacts: property.contacts,
+        experiences: property.experiences,
+        receptionPhone: property.receptionPhone,
+        housekeepingPhone: property.housekeepingPhone,
+        emergencyPhone: property.emergencyPhone,
+        roomServicePhone: property.roomServicePhone,
+        tagline: property.tagline,
+        welcomeMessage: property.welcomeMessage,
+        checkInTime: property.checkInTime,
+        checkOutTime: property.checkOutTime,
+        isPublished: property.snapshots.length > 0,
+        snapshotCount: property.snapshots.length,
+        lastPublishedAt: property.snapshots[0]?.publishedAt ?? null,
+        snapshots: property.snapshots,
+        entitlement
+      };
+
+      res.json({
+        property: safeProperty,
+        activePropertyId: property.id,
+        categories,
+        dishes,
+        amenities
+      });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Failed to set current property" });
+    }
+  });
+
   app.get("/api/manager/properties", requireAuth, async (req, res) => {
     try {
       // @ts-ignore
@@ -968,11 +1216,20 @@ const app = express();
             { orgId: { in: orgIds } }
           ]
         },
-        include: { subscription: true }
+        include: {
+          subscription: true,
+          snapshots: {
+            orderBy: { publishedAt: 'desc' },
+            take: 1,
+            select: { id: true, publishedAt: true }
+          }
+        },
+        orderBy: { createdAt: 'asc' }
       });
 
       res.json(properties.map((p: any) => ({
         ...p,
+        isPublished: p.snapshots?.length > 0,
         entitlement: resolveEntitlement(p.subscription)
       })));
     } catch (err) {
@@ -982,183 +1239,230 @@ const app = express();
 
   app.post("/api/manager/properties", requireAuth, async (req, res) => {
     try {
-      const name = String(req.body.name || 'New Property');
-      const slug = await generateUniqueSlug(name);
-      const membership = await prisma.organizationMembership.findFirst({
-        where: { userId: req.session.userId as string }
-      });
-      if (!membership) {
-        return res.status(403).json({ error: "User is not part of an organization" });
+      // @ts-ignore
+      const userId = req.session.userId as string;
+      const { name, propertyType, slug: customSlug } = req.body;
+
+      if (!name || typeof name !== 'string' || !name.trim()) {
+        return res.status(400).json({ error: "Property name is required" });
       }
 
+      // 1. Get or create user's organization
+      let membership = await prisma.organizationMembership.findFirst({
+        where: { userId },
+        include: { org: true }
+      });
+
+      let orgId = membership?.orgId;
+      if (!orgId) {
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        const orgSlug = await generateUniqueOrgSlug(name.trim());
+        const org = await prisma.organization.create({
+          data: {
+            name: `${user?.name || 'My'} Organization`,
+            slug: orgSlug,
+            memberships: {
+              create: {
+                userId,
+                role: 'OWNER'
+              }
+            }
+          }
+        });
+        orgId = org.id;
+      }
+
+      // 2. Generate slug & preview token
+      const slug = customSlug ? customSlug.trim().toLowerCase() : await generateUniqueSlug(name.trim());
+      const previewToken = crypto.randomBytes(24).toString('hex');
+
+      // 3. Create property with default category
       const property = await prisma.property.create({
         data: {
-          name,
+          name: name.trim(),
           slug,
-          ownerId: req.session.userId as string,
-          orgId: membership.orgId,
+          propertyType: propertyType || "HOTEL",
+          ownerId: userId,
+          orgId,
+          previewToken,
+          categories: {
+            create: {
+              name: "General",
+              displayOrder: 1
+            }
+          }
         },
-        include: { subscription: true }
+        include: {
+          subscription: true,
+          categories: { include: { dishes: true } },
+          amenities: true,
+          snapshots: true
+        }
       });
-      res.json({
-        ...property,
-        entitlement: resolveEntitlement(property.subscription)
-      });
-    } catch (err) {
-      console.error(err);
+
+      // @ts-ignore
+      req.session.currentPropertyId = property.id;
+      publicPropertyCache.delete(slug);
+
+      res.status(200).json(property);
+    } catch (err: any) {
+      if (err.code === 'P2002') {
+        return res.status(400).json({ error: "Property slug already in use" });
+      }
+      console.error("[Create Property] Error:", err);
       res.status(500).json({ error: "Failed to create property" });
+    }
+  });
+
+  app.get("/api/manager/properties/:slug", requireAuth, async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.session.userId as string;
+      const { slug } = req.params;
+
+      const exists = await prisma.property.findFirst({
+        where: {
+          OR: [
+            { id: slug },
+            { slug: slug.toLowerCase() }
+          ]
+        }
+      });
+      if (!exists) {
+        return res.status(404).json({ error: "Property not found" });
+      }
+
+      const property = await getAuthorizedProperty(slug, userId, false);
+      if (!property) {
+        return res.status(403).json({ error: "Forbidden: You do not have access to this property" });
+      }
+
+      res.json(property);
+    } catch (err) {
+      console.error("[Get Property By Slug] Error:", err);
+      res.status(500).json({ error: "Failed to get property" });
+    }
+  });
+
+  app.get("/api/manager/properties/:slug/guests", requireAuth, async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.session.userId as string;
+      const { slug } = req.params;
+
+      const exists = await prisma.property.findFirst({
+        where: {
+          OR: [
+            { id: slug },
+            { slug: slug.toLowerCase() }
+          ]
+        }
+      });
+      if (!exists) {
+        return res.status(404).json({ error: "Property not found" });
+      }
+
+      const property = await getAuthorizedProperty(slug, userId, false);
+      if (!property) {
+        return res.status(403).json({ error: "Forbidden: You do not have access to this property" });
+      }
+
+      const guests = await prisma.guest.findMany({
+        where: { propertyId: property.id },
+        orderBy: { createdAt: "desc" }
+      });
+      res.json(guests);
+    } catch (err) {
+      console.error("[Get Guests] Error:", err);
+      res.status(500).json({ error: "Failed to fetch guests" });
     }
   });
 
   app.put("/api/manager/properties/:slug", requireAuth, async (req, res) => {
     try {
-      const validatedData = PropertySchema.parse(req.body);
+      // @ts-ignore
+      const userId = req.session.userId as string;
+      const { slug } = req.params;
 
-      // Check Entitlement before allowing edits
-      const currentProperty = await prisma.property.findUnique({
-        where: { slug: req.params.slug },
-        include: { subscription: true }
+      const exists = await prisma.property.findFirst({
+        where: {
+          OR: [
+            { id: slug },
+            { slug: slug.toLowerCase() }
+          ]
+        }
       });
-      logAuthLookup(req, currentProperty, 'PUT /api/manager/properties/:slug');
-      if (!currentProperty || currentProperty.ownerId !== req.session.userId) {
-        return res.status(403).json({ error: "Forbidden or property not found" });
+      if (!exists) {
+        return res.status(404).json({ error: "Property not found" });
       }
 
-      const entitlement = resolveEntitlement(currentProperty.subscription);
+      const property = await getAuthorizedProperty(slug, userId, false);
+      if (!property) {
+        return res.status(403).json({ error: "Unauthorized or property not found" });
+      }
+
+      const entitlement = resolveEntitlement(property.subscription);
       if (!entitlement.canEdit) {
         return res.status(403).json({ error: "Subscription expired. Workspace is locked in Read-Only mode." });
       }
 
-      const updatePayload: any = { ...validatedData };
-      if (validatedData.heroImage && !validatedData.bannerUrl) {
-        updatePayload.bannerUrl = validatedData.heroImage;
-      }
-      if (validatedData.bannerUrl && !validatedData.heroImage) {
-        updatePayload.heroImage = validatedData.bannerUrl;
+      const validatedData = PropertySchema.partial().parse(req.body);
+
+      // Clean undefined fields
+      const updateData: any = {};
+      for (const [key, val] of Object.entries(validatedData)) {
+        if (val !== undefined) {
+          updateData[key] = val;
+        }
       }
 
-      // Use updateMany for atomic ownership checking (prevents IDOR)
-      // @ts-ignore
-      const result = await prisma.property.updateMany({
-        where: {
-          slug: req.params.slug,
-          // @ts-ignore
-          ownerId: req.session.userId
-        },
-        data: updatePayload
+      const updatedProperty = await prisma.property.update({
+        where: { id: property.id },
+        data: updateData,
+        include: {
+          subscription: true,
+          categories: { include: { dishes: true }, orderBy: { displayOrder: 'asc' } },
+          amenities: true,
+          snapshots: { orderBy: { publishedAt: 'desc' }, take: 1 }
+        }
       });
 
-      if (result.count === 0) {
-        return res.status(403).json({ error: "Forbidden or property not found" });
+      publicPropertyCache.delete(property.slug);
+      if (updatedProperty.slug !== property.slug) {
+        publicPropertyCache.delete(updatedProperty.slug);
       }
 
-      const property = await prisma.property.findUnique({ where: { slug: req.params.slug } });
-      res.json(property);
+      try {
+        await prisma.activityEvent.create({
+          data: {
+            organizationId: property.orgId,
+            propertyId: property.id,
+            action: 'UPDATED',
+            resourceType: 'PROPERTY',
+            source: 'API',
+            metadata: { updatedBy: userId, fields: Object.keys(updateData) }
+          }
+        });
+      } catch (logErr) {
+        console.warn("[Property Update] Failed to write audit event:", logErr);
+      }
+
+      res.json(updatedProperty);
     } catch (err: any) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({ error: "Validation Error", details: err.issues });
       }
+      console.error("[Update Property] Error:", err);
       res.status(500).json({ error: "Failed to update property" });
-    }
-  });
-
-  // Billing Portal
-  app.post("/api/manager/properties/:slug/portal", requireAuth, async (req, res) => {
-    console.log("PORTAL ROUTE VERSION a3f5b8d");
-    console.log("=== BILLING PORTAL ENDPOINT HIT ===");
-    try {
-      // @ts-ignore
-      const { userId } = req.session;
-      const { slug } = req.params;
-
-      const property = await prisma.property.findUnique({
-        where: { slug },
-        include: { subscription: true }
-      });
-
-      if (!property || property.ownerId !== userId) {
-        return res.status(403).json({ error: "Access denied" });
-      }
-
-      if (!property.subscription || !property.subscription.paddleCustomerId) {
-        return res.status(400).json({ error: "No billing customer found" });
-      }
-
-      const env = process.env.PADDLE_ENV;
-      const apiKey = process.env.PADDLE_API_KEY;
-
-      if (!env || !apiKey) {
-        return res.status(500).json({ error: "Billing API not configured" });
-      }
-
-      const apiUrl = env === 'production'
-        ? `https://api.paddle.com/customers/${property.subscription.paddleCustomerId}/portal-sessions`
-        : `https://sandbox-api.paddle.com/customers/${property.subscription.paddleCustomerId}/portal-sessions`;
-
-      console.log("API Key starts with:", apiKey.substring(0, 12));
-      console.log("API Key length:", apiKey.length);
-      console.log(
-        "Authorization header:",
-        `Bearer ${apiKey.substring(0, 12)}...`
-      );
-
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          subscription_ids: property.subscription.paddleSubscriptionId ? [property.subscription.paddleSubscriptionId] : []
-        })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        
-        console.error("========== PADDLE PORTAL ERROR ==========");
-        console.error("HTTP:", response.status);
-        console.error("BODY:", errorText);
-        
-        return res.status(response.status).json({
-          paddleStatus: response.status,
-          paddleError: errorText
-        });
-      }
-
-      const data = await response.json();
-      console.dir(data, { depth: null });
-
-      // Paddle Billing v2 returns specific action URLs instead of a generic .url field
-      const generalUrl = data?.data?.urls?.general?.overview;
-      const subscriptionUrl = data?.data?.urls?.subscriptions?.[0]?.update_subscription_payment_method;
-      
-      const portalUrl = generalUrl || subscriptionUrl;
-
-      if (portalUrl) {
-        return res.json({ url: portalUrl });
-      }
-
-      throw new Error("Invalid response from billing provider: Missing URL");
-    } catch (err: any) {
-      console.error("========== BILLING PORTAL EXCEPTION ==========");
-      console.error(err);
-      console.error(err?.message);
-      console.error(err?.stack);
-
-      return res.status(500).json({
-        error: err?.message || "Unknown error"
-      });
     }
   });
 
   // CRUD Amenities & Dishes via Slug
   app.put("/api/manager/properties/:slug/amenities", requireAuth, async (req, res) => {
     try {
-      const property = await prisma.property.findFirst({
-        where: { slug: req.params.slug, ownerId: req.session.userId },
-        include: { subscription: true }
-      });
+      // @ts-ignore
+      const userId = req.session.userId as string;
+      const property = await getAuthorizedProperty(req.params.slug, userId, false);
       if (!property) return res.status(403).json({ error: "Unauthorized or property not found" });
 
       const entitlement = resolveEntitlement(property.subscription);
@@ -1196,7 +1500,22 @@ const app = express();
         }
       });
 
-      publicPropertyCache.delete(req.params.slug);
+      publicPropertyCache.delete(property.slug);
+
+      try {
+        await prisma.activityEvent.create({
+          data: {
+            organizationId: property.orgId,
+            propertyId: property.id,
+            action: 'UPDATED',
+            resourceType: 'RECOMMENDATION',
+            source: 'API',
+            metadata: { count: amenities.length, updatedBy: userId }
+          }
+        });
+      } catch (logErr) {
+        console.warn("[Amenities Update] Failed to write audit event:", logErr);
+      }
       res.json({ success: true, count: amenities.length });
     } catch (err: any) {
       console.error(err);
@@ -1207,11 +1526,9 @@ const app = express();
   app.post("/api/manager/properties/:slug/amenities", requireAuth, async (req, res) => {
     try {
       const validatedData = AmenitySchema.parse(req.body);
-      const property = await prisma.property.findFirst({
-        // @ts-ignore
-        where: { slug: req.params.slug, ownerId: req.session.userId },
-        include: { subscription: true }
-      });
+      // @ts-ignore
+      const userId = req.session.userId as string;
+      const property = await getAuthorizedProperty(req.params.slug, userId, false);
       if (!property) return res.status(403).json({ error: "Unauthorized" });
 
       const entitlement = resolveEntitlement(property.subscription);
@@ -1220,6 +1537,7 @@ const app = express();
       }
 
       const amenity = await prisma.amenity.create({ data: { ...validatedData, propertyId: property.id } });
+      publicPropertyCache.delete(property.slug);
       res.json(amenity);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -1234,13 +1552,17 @@ const app = express();
     const { userId } = req.session;
     const { id } = req.params;
 
-    const amenity = await prisma.amenity.findUnique({ where: { id }, include: { property: { include: { subscription: true } } } });
-    if (!amenity || amenity.property.ownerId !== userId) return res.status(403).json({ error: "Access denied" });
+    const amenity = await prisma.amenity.findUnique({ where: { id } });
+    if (!amenity) return res.status(404).json({ error: "Amenity not found" });
 
-    const entitlement = resolveEntitlement(amenity.property.subscription);
+    const property = await getAuthorizedProperty(amenity.propertyId, userId, false);
+    if (!property) return res.status(403).json({ error: "Access denied" });
+
+    const entitlement = resolveEntitlement(property.subscription);
     if (!entitlement.canEdit) return res.status(403).json({ error: "Account is read-only." });
 
     const updated = await prisma.amenity.update({ where: { id }, data: req.body });
+    publicPropertyCache.delete(property.slug);
     res.json(updated);
   });
 
@@ -1249,25 +1571,26 @@ const app = express();
     const { userId } = req.session;
     const { id } = req.params;
 
-    const amenity = await prisma.amenity.findUnique({ where: { id }, include: { property: true } });
-    if (!amenity || amenity.property.ownerId !== userId) return res.status(403).json({ error: "Access denied" });
+    const amenity = await prisma.amenity.findUnique({ where: { id } });
+    if (!amenity) return res.status(404).json({ error: "Amenity not found" });
 
-    const property = await prisma.property.findUnique({ where: { id: amenity.propertyId }, include: { subscription: true } });
-    const entitlement = resolveEntitlement(property?.subscription || null);
+    const property = await getAuthorizedProperty(amenity.propertyId, userId, false);
+    if (!property) return res.status(403).json({ error: "Access denied" });
+
+    const entitlement = resolveEntitlement(property.subscription);
     if (!entitlement.canEdit) return res.status(403).json({ error: "Account is read-only." });
 
     await prisma.amenity.delete({ where: { id } });
+    publicPropertyCache.delete(property.slug);
     res.json({ success: true });
   });
 
   app.post("/api/manager/properties/:slug/dishes", requireAuth, async (req, res) => {
     try {
       const validatedData = DishSchema.parse(req.body);
-      const property = await prisma.property.findFirst({
-        // @ts-ignore
-        where: { slug: req.params.slug, ownerId: req.session.userId },
-        include: { categories: true, subscription: true }
-      });
+      // @ts-ignore
+      const userId = req.session.userId as string;
+      const property = await getAuthorizedProperty(req.params.slug, userId, true);
       if (!property) return res.status(403).json({ error: "Unauthorized" });
 
       const entitlement = resolveEntitlement(property.subscription);
@@ -1304,6 +1627,7 @@ const app = express();
           categoryId
         }
       });
+      publicPropertyCache.delete(property.slug);
       res.json(dish);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -1321,14 +1645,18 @@ const app = express();
 
     const dish = await prisma.dish.findUnique({
       where: { id },
-      include: { category: { include: { property: { include: { subscription: true } } } } }
+      include: { category: true }
     });
-    if (!dish || dish.category.property.ownerId !== userId) return res.status(403).json({ error: "Access denied" });
+    if (!dish) return res.status(404).json({ error: "Dish not found" });
 
-    const entitlement = resolveEntitlement(dish.category.property.subscription);
+    const property = await getAuthorizedProperty(dish.category.propertyId, userId, false);
+    if (!property) return res.status(403).json({ error: "Access denied" });
+
+    const entitlement = resolveEntitlement(property.subscription);
     if (!entitlement.canEdit) return res.status(403).json({ error: "Account is read-only." });
 
     const updated = await prisma.dish.update({ where: { id }, data: req.body });
+    publicPropertyCache.delete(property.slug);
     res.json(updated);
   });
 
@@ -1339,14 +1667,18 @@ const app = express();
 
     const dish = await prisma.dish.findUnique({
       where: { id },
-      include: { category: { include: { property: { include: { subscription: true } } } } }
+      include: { category: true }
     });
-    if (!dish || dish.category.property.ownerId !== userId) return res.status(403).json({ error: "Access denied" });
+    if (!dish) return res.status(404).json({ error: "Dish not found" });
 
-    const entitlement = resolveEntitlement(dish.category.property.subscription);
+    const property = await getAuthorizedProperty(dish.category.propertyId, userId, false);
+    if (!property) return res.status(403).json({ error: "Access denied" });
+
+    const entitlement = resolveEntitlement(property.subscription);
     if (!entitlement.canEdit) return res.status(403).json({ error: "Account is read-only." });
 
     await prisma.dish.delete({ where: { id } });
+    publicPropertyCache.delete(property.slug);
     res.json({ success: true });
   });
 
@@ -1354,11 +1686,9 @@ const app = express();
   app.post("/api/manager/properties/:slug/categories", requireAuth, async (req, res) => {
     try {
       const validatedData = CategorySchema.parse(req.body);
-      const property = await prisma.property.findFirst({
-        // @ts-ignore
-        where: { slug: req.params.slug, ownerId: req.session.userId },
-        include: { subscription: true }
-      });
+      // @ts-ignore
+      const userId = req.session.userId as string;
+      const property = await getAuthorizedProperty(req.params.slug, userId, false);
       if (!property) return res.status(403).json({ error: "Unauthorized" });
 
       const entitlement = resolveEntitlement(property.subscription);
@@ -1379,7 +1709,7 @@ const app = express();
         }
       });
 
-      publicPropertyCache.delete(req.params.slug);
+      publicPropertyCache.delete(property.slug);
       res.json(category);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -1397,12 +1727,14 @@ const app = express();
       const { id } = req.params;
 
       const category = await prisma.menuCategory.findUnique({
-        where: { id },
-        include: { property: { include: { subscription: true } } }
+        where: { id }
       });
-      if (!category || category.property.ownerId !== userId) return res.status(403).json({ error: "Access denied" });
+      if (!category) return res.status(404).json({ error: "Category not found" });
 
-      const entitlement = resolveEntitlement(category.property.subscription);
+      const property = await getAuthorizedProperty(category.propertyId, userId, false);
+      if (!property) return res.status(403).json({ error: "Access denied" });
+
+      const entitlement = resolveEntitlement(property.subscription);
       if (!entitlement.canEdit) return res.status(403).json({ error: "Account is read-only." });
 
       const updated = await prisma.menuCategory.update({
@@ -1412,6 +1744,7 @@ const app = express();
           displayOrder: validatedData.displayOrder ?? category.displayOrder
         }
       });
+      publicPropertyCache.delete(property.slug);
       res.json(updated);
     } catch (err) {
       res.status(500).json({ error: "Failed to update category" });
@@ -1425,11 +1758,14 @@ const app = express();
 
     const category = await prisma.menuCategory.findUnique({
       where: { id },
-      include: { dishes: true, property: { include: { subscription: true } } }
+      include: { dishes: true }
     });
-    if (!category || category.property.ownerId !== userId) return res.status(403).json({ error: "Access denied" });
+    if (!category) return res.status(404).json({ error: "Category not found" });
 
-    const entitlement = resolveEntitlement(category.property.subscription);
+    const property = await getAuthorizedProperty(category.propertyId, userId, false);
+    if (!property) return res.status(403).json({ error: "Access denied" });
+
+    const entitlement = resolveEntitlement(property.subscription);
     if (!entitlement.canEdit) return res.status(403).json({ error: "Account is read-only." });
 
     if (category.dishes.length > 0) {
@@ -1437,6 +1773,7 @@ const app = express();
     }
 
     await prisma.menuCategory.delete({ where: { id } });
+    publicPropertyCache.delete(property.slug);
     res.json({ success: true });
   });
 
@@ -1450,17 +1787,13 @@ const app = express();
       // @ts-ignore
       const { userId } = req.session;
 
-      const property = await prisma.property.findFirst({
-        where: { slug, ownerId: userId }
-      });
+      const property = await getAuthorizedProperty(slug, userId, false);
 
       if (!property) {
         return res.status(403).json({ error: "Unauthorized or property not found" });
       }
 
       // We need to return structured data for the dashboard.
-      // Since tracking is not yet implemented, ActivityEvent will be empty.
-      // We will safely query it anyway so it's ready for the future.
       const now = new Date();
       const yesterday = new Date(now);
       yesterday.setDate(yesterday.getDate() - 1);
@@ -1558,9 +1891,7 @@ const app = express();
       // @ts-ignore
       const { userId } = req.session;
 
-      const property = await prisma.property.findFirst({
-        where: { slug, ownerId: userId }
-      });
+      const property = await getAuthorizedProperty(slug, userId, false);
 
       if (!property) {
         console.log(`[Snapshots] 403 – property "${slug}" not found for user ${userId}`);
@@ -1591,15 +1922,8 @@ const app = express();
 
       console.log(`[Publish] BEGIN – slug=${slug} userId=${userId}`);
 
-      // 1. Verify ownership
-      const property = await prisma.property.findFirst({
-        where: { slug, ownerId: userId },
-        include: {
-          amenities: true,
-          categories: { include: { dishes: true } },
-          subscription: true
-        }
-      });
+      // 1. Verify ownership & fetch relations
+      const property = await getAuthorizedProperty(slug, userId, true);
 
       if (!property) {
         console.log(`[Publish] 403 – property "${slug}" not found for user ${userId}`);
@@ -1655,7 +1979,6 @@ const app = express();
           roomServicePhone: property.roomServicePhone,
           checkInTime: property.checkInTime,
           checkOutTime: property.checkOutTime,
-
           conciergeServices: property.conciergeServices,
           galleryImages: property.galleryImages,
           gallery: property.gallery,
@@ -1663,9 +1986,20 @@ const app = express();
         },
         amenities: property.amenities,
         categories: property.categories,
-        dishes: property.categories.flatMap(c => c.dishes),
+        dishes: property.categories.flatMap((c: any) => c.dishes),
         publishedAt: new Date().toISOString()
       };
+
+      // 4b. Sensitive Content Protection (Hard Block on Publish)
+      const sensitiveCheck = detectSensitiveContent(snapshotData);
+      if (sensitiveCheck.detected) {
+        console.warn(`[Publish] BLOCKED – Sensitive content detected for property ${property.id}:`, sensitiveCheck.samples);
+        return res.status(422).json({
+          error: "Sensitive content detected. Public guest pages cannot expose credentials, passwords, or private API keys.",
+          reason: sensitiveCheck.reason,
+          samples: sensitiveCheck.samples
+        });
+      }
 
       // 5. Create snapshot record
       const snapshot = await prisma.propertySnapshot.create({
@@ -1678,12 +2012,34 @@ const app = express();
 
       console.log(`[Publish] Snapshot created: id=${snapshot.id} publishedAt=${snapshot.publishedAt}`);
 
+      // 5b. Audit Log
+      try {
+        await prisma.activityEvent.create({
+          data: {
+            organizationId: property.orgId,
+            propertyId: property.id,
+            action: 'EXECUTED',
+            resourceType: 'PROPERTY',
+            source: 'API',
+            metadata: {
+              type: 'PUBLISH_SNAPSHOT',
+              snapshotId: snapshot.id,
+              publishedBy: userId,
+              dishCount: snapshotData.dishes.length,
+              amenityCount: snapshotData.amenities.length
+            }
+          }
+        });
+      } catch (logErr) {
+        console.warn("[Publish] Failed to write audit event:", logErr);
+      }
+
       // 6. Invalidate the public property cache so guests see fresh data
-      publicPropertyCache.delete(slug);
+      publicPropertyCache.delete(property.slug);
 
       // 7. Build QR URL
       const baseUrl = req.headers.origin || `https://${req.headers.host}`;
-      const guestUrl = `${baseUrl}/g/${slug}`;
+      const guestUrl = `${baseUrl}/g/${property.slug}`;
       const previewUrl = `${baseUrl}/preview/${previewToken}`;
 
       console.log(`[Publish] SUCCESS – guestUrl=${guestUrl} snapshotId=${snapshot.id}`);

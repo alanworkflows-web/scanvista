@@ -23,6 +23,11 @@ let app: any;
 let agent: any;
 
 beforeAll(async () => {
+  await prisma.property.deleteMany({
+    where: {
+      slug: { in: ["test-prop", "qr-test-prop", "hostile-prop"] }
+    }
+  });
   app = await startServer();
   agent = request.agent(app);
 });
@@ -189,7 +194,7 @@ describe("Guest & QR Flow", () => {
   
   it("QR Destination Test: property edits keep same QR URL (slug)", async () => {
     // The slug is the QR URL parameter. Updating a property should not change the slug unless explicitly requested.
-    const slug = "qr-test-prop";
+    const slug = `qr-test-prop-${Date.now()}`;
     await agent.post("/api/manager/properties").send({ name: "QR Prop", slug });
     
     // Add amenity
@@ -239,7 +244,7 @@ describe("Payment", () => {
     await prisma.webhookEvent.create({
       data: {
         id: eventId,
-        type: "subscription.updated"
+        type: "subscription.created"
       }
     });
 
@@ -257,9 +262,10 @@ describe("Payment", () => {
   it("hostile payload status: 'active' against existing manager mutation routes is ignored", async () => {
     // Attempt to inject subscription status via a property update (which is validated by Zod)
     // We expect Zod to strip the extra 'subscriptionStatus' or 'status' field, or return 400.
+    const hostileSlug = `hostile-prop-${Date.now()}`;
     const res = await agent.post("/api/manager/properties").send({ 
       name: "Hostile Prop", 
-      slug: "hostile-prop",
+      slug: hostileSlug,
       status: "active",
       subscriptionStatus: "active"
     });
@@ -270,7 +276,7 @@ describe("Payment", () => {
     
     if (res.status === 200) {
       // If it succeeded, verify the subscription was NOT created or activated
-      const prop = await prisma.property.findUnique({ where: { slug: "hostile-prop" }, include: { subscription: true } });
+      const prop = await prisma.property.findUnique({ where: { slug: hostileSlug }, include: { subscription: true } });
       expect(prop).not.toBeNull();
       // There shouldn't be a subscription created by the property endpoint
       expect(prop!.subscription).toBeNull();
@@ -278,7 +284,7 @@ describe("Payment", () => {
   });
 
   it("webhook idempotency: concurrent duplicate delivery is handled atomically", async () => {
-    const eventId = "evt_concurrent_test_123";
+    const eventId = `evt_concurrent_test_${Date.now()}`;
     const payload = {
       event_id: eventId,
       event_type: "subscription.created",

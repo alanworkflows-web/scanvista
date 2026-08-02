@@ -195,9 +195,10 @@ export function ManagerBilling() {
               <li className="flex items-center gap-2 text-text-secondary font-medium"><CheckCircle2 className="w-5 h-5 text-[var(--card-hover-border)]" /> Priority Support</li>
             </ul>
 
-            <div className="mt-auto">
-              <div role="alert" className="bg-amber-50 border border-amber-200 text-amber-800 text-sm font-medium px-4 py-3 rounded-sm flex items-start gap-2 justify-center">
-                <span>Premium plans are coming soon.</span>
+            <div className="mt-auto space-y-3">
+              <div role="alert" className="bg-amber-50 border border-amber-200 text-amber-800 text-sm font-medium px-4 py-3 rounded-sm flex flex-col items-center gap-1 text-center">
+                <span>Pilot Access: Full features unlocked for early partners.</span>
+                <span className="text-xs text-amber-700 font-normal">Need custom enterprise limits? Contact team@scanvista.com</span>
               </div>
             </div>
           </div>

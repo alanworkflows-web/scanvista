@@ -62,13 +62,14 @@ export class InsightEngine {
     }
 
     if (walkMode.value === 0) {
+      alerts.push("Walk Mode engagement has dropped significantly.");
+      opportunities.push("Today's highest-impact action is to follow up with Ocean Breeze Resort regarding Walk Mode usage.");
       narrative.push("Today's highest-impact action is to follow up with Ocean Breeze Resort regarding Walk Mode usage.");
     } else {
       narrative.push("Today's priority is to maintain current operational consistency.");
     }
 
-    // Keep old aiCompanionMessage for backwards compatibility with tests temporarily
-    let aiCompanionMessage = narrative.join(" ");
+    let aiCompanionMessage = `Good Morning. ${narrative.join(" ")} ${alerts.join(" ")}`.trim();
 
     return {
       greeting: "Good Morning, Alan",

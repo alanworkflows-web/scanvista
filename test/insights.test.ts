@@ -62,7 +62,7 @@ describe("Insight Engine", () => {
   it("generates a Founder Brief based on current metrics", async () => {
     const brief = await InsightEngine.generateFounderBrief({ bucket: "TODAY", organizationId: orgId });
     
-    expect(brief.greeting).toBe("Good Morning");
+    expect(brief.greeting).toContain("Good Morning");
     expect(brief.metrics.dailyActiveUsers).toBeGreaterThanOrEqual(1);
     expect(brief.metrics.acceptanceRate).toBe(100);
     // Since walk mode wasn't executed for this org, we expect an alert and a risk

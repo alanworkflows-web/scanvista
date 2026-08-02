@@ -19,6 +19,7 @@ const ManagerGuests = lazyWithPreload(() => import('./pages/ManagerGuests').then
 const GuestWelcome = lazyWithPreload(() => import('./pages/GuestWelcome').then(m => ({ default: m.GuestWelcome })));
 const ManagerProperty = lazyWithPreload(() => import('./pages/ManagerProperty').then(m => ({ default: m.ManagerProperty })));
 const OperationsPlaybook = lazyWithPreload(() => import('./pages/OperationsPlaybook').then(m => ({ default: m.OperationsPlaybook })));
+const ManagerLaunchChecklist = lazyWithPreload(() => import('./pages/ManagerLaunchChecklist').then(m => ({ default: m.ManagerLaunchChecklist })));
 
 const FounderLayout = lazyWithPreload(() => import('./founder/components/layouts/FounderLayout').then(m => ({ default: m.FounderLayout })));
 const FounderHome = lazyWithPreload(() => import('./founder/pages/Home').then(m => ({ default: m.FounderHome })));
@@ -57,6 +58,7 @@ export const routeComponents = {
   '/manager/help': ManagerHelp,
   '/manager/experience': ManagerExperience,
   '/manager/guests': ManagerGuests,
+  '/manager/checklist': ManagerLaunchChecklist,
   '/admin/crm': AdminCRM,
   '/manager/playbook': OperationsPlaybook,
 };
@@ -94,6 +96,7 @@ export default function App() {
         <Route path="/manager/amenities" element={<ManagerAmenities />} />
         <Route path="/manager/house-rules" element={<ManagerHouseRules />} />
         <Route path="/manager/publishing" element={<ManagerPublishing />} />
+        <Route path="/manager/checklist" element={<ManagerLaunchChecklist />} />
         <Route path="/manager/billing" element={<ManagerBilling />} />
         <Route path="/manager/guests" element={<ManagerGuests />} />
         <Route path="/manager/help" element={<ManagerHelp />} />

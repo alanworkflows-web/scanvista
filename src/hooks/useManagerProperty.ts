@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
+import { calculatePropertyStatus, PropertyStatusResult } from "../lib/propertyStatusEngine";
+
 export const ACTIVE_PROPERTY_KEY = "scanvista_active_property_slug";
 export const ACTIVE_PROPERTY_ID_KEY = "scanvista_active_property_id";
 
@@ -56,6 +58,20 @@ export function useManagerProperty() {
                 localStorage.setItem(ACTIVE_PROPERTY_ID_KEY, activeId);
               }
 
+              const propWithEntities = managerData.property ? {
+                ...managerData.property,
+                categories: managerData.categories || [],
+                dishes: managerData.dishes || [],
+                amenities: managerData.amenities || []
+              } : null;
+
+              const status: PropertyStatusResult | null = managerData.status || (propWithEntities ? calculatePropertyStatus({
+                property: propWithEntities,
+                snapshots: managerData.property?.snapshots
+              }) : null);
+
+              const checklist = status;
+
               return {
                 user: userData,
                 property: managerData.property,
@@ -64,7 +80,9 @@ export function useManagerProperty() {
                 activePropertySlug: activeSlug,
                 dishes: managerData.dishes || [],
                 amenities: managerData.amenities || [],
-                categories: managerData.categories || []
+                categories: managerData.categories || [],
+                status,
+                checklist
               };
             });
         });
@@ -120,6 +138,8 @@ export function useManagerProperty() {
     dishes: data?.dishes || [],
     amenities: data?.amenities || [],
     categories: data?.categories || [],
+    status: data?.status || null,
+    checklist: data?.checklist || null,
     user: data?.user || null,
     multiPropertyError,
     error,

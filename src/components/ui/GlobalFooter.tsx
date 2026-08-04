@@ -2,7 +2,22 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Hotel } from 'lucide-react';
 
-export function GlobalFooter() {
+interface GlobalFooterProps {
+  variant?: 'full' | 'guest';
+}
+
+export function GlobalFooter({ variant = 'full' }: GlobalFooterProps) {
+  if (variant === 'guest') {
+    return (
+      <footer className="bg-gray-900/50 text-text-muted py-6 w-full mt-auto">
+        <div className="max-w-2xl mx-auto px-4 text-center space-y-2">
+          <p className="text-xs text-gray-500">Powered by <span className="font-medium text-gray-400">ScanVista</span></p>
+          <p className="text-[10px] text-gray-600">&copy; {new Date().getFullYear()} ScanVista</p>
+        </div>
+      </footer>
+    );
+  }
+
   return (
     <footer className="bg-gray-900 text-text-muted py-12 legal-no-print w-full mt-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid md:grid-cols-4 gap-10">

@@ -106,15 +106,18 @@ export function ManagerProperty() {
         body: JSON.stringify(updates)
       });
 
-      if (!res.ok) throw new Error("Failed to save property");
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to save property");
+      }
       
       setIsDirty(false);
       setSaveStatus("saved");
       toast.success("Property saved as Draft. Publish to make it visible to guests.");
       refreshProperty();
       setTimeout(() => setSaveStatus("idle"), 3000);
-    } catch (err) {
-      toast.error("Failed to save changes");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save changes");
     } finally {
       setSaving(false);
     }

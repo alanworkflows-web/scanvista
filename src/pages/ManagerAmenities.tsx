@@ -29,6 +29,8 @@ export function ManagerAmenities() {
 
   const updateAmenity = (id: string, field: string, value: any) => {
     setAmenities(prev => prev.map(a => a.id === id ? { ...a, [field]: value } : a));
+    setIsDirty(true);
+    setSaveStatus("idle");
   };
 
   const addAmenity = () => {
@@ -43,14 +45,18 @@ export function ManagerAmenities() {
       closeTime: "",
       location: "",
       rules: "",
-      status: "UNSAVED",
+      status: "ACTIVE",
       priority: prev.length + 1
     }]);
     setExpandedId(newId);
+    setIsDirty(true);
+    setSaveStatus("idle");
   };
 
   const removeAmenity = (id: string) => {
     setAmenities(prev => prev.filter(a => a.id !== id));
+    setIsDirty(true);
+    setSaveStatus("idle");
   };
 
   const handleSave = async () => {
@@ -60,7 +66,6 @@ export function ManagerAmenities() {
     try {
       const payload = amenities.map((a, idx) => ({
         ...a,
-        status: a.status === 'UNSAVED' ? 'HIDDEN' : a.status,
         priority: idx + 1,
       }));
 
@@ -70,12 +75,18 @@ export function ManagerAmenities() {
         body: JSON.stringify({ amenities: payload })
       });
 
-      if (!res.ok) throw new Error("Failed to save amenities");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to save amenities");
+      }
       
+      setIsDirty(false);
+      setSaveStatus("saved");
       toast.success("Amenities updated successfully");
-      refreshProperty();
-    } catch (err) {
-      toast.error("Failed to save amenities");
+      await refreshProperty();
+      setTimeout(() => setSaveStatus("idle"), 2500);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save amenities");
     } finally {
       setSaving(false);
     }
@@ -100,7 +111,7 @@ export function ManagerAmenities() {
           <Button variant="secondary" onClick={addAmenity}>
             <Plus size={18} className="mr-2" /> Add Amenity
           </Button>
-          <Button onClick={handleSave} disabled={saving || (!isDirty && saveStatus !== "saved")} className="min-w-[120px] transition-all">
+          <Button onClick={handleSave} disabled={saving} className="min-w-[120px] transition-all">
             {saving ? <><div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin mr-2"></div> Saving...</> : saveStatus === "saved" ? <><CheckCircle2 size={18} className="mr-2 text-emerald-400"/> Saved</> : <><Save size={18} className="mr-2"/> Save Changes</>}
           </Button>
         </div>
@@ -114,7 +125,7 @@ export function ManagerAmenities() {
             <Button onClick={addAmenity}><Plus size={18} className="mr-2"/> Add First Amenity</Button>
           </div>
         ) : (
-          <Reorder.Group axis="y" values={amenities} onReorder={setAmenities} className="space-y-4">
+          <Reorder.Group axis="y" values={amenities} onReorder={(items) => { setAmenities(items); setIsDirty(true); setSaveStatus("idle"); }} className="space-y-4">
             {amenities.map(amenity => (
               <Reorder.Item key={amenity.id} value={amenity} className="bg-surface border border-divider rounded-xl shadow-premium overflow-hidden transition-all">
                 {/* Header Row */}

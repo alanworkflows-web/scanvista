@@ -2,14 +2,16 @@ import React from 'react';
 import { Dish, Category } from './useMenuStudio';
 import { Leaf, Info } from 'lucide-react';
 import { cn } from '../../../lib/utils';
+import { formatPrice } from '../../../lib/currency';
 
 interface Props {
   categories: Category[];
   dishes: Dish[];
+  currency?: string;
   propertyName?: string;
 }
 
-export function GuestMenuPreview({ categories, dishes, propertyName = "Restaurant Menu" }: Props) {
+export function GuestMenuPreview({ categories, dishes, currency = 'USD', propertyName = "Restaurant Menu" }: Props) {
   return (
     <div className="w-full h-full flex items-center justify-center bg-surface-hover/50 p-8 rounded-sm">
       {/* Mobile Device Frame */}
@@ -66,7 +68,7 @@ export function GuestMenuPreview({ categories, dishes, propertyName = "Restauran
                             </div>
                           </div>
                           <div className="text-right flex-shrink-0">
-                            <span className="font-medium text-text-primary">€{dish.price.toFixed(2)}</span>
+                            <span className="font-medium text-text-primary">{formatPrice(dish.price, currency)}</span>
                           </div>
                         </div>
                       </div>

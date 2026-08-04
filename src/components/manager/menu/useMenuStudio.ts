@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { toast } from 'sonner';
 
 export interface Category {
   id: string;
@@ -26,6 +27,7 @@ export interface Dish {
 export function useMenuStudio(propertySlug: string) {
   const [loading, setLoading] = useState(true);
   const [publishing, setPublishing] = useState(false);
+  const [currency, setCurrency] = useState<string>('USD');
   const [originalCategories, setOriginalCategories] = useState<Category[]>([]);
   const [originalDishes, setOriginalDishes] = useState<Dish[]>([]);
   
@@ -40,68 +42,74 @@ export function useMenuStudio(propertySlug: string) {
     setLoading(true);
     try {
       const res = await fetch(`/api/properties/${propertySlug}`);
+      if (!res.ok) {
+        throw new Error("Failed to load menu data");
+      }
       const data = await res.json();
       const fetchedCategories = data.categories || [];
       fetchedCategories.sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0));
       
+      setCurrency(data.property?.currency || 'USD');
       setOriginalCategories(fetchedCategories);
       setOriginalDishes(data.dishes || []);
       setCategories(fetchedCategories);
       setDishes(data.dishes || []);
-      setDeletedCategoryIds(new Set());
-      setDeletedDishIds(new Set());
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error("Failed to load menu:", err);
+      toast.error(err.message || "Failed to load menu");
     } finally {
       setLoading(false);
     }
   }, [propertySlug]);
 
   useEffect(() => {
-    fetchMenu();
-  }, [fetchMenu]);
+    if (propertySlug) {
+      fetchMenu();
+    }
+  }, [propertySlug, fetchMenu]);
 
-  // Check if there are unpublished changes
+  // Compute if there are unsaved changes
   const hasChanges = useMemo(() => {
+    if (deletedCategoryIds.size > 0 || deletedDishIds.size > 0) return true;
     if (categories.length !== originalCategories.length) return true;
     if (dishes.length !== originalDishes.length) return true;
-    if (deletedCategoryIds.size > 0 || deletedDishIds.size > 0) return true;
-    
-    // Deep check
-    const categoriesChanged = categories.some(c => {
-      const orig = originalCategories.find(oc => oc.id === c.id);
-      return !orig || orig.name !== c.name;
-    });
-    if (categoriesChanged) return true;
 
-    const categoryOrderChanged = categories.some((c, i) => c.id !== originalCategories[i]?.id);
-    if (categoryOrderChanged) return true;
-    
-    const dishesChanged = dishes.some(d => {
+    for (let i = 0; i < categories.length; i++) {
+      const c = categories[i];
+      const orig = originalCategories[i];
+      if (!orig || c.id !== orig.id || c.name !== orig.name) return true;
+    }
+
+    for (const d of dishes) {
       const orig = originalDishes.find(od => od.id === d.id);
       if (!orig) return true;
-      return orig.name !== d.name ||
-             orig.price !== d.price ||
-             orig.categoryId !== d.categoryId ||
-             orig.allergens !== d.allergens ||
-             orig.healthTips !== d.healthTips ||
-             orig.isOutOfStock !== d.isOutOfStock ||
-             orig.isVeg !== d.isVeg ||
-             orig.isPopular !== d.isPopular ||
-             orig.spiceLevel !== d.spiceLevel ||
-             orig.preparationTime !== d.preparationTime ||
-             orig.imageUrl !== d.imageUrl;
-    });
-    
-    return dishesChanged;
-  }, [categories, originalCategories, dishes, originalDishes, deletedCategoryIds, deletedDishIds]);
+      if (
+        d.name !== orig.name ||
+        d.price !== orig.price ||
+        d.categoryId !== orig.categoryId ||
+        d.allergens !== orig.allergens ||
+        d.healthTips !== orig.healthTips ||
+        d.isOutOfStock !== orig.isOutOfStock ||
+        d.isVeg !== orig.isVeg ||
+        d.isPopular !== orig.isPopular ||
+        d.spiceLevel !== orig.spiceLevel ||
+        d.preparationTime !== orig.preparationTime ||
+        d.imageUrl !== orig.imageUrl
+      ) {
+        return true;
+      }
+    }
 
+    return false;
+  }, [categories, dishes, originalCategories, originalDishes, deletedCategoryIds, deletedDishIds]);
+
+  // Category Actions
   const addCategory = (name: string) => {
     setCategories(prev => [...prev, { id: `temp-cat-${crypto.randomUUID()}`, name }]);
   };
 
-  const reorderCategories = (newOrder: Category[]) => {
-    setCategories(newOrder);
+  const reorderCategories = (newCategories: Category[]) => {
+    setCategories(newCategories);
   };
 
   const updateCategory = (id: string, name: string) => {
@@ -109,23 +117,37 @@ export function useMenuStudio(propertySlug: string) {
   };
 
   const deleteCategory = (id: string) => {
-    const inUse = dishes.some(d => d.categoryId === id);
-    if (inUse) {
-      alert("Cannot delete a category that contains dishes. Move or delete them first.");
-      return;
-    }
+    // Also delete or reassign attached dishes
     setCategories(prev => prev.filter(c => c.id !== id));
+    setDishes(prev => prev.filter(d => d.categoryId !== id));
     if (!id.startsWith("temp-")) {
       setDeletedCategoryIds(prev => new Set(prev).add(id));
     }
   };
 
-  const saveDish = (dish: Dish) => {
-    setDishes(prev => {
-      const exists = prev.find(d => d.id === dish.id);
-      if (exists) return prev.map(d => d.id === dish.id ? dish : d);
-      return [...prev, dish];
-    });
+  // Dish Actions
+  const saveDish = (dishData: Partial<Dish> & { name: string; price: number; categoryId: string }) => {
+    if (dishData.id) {
+      // Update existing
+      setDishes(prev => prev.map(d => d.id === dishData.id ? { ...d, ...dishData } as Dish : d));
+    } else {
+      // Create new
+      const newDish: Dish = {
+        id: `temp-dish-${crypto.randomUUID()}`,
+        name: dishData.name,
+        price: dishData.price,
+        categoryId: dishData.categoryId,
+        allergens: dishData.allergens || '[]',
+        healthTips: dishData.healthTips || '',
+        isOutOfStock: dishData.isOutOfStock || false,
+        isVeg: dishData.isVeg,
+        isPopular: dishData.isPopular,
+        spiceLevel: dishData.spiceLevel,
+        preparationTime: dishData.preparationTime,
+        imageUrl: dishData.imageUrl
+      };
+      setDishes(prev => [...prev, newDish]);
+    }
   };
 
   const deleteDish = (id: string) => {
@@ -133,10 +155,6 @@ export function useMenuStudio(propertySlug: string) {
     if (!id.startsWith("temp-")) {
       setDeletedDishIds(prev => new Set(prev).add(id));
     }
-  };
-
-  const toggleDishAvailability = (id: string) => {
-    setDishes(prev => prev.map(d => d.id === id ? { ...d, isOutOfStock: !d.isOutOfStock } : d));
   };
 
   const duplicateDish = (dish: Dish) => {
@@ -148,18 +166,30 @@ export function useMenuStudio(propertySlug: string) {
     setDishes(prev => [...prev, newDish]);
   };
 
-  const publishChanges = async () => {
+  const toggleDishAvailability = (id: string) => {
+    setDishes(prev => prev.map(d => d.id === id ? { ...d, isOutOfStock: !d.isOutOfStock } : d));
+  };
+
+  const publishChanges = async (): Promise<boolean> => {
     setPublishing(true);
     try {
       // 1. Delete removed items
-      const deletePromises = [
-        ...Array.from(deletedDishIds).map(id => fetch(`/api/manager/dishes/${id}`, { method: 'DELETE' })),
-        ...Array.from(deletedCategoryIds).map(id => fetch(`/api/manager/categories/${id}`, { method: 'DELETE' }))
-      ];
-      await Promise.all(deletePromises);
+      for (const id of deletedDishIds) {
+        const res = await fetch(`/api/manager/dishes/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `Failed to delete dish (${id})`);
+        }
+      }
+      for (const id of deletedCategoryIds) {
+        const res = await fetch(`/api/manager/categories/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `Failed to delete category (${id})`);
+        }
+      }
 
       // 2. Process Categories (Creates and Updates)
-      // We must await creates to get real IDs back so we can map dishes to them.
       const categoryIdMap = new Map<string, string>(); // tempId -> realId
       
       for (let i = 0; i < categories.length; i++) {
@@ -170,23 +200,31 @@ export function useMenuStudio(propertySlug: string) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: c.name, displayOrder: i })
           });
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || errData.reason || `Failed to create category "${c.name}"`);
+          }
           const saved = await res.json();
           categoryIdMap.set(c.id, saved.id);
         } else {
           const origIndex = originalCategories.findIndex(oc => oc.id === c.id);
           const orig = originalCategories[origIndex];
           if (orig && (orig.name !== c.name || origIndex !== i)) {
-            await fetch(`/api/manager/categories/${c.id}`, {
+            const res = await fetch(`/api/manager/categories/${c.id}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ name: c.name, displayOrder: i })
             });
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              throw new Error(errData.error || errData.reason || `Failed to update category "${c.name}"`);
+            }
           }
         }
       }
 
       // 3. Process Dishes (Creates and Updates)
-      const dishPromises = dishes.map(d => {
+      for (const d of dishes) {
         const payload = {
           name: d.name,
           price: Number(d.price) || 0,
@@ -202,33 +240,42 @@ export function useMenuStudio(propertySlug: string) {
         };
 
         if (d.id.startsWith('temp-')) {
-          return fetch(`/api/manager/properties/${propertySlug}/dishes`, {
+          const res = await fetch(`/api/manager/properties/${propertySlug}/dishes`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
           });
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || errData.reason || `Failed to create dish "${d.name}"`);
+          }
         } else {
           const orig = originalDishes.find(od => od.id === d.id);
-          // Simple diff check for update
           if (!orig || JSON.stringify({ ...orig, id: undefined }) !== JSON.stringify({ ...d, id: undefined })) {
-            return fetch(`/api/manager/dishes/${d.id}`, {
+            const res = await fetch(`/api/manager/dishes/${d.id}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload)
             });
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              throw new Error(errData.error || errData.reason || `Failed to update dish "${d.name}"`);
+            }
           }
         }
-        return Promise.resolve();
-      });
+      }
 
-      await Promise.all(dishPromises);
+      setDeletedCategoryIds(new Set());
+      setDeletedDishIds(new Set());
       
       // Fetch fresh data after publishing
       await fetchMenu();
-      
-    } catch (err) {
+      toast.success("Menu updated successfully!");
+      return true;
+    } catch (err: any) {
       console.error("Failed to publish menu", err);
-      alert("Failed to publish some changes. Please try again.");
+      toast.error(err.message || "Failed to save menu changes. Please try again.");
+      return false;
     } finally {
       setPublishing(false);
     }
@@ -238,6 +285,7 @@ export function useMenuStudio(propertySlug: string) {
     loading,
     publishing,
     hasChanges,
+    currency,
     categories,
     dishes,
     addCategory,

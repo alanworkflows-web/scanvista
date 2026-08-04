@@ -17,6 +17,7 @@ export function MenuStudio({ propertySlug, propertyName }: { propertySlug: strin
     loading,
     publishing,
     hasChanges,
+    currency,
     categories,
     dishes,
     addCategory,
@@ -58,12 +59,7 @@ export function MenuStudio({ propertySlug, propertyName }: { propertySlug: strin
   };
 
   const handlePublish = async () => {
-    try {
-      await publishChanges();
-      toast.success("Menu changes published live to Guest App!");
-    } catch (err: any) {
-      toast.error("Failed to publish menu changes.");
-    }
+    await publishChanges();
   };
 
   const displayName = propertyName || propertySlug || "Hotel Menu";
@@ -249,6 +245,7 @@ export function MenuStudio({ propertySlug, propertyName }: { propertySlug: strin
                         <DishCard
                           key={dish.id}
                           dish={dish}
+                          currency={currency}
                           onEdit={() => setEditingDish(dish)}
                           onDuplicate={() => duplicateDish(dish)}
                           onDelete={() => deleteDish(dish.id)}
@@ -291,6 +288,7 @@ export function MenuStudio({ propertySlug, propertyName }: { propertySlug: strin
             <GuestMenuPreview 
               categories={categories} 
               dishes={dishes} 
+              currency={currency}
               propertyName={displayName}
             />
           </div>
@@ -301,6 +299,7 @@ export function MenuStudio({ propertySlug, propertyName }: { propertySlug: strin
       <DishEditorDrawer
         dish={editingDish}
         categories={categories}
+        currency={currency}
         isOpen={!!editingDish}
         onClose={() => setEditingDish(null)}
         onSave={saveDish}

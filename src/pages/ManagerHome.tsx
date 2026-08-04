@@ -4,7 +4,7 @@ import { useManagerProperty } from "../hooks/useManagerProperty";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
 import { toast } from "sonner";
-import { getPropertyStatus, calculateLaunchChecklist } from "../lib/propertyStatusEngine";
+import { calculatePropertyStatus } from "../lib/propertyStatusEngine";
 import { detectSensitiveContent } from "../lib/sensitiveContent";
 import { PublishConfirmationModal } from "../components/PublishConfirmationModal";
 import { SensitiveContentModal } from "../components/ui/SensitiveContentModal";
@@ -24,7 +24,7 @@ interface Task {
 }
 
 export function ManagerHome() {
-  const { property, loading, refreshProperty } = useManagerProperty();
+  const { property, status, checklist: serverChecklist, loading, refreshProperty } = useManagerProperty();
   const [publishing, setPublishing] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [sensitiveSamples, setSensitiveSamples] = useState<string[]>([]);
@@ -85,11 +85,12 @@ export function ManagerHome() {
   }, [tasks, property]);
 
   // Execute unified property status engine
-  const statusResult = getPropertyStatus({
+  const statusResult = status || calculatePropertyStatus({
     property,
     snapshots,
     draftData
   });
+  const checklistResult = statusResult;
 
   const handleOpenPublish = () => {
     if (!property?.slug) return;
@@ -280,10 +281,10 @@ export function ManagerHome() {
                       </div>
                       <div>
                         <p className={`text-sm font-medium ${item.completed ? 'line-through text-text-muted' : 'text-text-primary'}`}>
-                          {item.title}
+                          {item.label}
                         </p>
                         <p className="text-xs text-text-secondary mt-0.5">
-                          {item.description}
+                          {item.completed ? item.details : item.why}
                         </p>
                       </div>
                     </div>
@@ -446,20 +447,14 @@ export function ManagerHome() {
                  </div>
                </div>
 
-               <div className="space-y-2.5">
-                  {[
-                    { label: 'Property details configured', ok: statusResult.propertyReadiness.isBrandReady },
-                    { label: 'Dining menu dishes added', ok: statusResult.propertyReadiness.isMenuReady },
-                    { label: 'Amenities configured', ok: statusResult.propertyReadiness.isAmenitiesReady },
-                    { label: 'Contact numbers set', ok: statusResult.propertyReadiness.isContactsReady },
-                    { label: 'House rules configured', ok: statusResult.propertyReadiness.isRulesReady },
-                  ].map((req, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      {req.ok ? <CheckCircle2 size={14} className="text-emerald-500" /> : <div className="w-3.5 h-3.5 rounded-full border-2 border-divider" />}
-                      <span className={`text-xs ${req.ok ? 'text-text-primary' : 'text-text-muted'}`}>{req.label}</span>
-                    </div>
-                  ))}
-               </div>
+                <div className="space-y-2.5">
+                   {statusResult.items.map((req) => (
+                     <div key={req.id} className="flex items-center gap-2">
+                       {req.completed ? <CheckCircle2 size={14} className="text-emerald-500" /> : <div className="w-3.5 h-3.5 rounded-full border-2 border-divider" />}
+                       <span className={`text-xs ${req.completed ? 'text-text-primary' : 'text-text-muted'}`}>{req.label}</span>
+                     </div>
+                   ))}
+                </div>
             </div>
 
             {/* Recent Activity */}
@@ -494,7 +489,7 @@ export function ManagerHome() {
         onConfirm={handleConfirmPublish}
         loading={publishing}
         changeCounts={statusResult.changeCounts}
-        checklist={calculateLaunchChecklist(property, snapshots)}
+        checklist={checklistResult}
       />
 
       {/* Sensitive Content Blocker Modal */}

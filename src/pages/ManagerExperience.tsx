@@ -53,7 +53,10 @@ export function ManagerExperience() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData)
       });
-      if (!res.ok) throw new Error("Failed to save experience settings");
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to save experience settings");
+      }
       await refreshProperty();
       toast.success("Experience settings saved successfully!");
       setLastSaved(new Date());

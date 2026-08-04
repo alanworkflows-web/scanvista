@@ -6,6 +6,7 @@ import {
 
 import { evaluateVisibility, VisibilityConfig } from "../lib/visibilityEngine";
 import { trackEvent } from "../lib/tracking";
+import { formatPrice } from "../lib/currency";
 import { HeroSection } from "../components/guest/HeroSection";
 import { PropertyStatusStrip } from "../components/guest/PropertyStatusStrip";
 import { AccordionSection } from "../components/guest/AccordionSection";
@@ -95,14 +96,17 @@ export function GuestWelcome() {
 
   const sortItems = (items: any[]) => items.sort((a, b) => (a.priority || 100) - (b.priority || 100));
 
-  const visibleCategories = sortItems(filterVisible(property.categories || []));
+  const visibleCategories = sortItems(
+    filterVisible(property.categories || [])
+      .filter((cat: any) => Array.isArray(cat.dishes) && cat.dishes.length > 0)
+  );
   const visibleAmenities = sortItems(filterVisible(property.amenities || []));
   const visibleActivities = sortItems(filterVisible(property.activities || []));
   
   const statusItems = [
-    ...visibleAmenities.map(a => ({ name: a.name, config: a as VisibilityConfig })),
-    ...visibleCategories.map(c => ({ name: c.name, config: c as VisibilityConfig })),
-    ...visibleActivities.map(ac => ({ name: ac.name, config: ac as VisibilityConfig }))
+    ...visibleAmenities.map(a => ({ name: a.name, config: a as VisibilityConfig, type: 'facility' as const })),
+    ...visibleCategories.map(c => ({ name: c.name, config: c as VisibilityConfig, type: 'dining' as const })),
+    ...visibleActivities.map(ac => ({ name: ac.name, config: ac as VisibilityConfig, type: 'activity' as const }))
   ];
 
     const contacts = (() => {
@@ -127,7 +131,7 @@ export function GuestWelcome() {
   if (property.gallery) galleryImages.push(...property.gallery);
 
   return (
-    <div className="min-h-[100dvh] bg-background pb-32 font-sans text-[#2A2A2A] transition-colors duration-1000">
+    <div className="min-h-[100dvh] bg-background pb-44 font-sans text-[#2A2A2A] transition-colors duration-1000">
       
       <HeroSection property={property} guestName={name} />
       
@@ -173,14 +177,18 @@ export function GuestWelcome() {
         >
           <div className="bg-surface border border-[#EAE8E1]/40 p-6 rounded-sm shadow-premium space-y-6">
             <div className="grid grid-cols-2 gap-6 border-b border-[#EAE8E1]/30 pb-6">
-              <div>
-                <p className="text-[9px] uppercase tracking-[0.2em] text-[#A3A095] mb-2">Check-In</p>
-                <p className="text-lg font-serif text-[#2A2A2A]">{property.checkInTime || "2:00 PM"}</p>
-              </div>
-              <div>
-                <p className="text-[9px] uppercase tracking-[0.2em] text-[#A3A095] mb-2">Check-Out</p>
-                <p className="text-lg font-serif text-[#2A2A2A]">{property.checkOutTime || "11:00 AM"}</p>
-              </div>
+              {property.checkInTime && (
+                <div>
+                  <p className="text-[9px] uppercase tracking-[0.2em] text-[#A3A095] mb-2">Check-In</p>
+                  <p className="text-lg font-serif text-[#2A2A2A]">{property.checkInTime}</p>
+                </div>
+              )}
+              {property.checkOutTime && (
+                <div>
+                  <p className="text-[9px] uppercase tracking-[0.2em] text-[#A3A095] mb-2">Check-Out</p>
+                  <p className="text-lg font-serif text-[#2A2A2A]">{property.checkOutTime}</p>
+                </div>
+              )}
             </div>
             
             <div className="grid grid-cols-2 gap-6">
@@ -232,7 +240,7 @@ export function GuestWelcome() {
                         <div className="flex-1">
                           <div className="flex justify-between items-start mb-1">
                             <h4 className="font-medium text-[#2A2A2A] text-lg">{dish.name}</h4>
-                            <span className="text-[#A3A095] font-light text-[15px]">{new Intl.NumberFormat(journey?.language || "en-US", { style: "currency", currency: property.currency || "USD" }).format(dish.price || 0)}</span>
+                            <span className="text-[#A3A095] font-light text-[15px]">{formatPrice(dish.price || 0, property.currency)}</span>
                           </div>
                           {dish.description && <p className="text-[#7A7A7A] text-[14px] leading-relaxed font-light">{dish.description}</p>}
                           {dish.allergens && dish.allergens !== "[]" && (
@@ -424,10 +432,13 @@ export function GuestWelcome() {
       
       {/* FAB for Reception */}
       {receptionPhone && (
-        <div className="fixed bottom-8 left-0 right-0 flex justify-center z-50 pointer-events-none px-4">
+        <div 
+          className="fixed bottom-6 left-0 right-0 flex justify-center z-50 pointer-events-none px-4"
+          style={{ bottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))' }}
+        >
           <a
-            href={`tel:${receptionPhone}`}
-            className="pointer-events-auto bg-[#D4AF37] text-white px-8 py-3.5 rounded-full shadow-[0_8px_30px_rgba(212,175,55,0.4)] font-medium tracking-wide flex items-center gap-3 hover:bg-[#C5A030] transition-transform active:scale-95"
+            href={`tel:${receptionPhone.replace(/\s+/g, '')}`}
+            className="pointer-events-auto bg-[#D4AF37] text-white px-8 py-3.5 rounded-full shadow-[0_8px_30px_rgba(212,175,55,0.4)] font-medium tracking-wide flex items-center gap-3 hover:bg-[#C5A030] transition-transform active:scale-95 touch-manipulation"
             onClick={() => {
               if (property.id && !isPreview) {
                 trackEvent(property.id, 'EXECUTED', 'RECOMMENDATION', { type: 'RECEPTION_CALL_CLICK' });
@@ -440,7 +451,7 @@ export function GuestWelcome() {
         </div>
       )}
 
-      <GlobalFooter />
+      <GlobalFooter variant="guest" />
     </div>
   );
 }

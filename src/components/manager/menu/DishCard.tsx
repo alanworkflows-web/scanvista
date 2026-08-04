@@ -2,17 +2,19 @@ import React from 'react';
 import { Dish } from './useMenuStudio';
 import { Edit2, Copy, Trash2, Eye, EyeOff, Image as ImageIcon, Leaf, Flame, Star } from 'lucide-react';
 import { cn } from '../../../lib/utils';
+import { formatPrice } from '../../../lib/currency';
 
 interface Props {
   key?: string | number;
   dish: Dish;
+  currency?: string;
   onEdit: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
   onToggleAvailability: () => void;
 }
 
-export function DishCard({ dish, onEdit, onDuplicate, onDelete, onToggleAvailability }: Props) {
+export function DishCard({ dish, currency = 'USD', onEdit, onDuplicate, onDelete, onToggleAvailability }: Props) {
   let allergensList: string[] = [];
   try { allergensList = JSON.parse(dish.allergens); } catch(e) {}
 
@@ -49,7 +51,7 @@ export function DishCard({ dish, onEdit, onDuplicate, onDelete, onToggleAvailabi
           </div>
           
           <div className="flex flex-wrap items-center gap-3 mt-1.5">
-            <p className="text-sm font-medium text-primary">${dish.price.toFixed(2)}</p>
+            <p className="text-sm font-medium text-primary">{formatPrice(dish.price, currency)}</p>
             
             <div className="flex flex-wrap gap-1.5 border-l border-divider pl-3">
               {dish.isVeg && (
@@ -98,7 +100,7 @@ export function DishCard({ dish, onEdit, onDuplicate, onDelete, onToggleAvailabi
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(); }}
-            className="p-2 text-text-muted hover:text-red-600 transition-colors rounded-sm hover:bg-red-50"
+            className="p-2 text-text-muted hover:text-red-500 transition-colors rounded-sm hover:bg-red-500/10"
             title="Delete"
           >
             <Trash2 size={18} />

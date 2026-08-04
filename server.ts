@@ -11,6 +11,8 @@ import { z } from "zod";
 import crypto from "crypto";
 import { Paddle, Environment } from "@paddle/paddle-node-sdk";
 import { detectSensitiveContent } from "./src/lib/sensitiveContent";
+import { validateForPublish } from "./src/lib/validationFramework";
+import { calculatePropertyStatus } from "./src/lib/propertyStatusEngine";
 
 export interface Entitlement {
   plan: "free" | "premium";
@@ -272,10 +274,22 @@ const app = express();
     hostInfo: z.string().max(2000).optional(),
     houseRules: z.string().max(2000).optional(),
     experiences: z.string().max(2000).optional(),
-    receptionPhone: z.string().max(50).optional(),
-    roomServicePhone: z.string().max(50).optional(),
-    housekeepingPhone: z.string().max(50).optional(),
-    emergencyPhone: z.string().max(50).optional(),
+    receptionPhone: z.string().max(50).optional().refine(
+      (v) => !v || /^[+\d][\d\s\-().]{5,}$/.test(v.trim()),
+      { message: "Invalid phone number format" }
+    ),
+    roomServicePhone: z.string().max(50).optional().refine(
+      (v) => !v || /^[+\d][\d\s\-().]{5,}$/.test(v.trim()),
+      { message: "Invalid phone number format" }
+    ),
+    housekeepingPhone: z.string().max(50).optional().refine(
+      (v) => !v || /^[+\d][\d\s\-().]{5,}$/.test(v.trim()),
+      { message: "Invalid phone number format" }
+    ),
+    emergencyPhone: z.string().max(50).optional().refine(
+      (v) => !v || /^[+\d][\d\s\-().]{5,}$/.test(v.trim()),
+      { message: "Invalid phone number format" }
+    ),
     tagline: z.string().max(255).optional(),
     welcomeMessage: z.string().max(2000).optional(),
     checkInTime: z.string().max(50).optional(),
@@ -575,6 +589,7 @@ const app = express();
       const property = await prisma.property.findUnique({
         where: { slug },
         include: {
+          org: { select: { currency: true } },
           amenities: true,
           categories: {
             include: { dishes: true },
@@ -601,6 +616,7 @@ const app = express();
       const safeProperty = {
         id: property.id,
         slug: property.slug,
+        currency: property.org?.currency || 'USD',
         name: property.name,
         description: property.description,
         bannerUrl: property.bannerUrl || property.heroImage,
@@ -657,6 +673,7 @@ const app = express();
         include: {
           property: {
             include: {
+              org: { select: { currency: true } },
               amenities: true,
               categories: { include: { dishes: true } },
             }
@@ -695,6 +712,7 @@ const app = express();
           status: guest.status,
           property: {
             ...guest.property,
+            currency: guest.property.org?.currency || 'USD',
             heroImage: guest.property.heroImage || guest.property.bannerUrl,
             bannerUrl: guest.property.bannerUrl || guest.property.heroImage
           }
@@ -707,6 +725,7 @@ const app = express();
       const publishedProperty = await prisma.property.findUnique({
         where: { slug: token },
         include: {
+          org: { select: { currency: true } },
           snapshots: {
             orderBy: { publishedAt: 'desc' },
             take: 1
@@ -736,6 +755,7 @@ const app = express();
           status: 'CHECKED_IN',
           property: {
             ...snapshotData.property,
+            currency: publishedProperty.org?.currency || snapshotData.property?.currency || 'USD',
             heroImage: snapshotData.property.heroImage || snapshotData.property.bannerUrl,
             bannerUrl: snapshotData.property.bannerUrl || snapshotData.property.heroImage,
             categories: snapshotData.categories || [],
@@ -750,6 +770,7 @@ const app = express();
       const previewProperty = await prisma.property.findUnique({
         where: { previewToken: token },
         include: {
+          org: { select: { currency: true } },
           amenities: true,
           categories: { include: { dishes: true } },
         }
@@ -763,6 +784,7 @@ const app = express();
           status: 'CHECKED_IN',
           property: {
             ...previewProperty,
+            currency: previewProperty.org?.currency || 'USD',
             heroImage: previewProperty.heroImage || previewProperty.bannerUrl,
             bannerUrl: previewProperty.bannerUrl || previewProperty.heroImage
           }
@@ -785,6 +807,7 @@ const app = express();
       const property = await prisma.property.findUnique({
         where: { previewToken: token },
         include: {
+          org: { select: { currency: true } },
           amenities: true,
           categories: {
             include: { dishes: true },
@@ -805,6 +828,7 @@ const app = express();
       const safeProperty = {
         id: property.id,
         slug: property.slug,
+        currency: property.org?.currency || 'USD',
         name: property.name,
         description: property.description,
         bannerUrl: property.bannerUrl || property.heroImage,
@@ -960,7 +984,8 @@ const app = express();
     const orgIds = memberships.map((m: any) => m.orgId);
 
     const includeClause: any = {
-      subscription: true
+      subscription: true,
+      org: { select: { currency: true, name: true, id: true } }
     };
     if (includeRelations) {
       includeClause.amenities = true;
@@ -1053,6 +1078,7 @@ const app = express();
       const fullProperty = await prisma.property.findUnique({
         where: { id: targetProperty.id },
         include: {
+          org: { select: { currency: true } },
           amenities: true,
           categories: {
             include: { dishes: true },
@@ -1078,6 +1104,7 @@ const app = express();
       const safeProperty = {
         id: fullProperty.id,
         slug: fullProperty.slug,
+        currency: fullProperty.org?.currency || 'USD',
         name: fullProperty.name,
         description: fullProperty.description,
         bannerUrl: fullProperty.bannerUrl || fullProperty.heroImage,
@@ -1115,13 +1142,26 @@ const app = express();
         entitlement: resolveEntitlement(p.subscription)
       }));
 
+      const propWithEntities = {
+        ...safeProperty,
+        categories,
+        dishes,
+        amenities
+      };
+      const status = calculatePropertyStatus({
+        property: propWithEntities,
+        snapshots: fullProperty.snapshots
+      });
+
       res.json({
         property: safeProperty,
         properties: safeProperties,
         activePropertyId: safeProperty.id,
         categories,
         dishes,
-        amenities
+        amenities,
+        status,
+        checklist: status
       });
     } catch (err) {
       console.error(err);
@@ -1155,6 +1195,7 @@ const app = express();
       const safeProperty = {
         id: property.id,
         slug: property.slug,
+        currency: property.org?.currency || 'USD',
         name: property.name,
         description: property.description,
         bannerUrl: property.bannerUrl || property.heroImage,
@@ -1337,10 +1378,79 @@ const app = express();
         return res.status(403).json({ error: "Forbidden: You do not have access to this property" });
       }
 
-      res.json(property);
+      res.json({
+        ...property,
+        currency: property.org?.currency || 'USD'
+      });
     } catch (err) {
       console.error("[Get Property By Slug] Error:", err);
       res.status(500).json({ error: "Failed to get property" });
+    }
+  });
+
+  app.get("/api/manager/properties/:slug/status", requireAuth, async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.session.userId as string;
+      const { slug } = req.params;
+
+      const property = await prisma.property.findFirst({
+        where: {
+          OR: [
+            { id: slug },
+            { slug: slug.toLowerCase() }
+          ]
+        },
+        include: {
+          org: { select: { currency: true } },
+          amenities: true,
+          categories: {
+            include: { dishes: true },
+            orderBy: { displayOrder: 'asc' }
+          },
+          snapshots: {
+            orderBy: { publishedAt: 'desc' },
+            take: 1
+          }
+        }
+      });
+
+      if (!property) {
+        return res.status(404).json({ error: "Property not found" });
+      }
+
+      const isOwner = property.ownerId === userId;
+      const isMember = await prisma.organizationMembership.findFirst({
+        where: { userId, orgId: property.orgId }
+      });
+      if (!isOwner && !isMember) {
+        return res.status(403).json({ error: "Forbidden: You do not have access to this property" });
+      }
+
+      const categories = property.categories;
+      const dishes = property.categories.flatMap((c: any) => c.dishes);
+      const amenities = property.amenities;
+
+      const propWithEntities = {
+        ...property,
+        currency: property.org?.currency || 'USD',
+        categories,
+        dishes,
+        amenities
+      };
+
+      const status = calculatePropertyStatus({
+        property: propWithEntities,
+        snapshots: property.snapshots
+      });
+
+      res.json({
+        status,
+        checklist: status
+      });
+    } catch (err) {
+      console.error("[Get Property Status] Error:", err);
+      res.status(500).json({ error: "Failed to get property status" });
     }
   });
 
@@ -1384,6 +1494,16 @@ const app = express();
       const userId = req.session.userId as string;
       const { slug } = req.params;
 
+      // Sensitive content protection (block save immediately on payload)
+      const sensitiveCheck = detectSensitiveContent(req.body);
+      if (sensitiveCheck.detected) {
+        return res.status(422).json({
+          error: "Sensitive content detected. Please remove credentials, passwords, or API keys before saving.",
+          reason: sensitiveCheck.reason,
+          samples: sensitiveCheck.samples
+        });
+      }
+
       const exists = await prisma.property.findFirst({
         where: {
           OR: [
@@ -1420,6 +1540,7 @@ const app = express();
         where: { id: property.id },
         data: updateData,
         include: {
+          org: { select: { currency: true, name: true, id: true } },
           subscription: true,
           categories: { include: { dishes: true }, orderBy: { displayOrder: 'asc' } },
           amenities: true,
@@ -1447,7 +1568,10 @@ const app = express();
         console.warn("[Property Update] Failed to write audit event:", logErr);
       }
 
-      res.json(updatedProperty);
+      res.json({
+        ...updatedProperty,
+        currency: updatedProperty.org?.currency || 'USD'
+      });
     } catch (err: any) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({ error: "Validation Error", details: err.issues });
@@ -1460,6 +1584,16 @@ const app = express();
   // CRUD Amenities & Dishes via Slug
   app.put("/api/manager/properties/:slug/amenities", requireAuth, async (req, res) => {
     try {
+      // Sensitive content check
+      const sensitiveCheck = detectSensitiveContent(req.body);
+      if (sensitiveCheck.detected) {
+        return res.status(422).json({
+          error: "Sensitive content detected. Please remove credentials, passwords, or API keys before saving.",
+          reason: sensitiveCheck.reason,
+          samples: sensitiveCheck.samples
+        });
+      }
+
       // @ts-ignore
       const userId = req.session.userId as string;
       const property = await getAuthorizedProperty(req.params.slug, userId, false);
@@ -1525,6 +1659,15 @@ const app = express();
 
   app.post("/api/manager/properties/:slug/amenities", requireAuth, async (req, res) => {
     try {
+      const sensitiveCheck = detectSensitiveContent(req.body);
+      if (sensitiveCheck.detected) {
+        return res.status(422).json({
+          error: "Sensitive content detected. Please remove credentials, passwords, or API keys before saving.",
+          reason: sensitiveCheck.reason,
+          samples: sensitiveCheck.samples
+        });
+      }
+
       const validatedData = AmenitySchema.parse(req.body);
       // @ts-ignore
       const userId = req.session.userId as string;
@@ -1548,6 +1691,15 @@ const app = express();
   });
 
   app.put("/api/manager/amenities/:id", requireAuth, async (req, res) => {
+    const sensitiveCheck = detectSensitiveContent(req.body);
+    if (sensitiveCheck.detected) {
+      return res.status(422).json({
+        error: "Sensitive content detected. Please remove credentials, passwords, or API keys before saving.",
+        reason: sensitiveCheck.reason,
+        samples: sensitiveCheck.samples
+      });
+    }
+
     // @ts-ignore
     const { userId } = req.session;
     const { id } = req.params;
@@ -1587,6 +1739,15 @@ const app = express();
 
   app.post("/api/manager/properties/:slug/dishes", requireAuth, async (req, res) => {
     try {
+      const sensitiveCheck = detectSensitiveContent(req.body);
+      if (sensitiveCheck.detected) {
+        return res.status(422).json({
+          error: "Sensitive content detected. Please remove credentials, passwords, or API keys before saving.",
+          reason: sensitiveCheck.reason,
+          samples: sensitiveCheck.samples
+        });
+      }
+
       const validatedData = DishSchema.parse(req.body);
       // @ts-ignore
       const userId = req.session.userId as string;
@@ -1639,6 +1800,15 @@ const app = express();
   });
 
   app.put("/api/manager/dishes/:id", requireAuth, async (req, res) => {
+    const sensitiveCheck = detectSensitiveContent(req.body);
+    if (sensitiveCheck.detected) {
+      return res.status(422).json({
+        error: "Sensitive content detected. Please remove credentials, passwords, or API keys before saving.",
+        reason: sensitiveCheck.reason,
+        samples: sensitiveCheck.samples
+      });
+    }
+
     // @ts-ignore
     const { userId } = req.session;
     const { id } = req.params;
@@ -1685,6 +1855,15 @@ const app = express();
   // Category Endpoints
   app.post("/api/manager/properties/:slug/categories", requireAuth, async (req, res) => {
     try {
+      const sensitiveCheck = detectSensitiveContent(req.body);
+      if (sensitiveCheck.detected) {
+        return res.status(422).json({
+          error: "Sensitive content detected. Please remove credentials, passwords, or API keys before saving.",
+          reason: sensitiveCheck.reason,
+          samples: sensitiveCheck.samples
+        });
+      }
+
       const validatedData = CategorySchema.parse(req.body);
       // @ts-ignore
       const userId = req.session.userId as string;
@@ -1721,6 +1900,15 @@ const app = express();
 
   app.put("/api/manager/categories/:id", requireAuth, async (req, res) => {
     try {
+      const sensitiveCheck = detectSensitiveContent(req.body);
+      if (sensitiveCheck.detected) {
+        return res.status(422).json({
+          error: "Sensitive content detected. Please remove credentials, passwords, or API keys before saving.",
+          reason: sensitiveCheck.reason,
+          samples: sensitiveCheck.samples
+        });
+      }
+
       const validatedData = CategorySchema.parse(req.body);
       // @ts-ignore
       const { userId } = req.session;
@@ -1740,7 +1928,7 @@ const app = express();
       const updated = await prisma.menuCategory.update({
         where: { id },
         data: { 
-          name: validatedData.name,
+          name: validatedData.name, 
           displayOrder: validatedData.displayOrder ?? category.displayOrder
         }
       });
@@ -1953,10 +2141,12 @@ const app = express();
       }
 
       // 4. Build snapshot payload (full property state)
+      const org = await prisma.organization.findUnique({ where: { id: property.orgId }, select: { currency: true } });
       const snapshotData = {
         property: {
           id: property.id,
           slug: property.slug,
+          currency: org?.currency || 'USD',
           name: property.name,
           description: property.description,
           bannerUrl: property.bannerUrl || property.heroImage,
@@ -1990,14 +2180,13 @@ const app = express();
         publishedAt: new Date().toISOString()
       };
 
-      // 4b. Sensitive Content Protection (Hard Block on Publish)
-      const sensitiveCheck = detectSensitiveContent(snapshotData);
-      if (sensitiveCheck.detected) {
-        console.warn(`[Publish] BLOCKED – Sensitive content detected for property ${property.id}:`, sensitiveCheck.samples);
+      // 4b. Publish Validation & Sensitive Content Protection (Hard Block on Publish)
+      const publishValidation = validateForPublish(snapshotData);
+      if (!publishValidation.canPublish) {
+        console.warn(`[Publish] BLOCKED – Validation issues for property ${property.id}:`, publishValidation.issues);
         return res.status(422).json({
-          error: "Sensitive content detected. Public guest pages cannot expose credentials, passwords, or private API keys.",
-          reason: sensitiveCheck.reason,
-          samples: sensitiveCheck.samples
+          error: "Property does not meet publish requirements.",
+          issues: publishValidation.issues
         });
       }
 

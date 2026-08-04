@@ -330,6 +330,7 @@ export function PropertyPage() {
                                 key={item.id}
                                 item={item}
                                 propertyType={property.propertyType as any}
+                                currency={property.currency}
                               />
                             ))}
                           </div>

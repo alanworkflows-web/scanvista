@@ -1,15 +1,15 @@
 const SENSITIVE_PATTERNS = [
-  { name: "Password assignment", regex: /(?:password|passwd|pwd)\s*[:=]\s*['"]?[^\s,;'"]{3,}['"]?/i },
-  { name: "API Key", regex: /(?:api[_-]?key|apikey)\s*[:=]\s*['"]?[^\s,;'"]{6,}['"]?/i },
-  { name: "OpenAI / AI Secret Key", regex: /sk-(?:proj-)?[a-zA-Z0-9_-]{20,}/i },
+  { name: "Password assignment", regex: /(?:password|passwd|pwd)\s*[:=\s-]\s*['"]?[^\s,;'"]{3,}['"]?/i },
+  { name: "API Key", regex: /(?:api[_-]?key|apikey)\s*[:=\s-]\s*['"]?[^\s,;'"]{3,}['"]?/i },
+  { name: "OpenAI / AI Secret Key", regex: /sk-(?:proj-)?[a-zA-Z0-9_-]{16,}/i },
+  { name: "Stripe / Payment Live Key", regex: /sk_(?:live|test)_[0-9a-zA-Z_-]{4,}/i },
   { name: "AWS Access Key", regex: /AKIA[0-9A-Z]{16}/i },
-  { name: "AWS Secret Key", regex: /(?:aws_secret_access_key|aws_secret|aws_key)\s*[:=]\s*['"]?[^\s,;'"]{10,}['"]?/i },
-  { name: "Secret Key/Token", regex: /(?:secret|token|bearer|auth[_-]?token)\s*[:=]\s*['"]?[^\s,;'"]{3,}['"]?/i },
-  { name: "Bearer Token", regex: /bearer\s+[a-zA-Z0-9_\-\.]{10,}/i },
-  { name: "Private Key", regex: /-----BEGIN (?:RSA |EC )?PRIVATE KEY-----/i },
-  { name: "Database Connection String", regex: /(?:postgres|postgresql|mysql|mongodb(?:\+srv)?):\/\/[^\s:@]+:[^\s:@]+@/i },
-  { name: "Live Stripe/Payment Key", regex: /sk_live_[0-9a-zA-Z]{16,}/i },
-  { name: "GitHub Token", regex: /gh[pousr]_[0-9a-zA-Z]{20,}/i }
+  { name: "AWS Secret Key", regex: /(?:aws_secret_access_key|aws_secret|aws_key|aws_[a-zA-Z0-9_]+)\s*[:=\s-]\s*['"]?[^\s,;'"]{3,}['"]?/i },
+  { name: "Secret Key/Token", regex: /(?:secret|token|auth[_-]?token)\s*[:=\s-]\s*['"]?[^\s,;'"]{3,}['"]?/i },
+  { name: "Bearer Token", regex: /bearer\s+[a-zA-Z0-9_\-\.]{6,}/i },
+  { name: "Private Key", regex: /(?:-----BEGIN (?:RSA |EC )?PRIVATE KEY-----|private\s+key\s*[:=\s-]?)/i },
+  { name: "Database Connection String", regex: /(?:postgres|postgresql|mysql|mongodb(?:\+srv)?):\/\/[^\s]+/i },
+  { name: "GitHub Token", regex: /gh[pousr]_[0-9a-zA-Z]{16,}/i }
 ];
 
 export interface SensitiveDetectionResult {

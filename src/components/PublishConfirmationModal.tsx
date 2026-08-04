@@ -91,7 +91,7 @@ export function PublishConfirmationModal({
               <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${
                 isGateBlocked ? "bg-amber-200/80 text-amber-900" : "bg-emerald-200/80 text-emerald-900"
               }`}>
-                {checklist.completedCount} / {checklist.totalCount} Complete ({checklist.percentage}%)
+                {checklist.completedCount} / {checklist.totalCount} Complete ({checklist.completionPercentage ?? checklist.percentage}%)
               </span>
             </div>
 
@@ -126,7 +126,7 @@ export function PublishConfirmationModal({
             ) : (
               <div className="flex items-center gap-2 text-xs text-emerald-800 font-medium mt-1">
                 <ShieldCheck size={16} className="text-emerald-600 shrink-0" />
-                <span>All 11 launch milestones verified. Property is ready for live guest traffic.</span>
+                <span>All {checklist.totalCount} launch milestones verified. Property is ready for live guest traffic.</span>
               </div>
             )}
           </div>

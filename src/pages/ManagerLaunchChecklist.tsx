@@ -15,14 +15,14 @@ import {
 } from "lucide-react";
 import { ManagerLayout } from "../components/ManagerLayout";
 import { useManagerProperty } from "../hooks/useManagerProperty";
-import { calculateLaunchChecklist, getPropertyStatus } from "../lib/propertyStatusEngine";
+import { calculatePropertyStatus } from "../lib/propertyStatusEngine";
 import { PublishConfirmationModal } from "../components/PublishConfirmationModal";
 import { SensitiveContentModal } from "../components/ui/SensitiveContentModal";
 import { detectSensitiveContent } from "../lib/sensitiveContent";
 import { toast } from "sonner";
 
 export function ManagerLaunchChecklist() {
-  const { property, dishes, amenities, categories, loading, refreshProperty } = useManagerProperty();
+  const { property, status, checklist: serverChecklist, dishes, amenities, categories, loading, refreshProperty } = useManagerProperty();
   const [snapshots, setSnapshots] = useState<any[]>([]);
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
@@ -49,8 +49,8 @@ export function ManagerLaunchChecklist() {
   }
 
   const propWithEntities = { ...property, dishes, amenities, categories };
-  const checklist = calculateLaunchChecklist(propWithEntities, snapshots);
-  const statusResult = getPropertyStatus({ property: propWithEntities, snapshots });
+  const statusResult = status || calculatePropertyStatus({ property: propWithEntities, snapshots });
+  const checklist = statusResult;
 
   const categoriesList = ['Branding', 'Content', 'Policies', 'Operations'] as const;
 
@@ -137,7 +137,7 @@ export function ManagerLaunchChecklist() {
           <div className="flex items-center gap-5">
             <div className="relative flex items-center justify-center w-20 h-20 rounded-full bg-emerald-50 border-4 border-emerald-500/20">
               <span className="text-2xl font-bold font-serif text-emerald-700">
-                {checklist.percentage}%
+                {checklist.completionPercentage}%
               </span>
             </div>
             <div>
@@ -169,7 +169,7 @@ export function ManagerLaunchChecklist() {
             <div className="w-full h-3 bg-divider/40 rounded-full overflow-hidden">
               <div
                 className="h-full bg-emerald-600 transition-all duration-500 rounded-full"
-                style={{ width: `${checklist.percentage}%` }}
+                style={{ width: `${checklist.completionPercentage}%` }}
               />
             </div>
           </div>

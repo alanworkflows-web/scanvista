@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { ManagerLayout } from "../components/ManagerLayout";
 import { useManagerProperty } from "../hooks/useManagerProperty";
 import { QrCode, Download, Copy, ExternalLink, CheckCircle2, AlertTriangle, FileDiff, Send, Sparkles } from "lucide-react";
-import { getPropertyStatus, calculateLaunchChecklist } from "../lib/propertyStatusEngine";
+import { calculatePropertyStatus } from "../lib/propertyStatusEngine";
 import { detectSensitiveContent } from "../lib/sensitiveContent";
 import { PublishConfirmationModal } from "../components/PublishConfirmationModal";
 import { SensitiveContentModal } from "../components/ui/SensitiveContentModal";
@@ -14,7 +14,7 @@ import confetti from "canvas-confetti";
 import { Button } from "../components/ui/Button";
 
 export function ManagerPublishing() {
-  const { property, amenities, categories, dishes, loading, refreshProperty } = useManagerProperty();
+  const { property, status, checklist: serverChecklist, amenities, categories, dishes, loading, refreshProperty } = useManagerProperty();
   
   const [publishing, setPublishing] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
@@ -61,12 +61,14 @@ export function ManagerPublishing() {
 
   if (!property) return null;
 
-  // Calculate single unified status
-  const statusResult = getPropertyStatus({
+  // Single unified status from backend / engine
+  const statusResult = status || calculatePropertyStatus({
     property,
     snapshots,
     draftData
   });
+
+  const checklistResult = statusResult;
 
   const isReady = statusResult.completionPercentage === 100;
   const isPublished = statusResult.publishState === 'PUBLISHED' || (snapshots && snapshots.length > 0);
@@ -219,38 +221,32 @@ export function ManagerPublishing() {
                   System Diagnostics & Data Audit
                 </span>
                 
-                {[
-                  { name: "Brand & Property Name", passed: statusResult.propertyReadiness.isBrandReady, link: "/manager/experience", reason: "Property name or tagline required" },
-                  { name: "Dining Menu", passed: statusResult.propertyReadiness.isMenuReady, link: "/manager/menu", reason: "At least one category and dish required" },
-                  { name: "Amenities & Services", passed: statusResult.propertyReadiness.isAmenitiesReady, link: "/manager/amenities", reason: "At least one amenity required" },
-                  { name: "Contact Phone Numbers", passed: statusResult.propertyReadiness.isContactsReady, link: "/manager/experience", reason: "Emergency or reception phone required" },
-                  { name: "House Rules & Policies", passed: statusResult.propertyReadiness.isRulesReady, link: "/manager/house-rules", reason: "Hotel or guest rules required" },
-                ].map((check, i) => (
+                {statusResult.items.map((item) => (
                   <div 
-                    key={i} 
+                    key={item.id} 
                     className={`p-3 rounded-lg border text-xs flex items-center justify-between gap-3 transition-all ${
-                      check.passed 
+                      item.completed 
                         ? "bg-background border-divider text-text-primary" 
                         : "bg-amber-50/60 border-amber-200 text-amber-900"
                     }`}
                   >
                     <div className="flex items-center gap-2.5 truncate">
-                      {check.passed ? (
+                      {item.completed ? (
                         <CheckCircle2 size={16} className="shrink-0 text-emerald-600" />
                       ) : (
                         <AlertTriangle size={16} className="shrink-0 text-amber-500" />
                       )}
                       <div className="truncate">
-                        <span className="font-medium block truncate">{check.name}</span>
+                        <span className="font-medium block truncate">{item.label}</span>
                         <span className="text-[10px] opacity-75 font-mono block truncate">
-                          {check.passed ? "Configured & verified" : check.reason}
+                          {item.completed ? item.details : item.why}
                         </span>
                       </div>
                     </div>
 
-                    {!check.passed && (
+                    {!item.completed && (
                       <Link 
-                        to={check.link} 
+                        to={item.href} 
                         className="shrink-0 text-[10px] uppercase font-semibold text-amber-800 hover:text-amber-900 bg-amber-100 hover:bg-amber-200 px-2.5 py-1 rounded transition"
                       >
                         Fix &rarr;
@@ -356,11 +352,7 @@ export function ManagerPublishing() {
         onConfirm={handleConfirmPublish}
         loading={publishing}
         changeCounts={statusResult.changeCounts}
-        checklist={calculateLaunchChecklist({
-          ...property,
-          amenities,
-          categories
-        }, snapshots)}
+        checklist={checklistResult}
       />
 
       {/* Sensitive Content Blocker Modal */}

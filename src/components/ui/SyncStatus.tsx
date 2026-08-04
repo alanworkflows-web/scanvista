@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { SyncState } from '../../lib/sync';
+import { useManagerProperty } from '../../hooks/useManagerProperty';
 
 export function SyncStatus() {
   const [state, setState] = useState<SyncState>('idle');
+  const { status } = useManagerProperty();
 
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout>;
@@ -11,7 +13,6 @@ export function SyncStatus() {
       setState(e.detail);
       
       if (e.detail === 'synced') {
-        // Automatically revert to idle after a few seconds of showing "synced"
         clearTimeout(timeout);
         timeout = setTimeout(() => {
           setState('idle');
@@ -26,35 +27,40 @@ export function SyncStatus() {
     };
   }, []);
 
-  return (
-    <div className="flex items-center gap-2 text-sm font-medium transition-all duration-300">
-      {state === 'idle' && (
-        <span className="flex items-center gap-1.5 text-text-primary font-medium opacity-60 animate-in fade-in duration-500">
-          <span className="relative flex h-2 w-2">
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-primary/50 animate-pulse"></span>
-          </span>
-          Draft pending
+  if (state === 'saving') {
+    return (
+      <div className="flex items-center gap-2 text-xs font-medium text-text-muted transition-all duration-200">
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
         </span>
-      )}
-      
-      {state === 'saving' && (
-        <span className="flex items-center gap-1.5 text-text-primary font-medium opacity-60 animate-in fade-in duration-200">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gray-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-gray-400"></span>
-          </span>
-          Saving...
-        </span>
-      )}
+        <span>Saving...</span>
+      </div>
+    );
+  }
 
-      {state === 'synced' && (
-        <span className="flex items-center gap-1.5 text-primary animate-in fade-in zoom-in-[0.98] duration-300">
-          <span className="relative flex h-2 w-2">
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-primary/50"></span>
-          </span>
-          Draft pending
+  if (state === 'synced') {
+    return (
+      <div className="flex items-center gap-2 text-xs font-medium text-emerald-700 transition-all duration-300">
+        <span className="relative flex h-2 w-2">
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
         </span>
-      )}
+        <span>Saved</span>
+      </div>
+    );
+  }
+
+  const isPublishedLive = status?.publishState === 'PUBLISHED';
+  const isPending = status?.publishState === 'PUBLISHED_PENDING_CHANGES';
+
+  return (
+    <div className="flex items-center gap-2 text-xs font-medium transition-all duration-300">
+      <span className="relative flex h-2 w-2">
+        <span className={`relative inline-flex rounded-full h-2 w-2 ${isPublishedLive ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+      </span>
+      <span className={isPublishedLive ? 'text-emerald-700' : 'text-amber-800'}>
+        {status?.badgeLabel || (isPublishedLive ? 'Published' : isPending ? 'Draft Changes Pending' : 'Draft')}
+      </span>
     </div>
   );
 }

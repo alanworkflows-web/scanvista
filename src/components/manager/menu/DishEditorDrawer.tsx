@@ -4,16 +4,21 @@ import { X } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { Button } from '../../ui/Button';
 import { ImageUploader } from '../../ui/ImageUploader';
+import { getCurrencySymbol, formatPrice } from '../../../lib/currency';
+
+import { toast } from 'sonner';
+import { validateDish } from '../../../lib/validationFramework';
 
 interface Props {
   dish: Dish | null;
   categories: Category[];
+  currency?: string;
   isOpen: boolean;
   onClose: () => void;
   onSave: (dish: Dish) => void;
 }
 
-export function DishEditorDrawer({ dish, categories, isOpen, onClose, onSave }: Props) {
+export function DishEditorDrawer({ dish, categories, currency = 'USD', isOpen, onClose, onSave }: Props) {
   const [formData, setFormData] = useState<Partial<Dish>>({});
 
   useEffect(() => {
@@ -28,6 +33,15 @@ export function DishEditorDrawer({ dish, categories, isOpen, onClose, onSave }: 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const validation = validateDish({
+      name: formData.name || '',
+      price: formData.price ?? 0,
+      description: formData.description
+    });
+    if (!validation.valid) {
+      toast.error(validation.errors[0] || "Invalid dish details");
+      return;
+    }
     onSave(formData as Dish);
     onClose();
   };
@@ -81,7 +95,9 @@ export function DishEditorDrawer({ dish, categories, isOpen, onClose, onSave }: 
                   />
                 </div>
                 <div className="col-span-4">
-                  <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">Price (€) *</label>
+                  <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
+                    Price ({getCurrencySymbol(currency)}) *
+                  </label>
                   <input
                     required
                     type="number"
@@ -121,83 +137,21 @@ export function DishEditorDrawer({ dish, categories, isOpen, onClose, onSave }: 
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">Availability</label>
-                  <div className="flex items-center gap-3 mt-2">
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        className="sr-only peer" 
-                        checked={!formData.isOutOfStock}
-                        onChange={e => setFormData({ ...formData, isOutOfStock: !e.target.checked })}
-                      />
-                      <div className="w-11 h-6 bg-red-100 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-divider after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
-                      <span className="ml-3 text-sm font-medium text-text-primary">
-                        {!formData.isOutOfStock ? "Available (In Stock)" : "Sold Out (Hidden)"}
-                      </span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">Dietary Type</label>
-                  <div className="flex gap-4 mt-2">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="radio" name="isVeg" checked={!formData.isVeg} onChange={() => setFormData({ ...formData, isVeg: false })} className="accent-primary" />
-                      <span className="text-sm text-text-primary">Non-Veg</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="radio" name="isVeg" checked={formData.isVeg} onChange={() => setFormData({ ...formData, isVeg: true })} className="accent-primary" />
-                      <span className="text-sm text-text-primary">Vegetarian</span>
-                    </label>
-                  </div>
-                </div>
-                <div>
                   <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">Spice Level</label>
                   <select
                     value={formData.spiceLevel || 'None'}
                     onChange={e => setFormData({ ...formData, spiceLevel: e.target.value })}
                     className="w-full px-4 py-3 bg-background border border-divider rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors text-text-primary"
                   >
-                    <option value="None">None</option>
+                    <option value="None">None (Mild)</option>
                     <option value="Mild">Mild</option>
                     <option value="Medium">Medium</option>
-                    <option value="Spicy">Spicy</option>
-                    <option value="Extra Spicy">Extra Spicy</option>
+                    <option value="Hot">Hot</option>
+                    <option value="Extra Hot">Extra Hot</option>
                   </select>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">Prep Time</label>
-                  <input
-                    type="text"
-                    value={formData.preparationTime || ''}
-                    onChange={e => setFormData({ ...formData, preparationTime: e.target.value })}
-                    className="w-full px-4 py-3 bg-background border border-divider rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors text-text-primary"
-                    placeholder="e.g. 15-20 mins"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">Allergens</label>
-                  <input
-                    type="text"
-                    value={(() => {
-                      try { return JSON.parse(formData.allergens || "[]").join(", "); }
-                      catch { return formData.allergens || ''; }
-                    })()}
-                    onChange={e => {
-                      const tags = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
-                      setFormData({ ...formData, allergens: JSON.stringify(tags) });
-                    }}
-                    className="w-full px-4 py-3 bg-background border border-divider rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors text-text-primary"
-                    placeholder="e.g. Nuts, Dairy (Comma separated)"
-                  />
-                </div>
-              </div>
-              
               <div className="pt-4 border-t border-divider">
                 <label className="flex items-start gap-3 cursor-pointer p-5 bg-amber-50/50 border border-amber-200/50 hover:border-amber-300 rounded-xl transition-all">
                   <div className="pt-0.5">
@@ -246,7 +200,7 @@ export function DishEditorDrawer({ dish, categories, isOpen, onClose, onSave }: 
                     <div className="flex-1 min-w-0">
                       <h4 className="font-serif font-medium text-text-primary text-sm truncate">{formData.name || "Dish Name"}</h4>
                       <p className="text-sm font-medium text-primary mt-0.5">
-                        ${(formData.price || 0).toFixed(2)}
+                        {formatPrice(formData.price || 0, currency)}
                       </p>
                       {formData.healthTips && (
                         <p className="text-[10px] text-text-secondary line-clamp-2 mt-1 leading-snug">{formData.healthTips}</p>

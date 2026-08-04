@@ -5,6 +5,7 @@ export interface Property {
   description: string;
   bannerUrl: string;
   heroImage?: string;
+  currency?: string;
   propertyType: 'HOTEL' | 'HOMESTAY' | 'RESORT' | 'RETREAT';
   wifiNetwork?: string;
   wifiPassword?: string;

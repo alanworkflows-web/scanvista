@@ -1,36 +1,37 @@
 import { calculateChanges, DiffResult } from "./diffEngine";
+import { isValidPhoneNumber } from "./validationFramework";
 
 export type PublishState = 'DRAFT' | 'PUBLISHED_PENDING_CHANGES' | 'PUBLISHED_LIVE' | 'PUBLISHED';
 export type DraftState = 'CLEAN' | 'DIRTY' | 'UNSAVED_LOCAL';
 
-export interface BlockingIssue {
-  key: string;
-  title: string;
-  description: string;
-  href: string;
-  severity: 'error' | 'warning';
-}
-
-export interface TodayFocusItem {
-  id: string;
-  title: string;
-  description: string;
-  href: string;
+export interface StatusItem {
+  id: 'brand' | 'contacts' | 'menu' | 'amenities' | 'rules';
+  label: string;
+  category: 'Branding' | 'Operations' | 'Content' | 'Policies';
   completed: boolean;
-  priority: number; // 1 highest
-}
-
-export interface PropertyReadiness {
-  isBrandReady: boolean;
-  isMenuReady: boolean;
-  isAmenitiesReady: boolean;
-  isContactsReady: boolean;
-  isRulesReady: boolean;
-  blockingIssues?: BlockingIssue[];
+  details: string;
+  href: string;
+  why: string;
+  severity: 'error' | 'warning';
+  priority: number;
 }
 
 export interface PropertyStatusResult {
   completionPercentage: number;
+  percentage: number; // Compatibility alias
+  completedCount: number;
+  totalCount: number;
+  isReady: boolean;
+  isReadyToGoLive: boolean; // Alias
+  propertyReadiness: {
+    isBrandReady: boolean;
+    isMenuReady: boolean;
+    isAmenitiesReady: boolean;
+    isContactsReady: boolean;
+    isRulesReady: boolean;
+  };
+  items: StatusItem[];
+  blockingIssues: StatusItem[];
   publishState: PublishState;
   draftState: DraftState;
   badgeLabel: string;
@@ -41,9 +42,7 @@ export interface PropertyStatusResult {
   hasUnpublishedChanges: boolean;
   lastPublishedAt: string | null;
   lastDraftSavedAt: string | null;
-  blockingIssues: BlockingIssue[];
-  propertyReadiness: PropertyReadiness;
-  todayFocus: TodayFocusItem[];
+  todayFocus: StatusItem[];
   diffResult: DiffResult | null;
   changeCounts: {
     propertyFields: number;
@@ -67,49 +66,142 @@ function safeParseJson(val: any): any {
   return {};
 }
 
-export function calculatePropertyReadiness(prop: any): PropertyReadiness & { blockingIssues: BlockingIssue[] } {
+/**
+ * Single definitive source of truth for property status, launch readiness, and checklist.
+ */
+export function calculatePropertyStatus(input: any): PropertyStatusResult {
+  const isInputWrapped = input && (input.property !== undefined || input.snapshots !== undefined || input.draftData !== undefined);
+  const prop = isInputWrapped ? (input.property || null) : (input || null);
+  const snapshots = Array.isArray(isInputWrapped ? input.snapshots : prop?.snapshots) 
+    ? (isInputWrapped ? input.snapshots : prop?.snapshots) 
+    : [];
+  const draftData = isInputWrapped ? input.draftData : undefined;
+  const localDraftData = isInputWrapped ? input.localDraftData : undefined;
+
+  const defaultEmptyItems: StatusItem[] = [
+    {
+      id: 'brand',
+      label: 'Property Branding & Cover',
+      category: 'Branding',
+      completed: false,
+      details: 'Provide property name, logo, and cover image',
+      href: '/manager/property',
+      why: 'Property name, brand logo, and cover image are required for the guest welcome screen.',
+      severity: 'error',
+      priority: 1
+    },
+    {
+      id: 'contacts',
+      label: 'Guest & Reception Contacts',
+      category: 'Operations',
+      completed: false,
+      details: 'Add a valid front desk or emergency contact number',
+      href: '/manager/property',
+      why: 'Guests need front desk or emergency phone numbers for direct support.',
+      severity: 'error',
+      priority: 2
+    },
+    {
+      id: 'menu',
+      label: 'Dining & Beverage Menu',
+      category: 'Content',
+      completed: false,
+      details: 'Add food & drink categories and active dishes',
+      href: '/manager/menu',
+      why: 'Guests need to browse dining options and menu pricing.',
+      severity: 'error',
+      priority: 3
+    },
+    {
+      id: 'amenities',
+      label: 'Hotel Amenities & Facilities',
+      category: 'Content',
+      completed: false,
+      details: 'Highlight Wi-Fi, pool, gym, or front desk amenities',
+      href: '/manager/amenities',
+      why: 'Showcase property facilities and operational hours to arriving guests.',
+      severity: 'error',
+      priority: 4
+    },
+    {
+      id: 'rules',
+      label: 'House Rules & Timings',
+      category: 'Policies',
+      completed: false,
+      details: 'Configure check-in/out timings and house guidelines',
+      href: '/manager/house-rules',
+      why: 'Inform guests of check-in/out hours and stay policies.',
+      severity: 'error',
+      priority: 5
+    }
+  ];
+
   if (!prop) {
     return {
-      isBrandReady: false,
-      isMenuReady: false,
-      isAmenitiesReady: false,
-      isContactsReady: false,
-      isRulesReady: false,
-      blockingIssues: [{
-        key: 'no_property',
-        title: 'Property Not Initialized',
-        description: 'Please initialize your property.',
-        href: '/manager/experience',
-        severity: 'error'
-      }]
+      completionPercentage: 0,
+      percentage: 0,
+      completedCount: 0,
+      totalCount: 5,
+      isReady: false,
+      isReadyToGoLive: false,
+      propertyReadiness: {
+        isBrandReady: false,
+        isMenuReady: false,
+        isAmenitiesReady: false,
+        isContactsReady: false,
+        isRulesReady: false
+      },
+      items: defaultEmptyItems,
+      blockingIssues: defaultEmptyItems,
+      publishState: 'DRAFT',
+      draftState: 'CLEAN',
+      badgeLabel: 'Not Initialized',
+      badgeSubtext: 'No property data found.',
+      badgeColor: 'text-zinc-600 border-zinc-200 bg-zinc-50',
+      badgeBg: 'bg-zinc-400',
+      isPublished: false,
+      hasUnpublishedChanges: false,
+      lastPublishedAt: null,
+      lastDraftSavedAt: null,
+      todayFocus: defaultEmptyItems,
+      diffResult: null,
+      changeCounts: { propertyFields: 0, dishes: 0, amenities: 0, rules: 0, total: 0 }
     };
   }
 
-  const amenities = Array.isArray(prop.amenities) ? prop.amenities : [];
-  const categories = Array.isArray(prop.categories) ? prop.categories : [];
+  const amenities = Array.isArray(prop.amenities) 
+    ? prop.amenities 
+    : (Array.isArray(input?.amenities) ? input.amenities : []);
+  const categories = Array.isArray(prop.categories) 
+    ? prop.categories 
+    : (Array.isArray(input?.categories) ? input.categories : []);
   const dishes = categories.flatMap((c: any) => (Array.isArray(c?.dishes) ? c.dishes : []));
   const contacts = safeParseJson(prop.contacts);
   const rules = safeParseJson(prop.hotelRules || prop.houseRules);
 
-  const hasName = Boolean(prop.name && prop.name.trim());
-  const hasTagline = Boolean(prop.tagline && prop.tagline.trim());
+  // 1. Brand milestone
+  const hasName = Boolean(prop.name && prop.name.trim().length >= 2);
   const hasLogo = Boolean(prop.logoUrl && prop.logoUrl.trim());
-  const hasBanner = Boolean((prop.bannerUrl && prop.bannerUrl.trim()) || (prop.heroImage && prop.heroImage.trim()));
-  const isBrandReady = hasName && (hasLogo || hasBanner || hasTagline || prop.name.length >= 2);
+  const hasCover = Boolean((prop.bannerUrl && prop.bannerUrl.trim()) || (prop.heroImage && prop.heroImage.trim()));
+  const isBrandReady = hasName && hasLogo && hasCover;
 
-  const isMenuReady = categories.length > 0 && dishes.length > 0;
-  const isAmenitiesReady = amenities.length > 0;
-
-  const hasReception = Boolean(prop.receptionPhone && prop.receptionPhone.trim());
-  const hasAnyContact = Boolean(
-    hasReception || 
-    (prop.emergencyPhone && prop.emergencyPhone.trim()) || 
-    (contacts.phone && contacts.phone.trim()) || 
-    (contacts.whatsapp && contacts.whatsapp.trim()) || 
-    (contacts.email && contacts.email.trim())
+  // 2. Contacts milestone
+  const hasContacts = Boolean(
+    (prop.receptionPhone && isValidPhoneNumber(prop.receptionPhone)) ||
+    (prop.emergencyPhone && isValidPhoneNumber(prop.emergencyPhone)) ||
+    (contacts.phone && isValidPhoneNumber(contacts.phone)) ||
+    (contacts.reception && isValidPhoneNumber(contacts.reception)) ||
+    (contacts.whatsapp && isValidPhoneNumber(contacts.whatsapp))
   );
-  const isContactsReady = hasAnyContact;
 
+  // 3. Menu milestone
+  const hasMenu = categories.length > 0 && dishes.length > 0;
+
+  // 4. Amenities milestone
+  const activeAmenities = amenities.filter((a: any) => a.status !== 'HIDDEN' && a.status !== 'INACTIVE');
+  const hasAmenities = amenities.length > 0 || activeAmenities.length > 0;
+
+  // 5. House rules milestone
   const hasRules = Boolean(
     (prop.checkInTime && prop.checkInTime.trim()) ||
     (prop.checkOutTime && prop.checkOutTime.trim()) ||
@@ -121,112 +213,83 @@ export function calculatePropertyReadiness(prop: any): PropertyReadiness & { blo
     (typeof prop.hotelRules === 'string' && prop.hotelRules.trim()) ||
     (typeof prop.houseRules === 'string' && prop.houseRules.trim())
   );
-  const isRulesReady = hasRules;
 
-  const blockingIssues: BlockingIssue[] = [];
-  if (!isBrandReady) {
-    blockingIssues.push({
-      key: 'missing_brand',
-      title: 'Missing Property Name',
-      description: 'Add your property name to personalize the guest experience.',
-      href: '/manager/experience',
-      severity: 'error'
-    });
-  }
-  if (!isMenuReady) {
-    blockingIssues.push({
-      key: 'missing_menu',
-      title: 'Incomplete Dining Menu',
-      description: 'Add at least one menu category and dish item.',
+  const items: StatusItem[] = [
+    {
+      id: 'brand',
+      label: 'Property Branding & Cover',
+      category: 'Branding',
+      completed: isBrandReady,
+      details: isBrandReady 
+        ? 'Property name, brand logo, and hero cover configured' 
+        : `Missing: ${[!hasName && 'Name', !hasLogo && 'Logo', !hasCover && 'Hero Banner'].filter(Boolean).join(', ')}`,
+      href: '/manager/property',
+      why: 'Property name, brand logo, and cover image are required for the guest welcome screen.',
+      severity: 'error',
+      priority: 1
+    },
+    {
+      id: 'contacts',
+      label: 'Guest & Reception Contacts',
+      category: 'Operations',
+      completed: hasContacts,
+      details: hasContacts 
+        ? 'Reception & emergency phone numbers active' 
+        : 'Add a valid front desk or emergency contact number',
+      href: '/manager/property',
+      why: 'Guests need front desk or emergency phone numbers for direct support.',
+      severity: 'error',
+      priority: 2
+    },
+    {
+      id: 'menu',
+      label: 'Dining & Beverage Menu',
+      category: 'Content',
+      completed: hasMenu,
+      details: hasMenu 
+        ? `${dishes.length} dishes across ${categories.length} categories` 
+        : 'Add food & drink categories and active dishes',
       href: '/manager/menu',
-      severity: 'warning'
-    });
-  }
-  if (!isAmenitiesReady) {
-    blockingIssues.push({
-      key: 'missing_amenities',
-      title: 'No Amenities Listed',
-      description: 'Highlight Wi-Fi, pool, or gym amenities for your guests.',
+      why: 'Guests need to browse dining options and menu pricing.',
+      severity: 'error',
+      priority: 3
+    },
+    {
+      id: 'amenities',
+      label: 'Hotel Amenities & Facilities',
+      category: 'Content',
+      completed: hasAmenities,
+      details: hasAmenities 
+        ? `${amenities.length} hotel amenities configured` 
+        : 'Highlight Wi-Fi, pool, gym, or front desk amenities',
       href: '/manager/amenities',
-      severity: 'warning'
-    });
-  }
-  if (!isContactsReady) {
-    blockingIssues.push({
-      key: 'missing_contacts',
-      title: 'No Reception Contact',
-      description: 'Add a front desk or emergency phone number for guest support.',
-      href: '/manager/experience',
-      severity: 'error'
-    });
-  }
+      why: 'Showcase property facilities and operational hours to arriving guests.',
+      severity: 'error',
+      priority: 4
+    },
+    {
+      id: 'rules',
+      label: 'House Rules & Timings',
+      category: 'Policies',
+      completed: hasRules,
+      details: hasRules 
+        ? 'Check-in/out hours & conduct policies defined' 
+        : 'Configure check-in/out timings and house guidelines',
+      href: '/manager/house-rules',
+      why: 'Inform guests of check-in/out hours and stay policies.',
+      severity: 'error',
+      priority: 5
+    }
+  ];
 
-  return {
-    isBrandReady,
-    isMenuReady,
-    isAmenitiesReady,
-    isContactsReady,
-    isRulesReady,
-    blockingIssues
-  };
-}
-
-export function getPropertyStatus(input: {
-  property: any;
-  snapshots?: any[];
-  draftData?: any;
-  localDraftData?: any;
-}): PropertyStatusResult {
-  const prop = input.property || null;
-  if (!prop) {
-    return {
-      completionPercentage: 0,
-      publishState: 'DRAFT',
-      draftState: 'CLEAN',
-      badgeLabel: 'Not Initialized',
-      badgeSubtext: 'No property data found.',
-      badgeColor: 'text-zinc-600 border-zinc-200 bg-zinc-50',
-      badgeBg: 'bg-zinc-400',
-      isPublished: false,
-      hasUnpublishedChanges: false,
-      lastPublishedAt: null,
-      lastDraftSavedAt: null,
-      blockingIssues: [{
-        key: 'no_property',
-        title: 'Property Not Initialized',
-        description: 'Please create your property first.',
-        href: '/manager/experience',
-        severity: 'error'
-      }],
-      propertyReadiness: {
-        isBrandReady: false,
-        isMenuReady: false,
-        isAmenitiesReady: false,
-        isContactsReady: false,
-        isRulesReady: false
-      },
-      todayFocus: [],
-      diffResult: null,
-      changeCounts: { propertyFields: 0, dishes: 0, amenities: 0, rules: 0, total: 0 }
-    };
-  }
-
-  const readiness = calculatePropertyReadiness(prop);
-  const categories = Array.isArray(prop.categories) ? prop.categories : [];
-  const amenities = Array.isArray(prop.amenities) ? prop.amenities : [];
-
-  // Completion score calculation
-  let completionPercentage = 0;
-  if (readiness.isBrandReady) completionPercentage += 20;
-  if (readiness.isMenuReady) completionPercentage += 20;
-  else if (categories.length > 0) completionPercentage += 10;
-  if (readiness.isAmenitiesReady) completionPercentage += 20;
-  if (readiness.isContactsReady) completionPercentage += 20;
-  if (readiness.isRulesReady) completionPercentage += 20;
+  const completedCount = items.filter(i => i.completed).length;
+  const totalCount = items.length;
+  const completionPercentage = Math.round((completedCount / totalCount) * 100);
+  const isReady = completedCount === totalCount;
+  const blockingIssues = items.filter(i => !i.completed);
 
   // Snapshot & Diff Evaluation
-  const snapshots = Array.isArray(input.snapshots) ? input.snapshots : [];
-  const hasSnapshots = snapshots.length > 0 || !!prop.isPublished;
+  const hasSnapshots = snapshots.length > 0 || Boolean(prop.isPublished);
   const latestSnapshot = snapshots.length > 0 ? snapshots[0] : null;
   const lastPublishedAt = latestSnapshot ? (latestSnapshot.publishedAt || latestSnapshot.createdAt) : null;
   const lastDraftSavedAt = prop.updatedAt || new Date().toISOString();
@@ -243,8 +306,8 @@ export function getPropertyStatus(input: {
 
   if (!hasSnapshots) {
     hasUnpublishedChanges = true;
-  } else if (input.draftData && latestSnapshot?.data) {
-    diffResult = calculateChanges(input.draftData, latestSnapshot.data);
+  } else if (draftData && latestSnapshot?.data) {
+    diffResult = calculateChanges(draftData, latestSnapshot.data);
     hasUnpublishedChanges = Boolean(diffResult && diffResult.hasChanges);
     if (diffResult && diffResult.counts) {
       changeCounts.propertyFields = diffResult.counts.property || 0;
@@ -278,57 +341,28 @@ export function getPropertyStatus(input: {
   }
 
   let draftState: DraftState = 'CLEAN';
-  if (input.localDraftData) {
+  if (localDraftData) {
     draftState = 'UNSAVED_LOCAL';
   } else if (hasUnpublishedChanges) {
     draftState = 'DIRTY';
   }
 
-  const todayFocus: TodayFocusItem[] = [
-    {
-      id: 'brand',
-      title: 'Review Property Brand & Info',
-      description: 'Confirm hotel name, hero banner, and description.',
-      href: '/manager/experience',
-      completed: readiness.isBrandReady,
-      priority: 1
-    },
-    {
-      id: 'contacts',
-      title: 'Set Guest Emergency & Reception Contact',
-      description: 'Ensure direct phone numbers are configured for live guest support.',
-      href: '/manager/experience',
-      completed: readiness.isContactsReady,
-      priority: 2
-    },
-    {
-      id: 'menu',
-      title: 'Curate Dining & Beverage Menu',
-      description: 'Add dishes with prices, allergens, and dietary tags.',
-      href: '/manager/menu',
-      completed: readiness.isMenuReady,
-      priority: 3
-    },
-    {
-      id: 'amenities',
-      title: 'List Hotel Amenities & Facilities',
-      description: 'Add pool, gym, Wi-Fi, and dining service hours.',
-      href: '/manager/amenities',
-      completed: readiness.isAmenitiesReady,
-      priority: 4
-    },
-    {
-      id: 'rules',
-      title: 'Configure House Rules & Check-in Times',
-      description: 'Set check-in/out hours, quiet times, and guest policies.',
-      href: '/manager/house-rules',
-      completed: readiness.isRulesReady,
-      priority: 5
-    }
-  ];
-
   return {
     completionPercentage,
+    percentage: completionPercentage,
+    completedCount,
+    totalCount,
+    isReady,
+    isReadyToGoLive: isReady,
+    propertyReadiness: {
+      isBrandReady,
+      isMenuReady: hasMenu,
+      isAmenitiesReady: hasAmenities,
+      isContactsReady: hasContacts,
+      isRulesReady: hasRules
+    },
+    items,
+    blockingIssues,
     publishState,
     draftState,
     badgeLabel,
@@ -339,181 +373,31 @@ export function getPropertyStatus(input: {
     hasUnpublishedChanges,
     lastPublishedAt,
     lastDraftSavedAt,
-    blockingIssues: readiness.blockingIssues,
-    propertyReadiness: readiness,
-    todayFocus,
+    todayFocus: items,
     diffResult,
     changeCounts
   };
 }
 
-export interface LaunchChecklistItem {
-  id: string;
-  label: string;
-  category: 'Branding' | 'Content' | 'Policies' | 'Operations';
-  completed: boolean;
-  details: string;
-  href: string;
-}
-
-export interface LaunchChecklistResult {
-  items: LaunchChecklistItem[];
-  completedCount: number;
-  totalCount: number;
-  percentage: number;
-  isReadyToGoLive: boolean;
-}
-
-export function calculateLaunchChecklist(prop: any, snapshots?: any[]): LaunchChecklistResult {
-  if (!prop) {
-    return {
-      items: [],
-      completedCount: 0,
-      totalCount: 11,
-      percentage: 0,
-      isReadyToGoLive: false
-    };
+// Aliases for compatibility
+export const calculateLaunchChecklist = (propOrInput: any, snapshots?: any[]) => {
+  if (propOrInput && (propOrInput.property !== undefined || propOrInput.snapshots !== undefined)) {
+    return calculatePropertyStatus({ ...propOrInput, snapshots: snapshots || propOrInput.snapshots });
   }
-
-  const contacts = safeParseJson(prop.contacts);
-  const rules = safeParseJson(prop.hotelRules || prop.houseRules);
-  const categories = Array.isArray(prop.categories) ? prop.categories : [];
-  const dishes = categories.flatMap((c: any) => (Array.isArray(c?.dishes) ? c.dishes : []));
-  const amenities = Array.isArray(prop.amenities) ? prop.amenities : [];
-  const snapshotsArr = Array.isArray(snapshots) ? snapshots : [];
-  const isPublished = snapshotsArr.length > 0 || Boolean(prop.isPublished);
-
-  const hasLogo = Boolean(prop.logoUrl && prop.logoUrl.trim());
-  const hasBanner = Boolean((prop.bannerUrl && prop.bannerUrl.trim()) || (prop.heroImage && prop.heroImage.trim()));
-  const hasAddress = Boolean((prop.description && prop.description.trim()) || (prop.name && prop.name.trim().length >= 3));
-  const hasReception = Boolean(
-    (prop.receptionPhone && prop.receptionPhone.trim()) || 
-    (prop.emergencyPhone && prop.emergencyPhone.trim()) ||
-    (contacts.reception && contacts.reception.trim()) ||
-    (contacts.phone && contacts.phone.trim())
-  );
-  const hasAmenities = amenities.length > 0;
-  const hasMenu = categories.length > 0 && dishes.length > 0;
-  const hasRules = Boolean(
-    (prop.checkInTime && prop.checkInTime.trim()) ||
-    (prop.checkOutTime && prop.checkOutTime.trim()) ||
-    (rules.quietHours && rules.quietHours.trim()) ||
-    (rules.smokingPolicy && rules.smokingPolicy.trim()) ||
-    (rules.petPolicy && rules.petPolicy.trim()) ||
-    (typeof prop.hotelRules === 'string' && prop.hotelRules.trim()) ||
-    (typeof prop.houseRules === 'string' && prop.houseRules.trim())
-  );
-  const hasQrPublished = isPublished;
-  const hasPreviewVerified = Boolean(prop.previewToken && prop.previewToken.trim());
-  const hasGuestContacts = Boolean(
-    (contacts.whatsapp && contacts.whatsapp.trim()) || 
-    (contacts.email && contacts.email.trim()) ||
-    (prop.housekeepingPhone && prop.housekeepingPhone.trim())
-  );
-  const hasAnalyticsActive = Boolean(prop.firstScanAt || prop.firstMenuAt || prop.onboardedAt || isPublished);
-
-  const items: LaunchChecklistItem[] = [
-    {
-      id: 'logo',
-      label: 'Logo',
-      category: 'Branding',
-      completed: hasLogo,
-      details: hasLogo ? 'Property brand logo uploaded' : 'Upload your official hotel/resort logo',
-      href: '/manager/property'
-    },
-    {
-      id: 'cover',
-      label: 'Cover Image',
-      category: 'Branding',
-      completed: hasBanner,
-      details: hasBanner ? 'High-resolution hero banner configured' : 'Add a welcoming hero image',
-      href: '/manager/property'
-    },
-    {
-      id: 'address',
-      label: 'Address & Description',
-      category: 'Branding',
-      completed: hasAddress,
-      details: hasAddress ? 'Property location & summary set' : 'Provide property overview and location',
-      href: '/manager/property'
-    },
-    {
-      id: 'contacts',
-      label: 'Contacts',
-      category: 'Operations',
-      completed: hasReception,
-      details: hasReception ? 'Reception / emergency contact active' : 'Set front desk phone for guest support',
-      href: '/manager/property'
-    },
-    {
-      id: 'amenities',
-      label: 'Amenities',
-      category: 'Content',
-      completed: hasAmenities,
-      details: hasAmenities ? `${amenities.length} hotel amenities configured` : 'Add Wi-Fi, pool, gym or spa details',
-      href: '/manager/amenities'
-    },
-    {
-      id: 'menu',
-      label: 'Menu',
-      category: 'Content',
-      completed: hasMenu,
-      details: hasMenu ? `${dishes.length} dishes across ${categories.length} categories` : 'Add food & drink categories and dishes',
-      href: '/manager/menu'
-    },
-    {
-      id: 'house_rules',
-      label: 'House Rules',
-      category: 'Policies',
-      completed: hasRules,
-      details: hasRules ? 'Check-in/out times & policies defined' : 'Configure timings, quiet hours & guidelines',
-      href: '/manager/house-rules'
-    },
-    {
-      id: 'qr_published',
-      label: 'QR Published',
-      category: 'Operations',
-      completed: hasQrPublished,
-      details: hasQrPublished ? 'Live snapshot deployed & QR code ready' : 'Publish your property live to activate QR',
-      href: '/manager/publishing'
-    },
-    {
-      id: 'preview_verified',
-      label: 'Preview Verified',
-      category: 'Operations',
-      completed: hasPreviewVerified,
-      details: hasPreviewVerified ? 'Mobile guest preview token active' : 'Test the guest experience in Preview Mode',
-      href: `/preview/${prop.previewToken || prop.slug}`
-    },
-    {
-      id: 'guest_contacts',
-      label: 'Guest Contacts',
-      category: 'Operations',
-      completed: hasGuestContacts,
-      details: hasGuestContacts ? 'Direct WhatsApp/Email support enabled' : 'Add WhatsApp or email for instant guest messaging',
-      href: '/manager/property'
-    },
-    {
-      id: 'analytics_active',
-      label: 'Analytics Active',
-      category: 'Operations',
-      completed: hasAnalyticsActive,
-      details: hasAnalyticsActive ? 'Interaction tracking and audit logging enabled' : 'Ready to record guest scans and actions',
-      href: '/manager/home'
-    }
-  ];
-
-  const completedCount = items.filter(i => i.completed).length;
-  const totalCount = items.length;
-  const percentage = Math.round((completedCount / totalCount) * 100);
-  const isReadyToGoLive = completedCount >= 8 && hasReception && (hasAmenities || hasMenu);
-
+  return calculatePropertyStatus({ property: propOrInput, snapshots });
+};
+export const calculatePropertyReadiness = (prop: any) => {
+  const res = calculatePropertyStatus(prop);
   return {
-    items,
-    completedCount,
-    totalCount,
-    percentage,
-    isReadyToGoLive
+    isBrandReady: res.items.find(i => i.id === 'brand')?.completed || false,
+    isMenuReady: res.items.find(i => i.id === 'menu')?.completed || false,
+    isAmenitiesReady: res.items.find(i => i.id === 'amenities')?.completed || false,
+    isContactsReady: res.items.find(i => i.id === 'contacts')?.completed || false,
+    isRulesReady: res.items.find(i => i.id === 'rules')?.completed || false,
+    blockingIssues: res.blockingIssues
   };
-}
+};
 
+export type LaunchChecklistResult = PropertyStatusResult;
+export type LaunchChecklistItem = StatusItem;
+export type BlockingIssue = StatusItem;

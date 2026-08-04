@@ -3,6 +3,7 @@ import { Dish } from "../types";
 import { ChevronDown, Leaf, WheatOff, Info, AlertTriangle, Star, ChefHat, Phone, Calendar, X } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { formatPrice } from "../lib/currency";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -11,9 +12,10 @@ function cn(...inputs: ClassValue[]) {
 interface DishCardProps {
   item: Dish;
   propertyType: 'HOTEL' | 'HOMESTAY' | 'RESORT' | 'RETREAT';
+  currency?: string;
 }
 
-export const DishCard: React.FC<DishCardProps> = ({ item, propertyType }) => {
+export const DishCard: React.FC<DishCardProps> = ({ item, propertyType, currency = 'USD' }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isZoomed, setIsZoomed] = useState(false);
   
@@ -88,7 +90,7 @@ export const DishCard: React.FC<DishCardProps> = ({ item, propertyType }) => {
             )}
           </div>
           <span className="font-semibold text-text-primary whitespace-nowrap mt-0.5">
-            €{item.price.toFixed(2)}
+            {formatPrice(item.price, currency)}
           </span>
         </div>
 

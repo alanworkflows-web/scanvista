@@ -1,5 +1,5 @@
 import React from 'react';
-import { Cloud } from 'lucide-react';
+
 
 interface HeroSectionProps {
   property: any;
@@ -33,8 +33,8 @@ export function HeroSection({ property, guestName }: HeroSectionProps) {
       
       <div className="absolute top-8 left-6 right-6 flex justify-between items-center text-background/90">
         <div className="text-xs tracking-widest uppercase font-serif">{property.name}</div>
-        <div className="flex items-center gap-2 text-sm font-light">
-          <Cloud size={16} /> 24°C
+        <div className="text-xs font-light tracking-wide">
+          {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
         </div>
       </div>
 
@@ -46,16 +46,22 @@ export function HeroSection({ property, guestName }: HeroSectionProps) {
           {property.tagline || "Experience luxury and serenity."}
         </p>
         
-        <div className="flex gap-10 mb-4">
-          <div className="backdrop-blur-md bg-surface/5 px-4 py-2 border border-white/10 rounded-sm">
-            <p className="text-background/60 text-[10px] tracking-widest uppercase mb-1">Check-In</p>
-            <p className="text-background text-sm font-medium">{property.checkInTime || "2:00 PM"}</p>
+        {(property.checkInTime || property.checkOutTime) && (
+          <div className="flex gap-10 mb-4">
+            {property.checkInTime && (
+              <div className="backdrop-blur-md bg-surface/5 px-4 py-2 border border-white/10 rounded-sm">
+                <p className="text-background/60 text-[10px] tracking-widest uppercase mb-1">Check-In</p>
+                <p className="text-background text-sm font-medium">{property.checkInTime}</p>
+              </div>
+            )}
+            {property.checkOutTime && (
+              <div className="backdrop-blur-md bg-surface/5 px-4 py-2 border border-white/10 rounded-sm">
+                <p className="text-background/60 text-[10px] tracking-widest uppercase mb-1">Check-Out</p>
+                <p className="text-background text-sm font-medium">{property.checkOutTime}</p>
+              </div>
+            )}
           </div>
-          <div className="backdrop-blur-md bg-surface/5 px-4 py-2 border border-white/10 rounded-sm">
-            <p className="text-background/60 text-[10px] tracking-widest uppercase mb-1">Check-Out</p>
-            <p className="text-background text-sm font-medium">{property.checkOutTime || "11:00 AM"}</p>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

@@ -153,7 +153,7 @@ export function PublishingCenter({ property, dishes, amenities, categories }: an
                 <h4 className="font-medium text-lg">Menu Highlights</h4>
                 {dishes && dishes.length > 0 ? (
                   dishes.slice(0, 3).map((d: any) => (
-                    <DishCard key={d.id} item={d} propertyType="HOTEL" />
+                    <DishCard key={d.id} item={d} propertyType="HOTEL" currency={property?.currency} />
                   ))
                 ) : (
                   <div className="text-text-muted text-sm italic">Menu is empty. Add dishes in Menu Studio.</div>

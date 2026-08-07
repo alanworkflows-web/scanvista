@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { toast } from 'sonner';
 import { ManagerLayout } from "../components/ManagerLayout";
-import { CreditCard, Loader2, CheckCircle2, Hotel } from "lucide-react";
+import { CreditCard, Loader2, CheckCircle2, Hotel, Sparkles, ExternalLink, ShieldCheck } from "lucide-react";
 import { useManagerProperty } from "../hooks/useManagerProperty";
 import { cn } from "../components/ui/Button";
 import { Skeleton } from "../components/ui/Skeleton";
@@ -12,9 +12,38 @@ import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 
 export function ManagerBilling() {
-  const { property, loading, error: multiPropertyError } = useManagerProperty();
+  const { property, loading, error: multiPropertyError, refreshProperty } = useManagerProperty();
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [billingError, setBillingError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && (window as any).Paddle) {
+      try {
+        const paddleEnv = import.meta.env.VITE_PADDLE_ENV || "sandbox";
+        if (paddleEnv === "sandbox" && (window as any).Paddle.Environment) {
+          (window as any).Paddle.Environment.set("sandbox");
+        }
+        const clientToken = import.meta.env.VITE_PADDLE_CLIENT_TOKEN;
+        if (clientToken && (window as any).Paddle.Initialize) {
+          (window as any).Paddle.Initialize({
+            token: clientToken,
+            eventCallback: (event: any) => {
+              console.log("[Paddle Event]", event);
+              if (event.name === "checkout.completed") {
+                toast.success("Subscription upgraded successfully!");
+                setCheckoutLoading(false);
+                refreshProperty();
+              } else if (event.name === "checkout.closed") {
+                setCheckoutLoading(false);
+              }
+            }
+          });
+        }
+      } catch (err) {
+        console.warn("Paddle initialization notice:", err);
+      }
+    }
+  }, [refreshProperty]);
 
   const handlePaddleCheckout = async () => {
     if (!property) return;
@@ -25,17 +54,18 @@ export function ManagerBilling() {
       const userRes = await fetch("/api/me");
       if (!userRes.ok) throw new Error("Not authenticated");
       const { user } = await userRes.json();
-      const userEmail = user.email;
+      const userEmail = user?.email;
 
       // 2. Fetch active prices
       const pricesRes = await fetch("/api/manager/prices");
       if (!pricesRes.ok) throw new Error("Failed to load pricing");
       const pricesData = await pricesRes.json();
 
-      const premiumPrice = pricesData.prices.find(
-        (p: any) => p.customData?.tier === "premium",
-      );
-      if (!premiumPrice) throw new Error("Premium pricing not configured");
+      const premiumPrice = pricesData.prices?.find(
+        (p: any) => p.customData?.tier === "premium" || p.id === import.meta.env.VITE_PADDLE_PRICE_ID
+      ) || pricesData.prices?.[0];
+
+      if (!premiumPrice || !premiumPrice.id) throw new Error("Premium pricing not configured");
 
       const checkoutPayload = {
         items: [{
@@ -47,14 +77,24 @@ export function ManagerBilling() {
         },
         customData: {
           slug: property.slug
+        },
+        settings: {
+          displayMode: "overlay",
+          theme: "light",
+          locale: "en"
         }
       };
 
-      // @ts-ignore
-      window.Paddle.Checkout.open(checkoutPayload);
-    } catch (err) {
-      setBillingError("Could not initialize payment gateway.");
+      if (typeof window !== "undefined" && (window as any).Paddle && (window as any).Paddle.Checkout) {
+        (window as any).Paddle.Checkout.open(checkoutPayload);
+      } else {
+        throw new Error("Payment gateway SDK not loaded");
+      }
+    } catch (err: any) {
+      console.error("Checkout error:", err);
+      setBillingError(err.message || "Could not initialize payment gateway.");
       setCheckoutLoading(false);
+      toast.error(err.message || "Could not open checkout.");
     }
   };
 
@@ -75,9 +115,11 @@ export function ManagerBilling() {
       } else {
         throw new Error("No URL returned");
       }
-    } catch (err) {
+    } catch (err: any) {
+      console.error("Portal error:", err);
       setBillingError("Could not access billing portal. Please contact support.");
       setCheckoutLoading(false);
+      toast.error("Could not access billing portal.");
     }
   };
 
@@ -132,7 +174,7 @@ export function ManagerBilling() {
         <div className="mt-8">
           <EmptyState 
             icon={Hotel} 
-            title="No Restaurant Found" 
+            title="No Property Found" 
             description="Please complete your setup first." 
           />
         </div>
@@ -141,7 +183,7 @@ export function ManagerBilling() {
   }
 
   const entitlement = property?.entitlement;
-  const isPremium = entitlement?.plan === "premium";
+  const isPremium = entitlement?.plan === "premium" && entitlement?.subscriptionStatus === "active";
   const isExpired = entitlement?.accessMode === "read_only";
 
   return (
@@ -162,44 +204,114 @@ export function ManagerBilling() {
             <p className="text-text-secondary opacity-60">Manage your billing plan and features.</p>
           </div>
           <div>
-            <Badge variant="neutral">
-              Free Plan
-            </Badge>
+            {isPremium ? (
+              <Badge variant="success">
+                Premium Active
+              </Badge>
+            ) : (
+              <Badge variant="neutral">
+                Free Plan
+              </Badge>
+            )}
           </div>
         </div>
 
+        {billingError && (
+          <div className="mb-8 p-4 rounded bg-red-50 border border-red-200 text-red-700 text-sm">
+            {billingError}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
           {/* Free Plan Card */}
-          <div className="border rounded-sm p-8 relative transition-all border-gray-900 bg-surface ring-1 ring-gray-900 shadow-premium-hover">
-            <div className="absolute top-0 right-6 -translate-y-1/2 bg-gray-900 text-white text-xs font-medium px-3 py-1 rounded-full uppercase tracking-wide">
-              Current
-            </div>
+          <div className={cn(
+            "border rounded-sm p-8 relative transition-all",
+            !isPremium
+              ? "border-gray-900 bg-surface ring-1 ring-gray-900 shadow-premium-hover"
+              : "border-divider bg-surface/50 opacity-80"
+          )}>
+            {!isPremium && (
+              <div className="absolute top-0 right-6 -translate-y-1/2 bg-gray-900 text-white text-xs font-medium px-3 py-1 rounded-full uppercase tracking-wide">
+                Current
+              </div>
+            )}
             <h3 className="text-lg font-medium text-text-primary mb-1">Free Tier</h3>
             <div className="text-4xl font-serif text-text-primary mb-4">$0 <span className="text-base font-normal text-text-secondary opacity-60">/mo</span></div>
 
-            <ul className="space-y-3 mb-12">
+            <ul className="space-y-3 mb-8">
               <li className="flex items-center gap-2 text-text-secondary opacity-80"><CheckCircle2 className="w-5 h-5 text-text-muted" /> ScanVista QR Code</li>
-              <li className="flex items-center gap-2 text-text-secondary opacity-80"><CheckCircle2 className="w-5 h-5 text-text-muted" /> Basic restaurant profile</li>
+              <li className="flex items-center gap-2 text-text-secondary opacity-80"><CheckCircle2 className="w-5 h-5 text-text-muted" /> Basic property profile</li>
+              <li className="flex items-center gap-2 text-text-secondary opacity-80"><CheckCircle2 className="w-5 h-5 text-text-muted" /> Up to 2 Categories & 10 Dishes</li>
             </ul>
           </div>
 
           {/* Premium Plan Card */}
-          <div className="border-2 rounded-sm p-8 transition-all border-divider bg-surface/50">
-            <h3 className="text-lg font-medium text-text-primary mb-1 text-text-muted">Premium Plan</h3>
-            <div className="text-4xl font-serif text-text-primary mb-4 text-text-muted">$10 <span className="text-base font-normal text-text-secondary opacity-60">/mo</span></div>
-
-            <ul className="space-y-3 mb-12 opacity-50">
-              <li className="flex items-center gap-2 text-text-secondary font-medium"><CheckCircle2 className="w-5 h-5 text-[var(--card-hover-border)]" /> Dynamic Digital Menu</li>
-              <li className="flex items-center gap-2 text-text-secondary font-medium"><CheckCircle2 className="w-5 h-5 text-[var(--card-hover-border)]" /> Unlimited Categories & Dishes</li>
-              <li className="flex items-center gap-2 text-text-secondary font-medium"><CheckCircle2 className="w-5 h-5 text-[var(--card-hover-border)]" /> Hotel Amenities & Services</li>
-              <li className="flex items-center gap-2 text-text-secondary font-medium"><CheckCircle2 className="w-5 h-5 text-[var(--card-hover-border)]" /> Priority Support</li>
-            </ul>
-
-            <div className="mt-auto space-y-3">
-              <div role="alert" className="bg-amber-50 border border-amber-200 text-amber-800 text-sm font-medium px-4 py-3 rounded-sm flex flex-col items-center gap-1 text-center">
-                <span>Pilot Access: Full features unlocked for early partners.</span>
-                <span className="text-xs text-amber-700 font-normal">Need custom enterprise limits? Contact team@scanvista.com</span>
+          <div className={cn(
+            "border-2 rounded-sm p-8 relative transition-all flex flex-col justify-between",
+            isPremium
+              ? "border-emerald-600 bg-surface ring-1 ring-emerald-600 shadow-premium-hover"
+              : "border-gray-900 bg-surface shadow-sm"
+          )}>
+            {isPremium && (
+              <div className="absolute top-0 right-6 -translate-y-1/2 bg-emerald-600 text-white text-xs font-medium px-3 py-1 rounded-full uppercase tracking-wide flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                Active Plan
               </div>
+            )}
+            <div>
+              <h3 className="text-lg font-medium text-text-primary mb-1">Premium Plan</h3>
+              <div className="text-4xl font-serif text-text-primary mb-4">$10 <span className="text-base font-normal text-text-secondary opacity-60">/mo</span></div>
+
+              <ul className="space-y-3 mb-8">
+                <li className="flex items-center gap-2 text-text-secondary font-medium"><CheckCircle2 className="w-5 h-5 text-emerald-600" /> Dynamic Digital Menu</li>
+                <li className="flex items-center gap-2 text-text-secondary font-medium"><CheckCircle2 className="w-5 h-5 text-emerald-600" /> Unlimited Categories & Dishes</li>
+                <li className="flex items-center gap-2 text-text-secondary font-medium"><CheckCircle2 className="w-5 h-5 text-emerald-600" /> Hotel Amenities & Services</li>
+                <li className="flex items-center gap-2 text-text-secondary font-medium"><CheckCircle2 className="w-5 h-5 text-emerald-600" /> Priority Support</li>
+              </ul>
+            </div>
+
+            <div className="mt-auto pt-4 space-y-3">
+              {isPremium ? (
+                <Button
+                  id="manage-billing-btn"
+                  variant="secondary"
+                  className="w-full justify-center gap-2 py-3 text-base font-semibold"
+                  onClick={handlePortal}
+                  disabled={checkoutLoading}
+                >
+                  {checkoutLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Connecting...
+                    </>
+                  ) : (
+                    <>
+                      <ExternalLink className="w-4 h-4" />
+                      Manage Subscription
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <Button
+                  id="checkout-btn"
+                  variant="primary"
+                  className="w-full justify-center gap-2 py-3 text-base font-semibold"
+                  onClick={handlePaddleCheckout}
+                  disabled={checkoutLoading}
+                >
+                  {checkoutLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Opening Checkout...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      Upgrade to Premium
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
           </div>
         </div>

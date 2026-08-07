@@ -47,7 +47,7 @@ export function ContactCard({ key, title, hours, languages, responseTime, phone,
           </a>
         )}
         {whatsapp && (
-          <a href={`https://wa.me/${whatsapp.replace(/D/g, '')}`} target="_blank" rel="noreferrer" className="flex-1 min-w-[100px] text-center py-3.5 border border-[#EAE8E1]/60 text-[#2A2A2A] hover:border-[#25D366] transition-all duration-500 ease-out text-[10px] tracking-[0.15em] uppercase font-medium rounded-sm">
+          <a href={`https://wa.me/${whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="flex-1 min-w-[100px] text-center py-3.5 border border-[#EAE8E1]/60 text-[#2A2A2A] hover:border-[#25D366] transition-all duration-500 ease-out text-[10px] tracking-[0.15em] uppercase font-medium rounded-sm">
             WhatsApp
           </a>
         )}

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Hotel, ChevronRight, X, AlertCircle } from "lucide-react";
+import { Hotel, CheckCircle2, AlertCircle } from "lucide-react";
 
 export function ManagerLanding() {
   const navigate = useNavigate();
@@ -8,9 +8,7 @@ export function ManagerLanding() {
   const searchParams = new URLSearchParams(location.search);
   const returnTo = searchParams.get('returnTo');
 
-  const [propertyType, setPropertyType] = useState("Hotel");
   const [error, setError] = useState("");
-
   const [isLoading, setIsLoading] = useState(false);
 
   const triggerGoogleLogin = (e: React.FormEvent) => {
@@ -32,17 +30,22 @@ export function ManagerLanding() {
           <Hotel size={300} />
         </div>
         <div className="relative z-10 max-w-lg">
-          <h1 className="text-4xl md:text-5xl font-serif font-medium leading-tight mb-12">
+          <h1 className="text-4xl md:text-5xl font-serif font-medium leading-tight mb-6">
             ScanVista
           </h1>
-          <p className="text-xl md:text-2xl font-light text-text-muted/80 mb-12 leading-relaxed">
-            Transform your property navigation instantly into a digital concierge.
+          <p className="text-xl md:text-2xl font-light text-text-muted/80 mb-10 leading-relaxed">
+            The QR-powered Guest Experience Platform for every hospitality property.
           </p>
           <ul className="space-y-4">
-            {["Zero app downloads required", "Instant menu & amenity updates", "Direct-dial support channels"].map((feature, i) => (
+            {[
+              "Zero app downloads required for guests",
+              "Update once, publish everywhere",
+              "Instant amenities, WiFi, and digital guides",
+              "Works across hotels, resorts, villas, and homestays"
+            ].map((feature, i) => (
               <li key={i} className="flex items-center gap-3 text-text-muted/80">
                 <div className="w-1.5 h-1.5 rounded-full bg-primary/50 shrink-0" />
-                <span>{feature}</span>
+                <span className="text-sm md:text-base">{feature}</span>
               </li>
             ))}
           </ul>
@@ -52,53 +55,32 @@ export function ManagerLanding() {
       {/* Right side: Sign-up Form */}
       <div className="md:w-1/2 p-8 md:p-16 flex flex-col justify-center bg-surface">
         <div className="max-w-md w-full mx-auto">
-          <div className="mb-12">
-            <h2 className="text-3xl font-serif text-text-primary mb-2">Create your account</h2>
-            <p className="text-text-secondary opacity-60 text-sm mb-4">Join thousands of hosts elevating their guest experience.</p>
-            <div className="bg-primary/5 border border-divider rounded-sm p-8">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="font-medium text-emerald-900">$10/Month Flat Access</span>
-              </div>
-              <p className="text-xs text-emerald-800 leading-relaxed">
-                Unlocks your entire application footprint, unlimited editing across all operations, custom layouts, and master QR code printing.
-              </p>
+          <div className="mb-8">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 text-emerald-800 rounded-full text-xs font-semibold uppercase tracking-wider mb-4">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+              Start Free for a Few Weeks
             </div>
+            <h2 className="text-3xl font-serif text-text-primary mb-2">Create your property account</h2>
+            <p className="text-text-secondary opacity-70 text-sm">
+              No credit card required. Launch your property's QR portal in under 60 seconds.
+            </p>
           </div>
 
           {error && (
-            <div className="mb-12 p-8 bg-red-50 border border-red-200 rounded-sm flex items-start gap-3">
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-sm flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
               <p className="text-sm text-red-800">{error}</p>
             </div>
           )}
 
           <form onSubmit={triggerGoogleLogin} className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-text-secondary mb-1">Property Type</label>
-              <div className="relative">
-                <select
-                  className="w-full px-4 py-2.5 bg-background border border-divider rounded-sm appearance-none focus:ring-4 focus:ring-gray-900/20 shadow-premium focus:shadow-premium-hover focus:bg-surface outline-none transition-all"
-                  value={propertyType}
-                  onChange={e => setPropertyType(e.target.value)}
-                >
-                  <option value="HOTEL">Hotel</option>
-                  <option value="RESORT">Resort</option>
-                  <option value="HOMESTAY">Homestay</option>
-                  <option value="RETREAT">Retreat</option>
-                </select>
-                <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none">
-                  <ChevronRight size={16} className="text-text-muted rotate-90" />
-                </div>
-              </div>
-            </div>
-
             <button
               type="submit"
               disabled={isLoading}
-              className={`w-full bg-surface border border-primary/50 text-text-secondary font-medium py-3 rounded-sm hover:bg-background transition-colors mt-6 flex justify-center items-center gap-3 shadow-premium ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+              className={`w-full bg-surface border border-primary/50 text-text-secondary font-medium py-3.5 rounded-sm hover:bg-background transition-colors flex justify-center items-center gap-3 shadow-premium ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
             >
               {isLoading ? (
-                <span>Redirecting...</span>
+                <span>Redirecting to Google...</span>
               ) : (
                 <>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -114,8 +96,6 @@ export function ManagerLanding() {
           </form>
         </div>
       </div>
-
-
     </div>
   );
 }

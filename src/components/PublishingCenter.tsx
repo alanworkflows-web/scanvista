@@ -63,14 +63,14 @@ export function PublishingCenter({ property, dishes, amenities, categories }: an
       {/* HERO SECTION */}
       <div className="text-center max-w-3xl mx-auto pt-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <h1 className="text-5xl md:text-6xl font-serif font-medium text-text-primary mb-12 tracking-tight leading-tight">
-          Your restaurant is ready for guests.
+          Your property is ready for guests.
         </h1>
         <p className="text-xl text-text-secondary opacity-60 font-sans mb-12 max-w-2xl mx-auto">
-          Everything guests scan begins here. Publish your live menu, download premium print assets, and share your brand with the world.
+          Everything guests scan begins here. Publish your live digital portal, download premium print assets, and share your brand with the world.
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-10">
           <Button size="lg" className="w-full sm:w-auto text-base px-8 py-6 rounded-full shadow-premium hover:shadow-premium transition-all" onClick={() => window.open(guestUrl, "_blank")}>
-            Preview Guest Menu <ExternalLink size={18} className="ml-2" />
+            Preview Guest Experience <ExternalLink size={18} className="ml-2" />
           </Button>
           <Button variant="secondary" size="lg" className="w-full sm:w-auto text-base px-8 py-6 rounded-full" onClick={() => document.getElementById("print-studio")?.scrollIntoView({ behavior: "smooth" })}>
             Download Assets <Download size={18} className="ml-2" />
@@ -82,10 +82,10 @@ export function PublishingCenter({ property, dishes, amenities, categories }: an
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 animate-in fade-in slide-in-from-bottom-5 duration-700">
         <Card className="p-8 flex flex-col justify-between">
           <div className="flex justify-between items-start mb-4">
-            <span className="font-medium text-text-primary">Guest Menu</span>
+            <span className="font-medium text-text-primary">Property Menu</span>
             {isMenuSetup ? <span className="flex h-3 w-3 relative"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary hover:bg-primary-hover text-white opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-primary/50"></span></span> : <AlertTriangle size={16} className="text-amber-500" />}
           </div>
-          <span className={cn("font-medium", isMenuSetup ? "text-primary" : "text-amber-600")}>{isMenuSetup ? "Live" : "Needs Dishes"}</span>
+          <span className={cn("font-medium", isMenuSetup ? "text-primary" : "text-amber-600")}>{isMenuSetup ? "Live" : "Optional"}</span>
         </Card>
         <Card className="p-8 flex flex-col justify-between">
           <div className="flex justify-between items-start mb-4">
@@ -103,7 +103,7 @@ export function PublishingCenter({ property, dishes, amenities, categories }: an
         </Card>
         <Card className="p-8 flex flex-col justify-between">
           <div className="flex justify-between items-start mb-4">
-            <span className="font-medium text-text-primary">Restaurant Profile</span>
+            <span className="font-medium text-text-primary">Property Profile</span>
             <CheckCircle2 size={16} className="text-primary" />
           </div>
           <span className="font-medium text-primary">Published</span>
@@ -116,7 +116,7 @@ export function PublishingCenter({ property, dishes, amenities, categories }: an
         <div className="flex flex-col items-center justify-center">
           <div className="bg-surface p-12 rounded-[3rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] border-2 border-gray-50 flex flex-col items-center text-center w-full max-w-md relative group">
             <div className="absolute inset-0 bg-gradient-to-b from-transparent to-gray-50/50 rounded-[3rem] pointer-events-none"></div>
-            <h2 className="text-3xl font-serif font-medium text-text-primary mb-2 relative z-10">{property?.name || "Your Restaurant"}</h2>
+            <h2 className="text-3xl font-serif font-medium text-text-primary mb-2 relative z-10">{property?.name || "Your Property"}</h2>
             <p className="text-text-secondary opacity-60 mb-12 relative z-10 font-medium">Scan to view guest information</p>
             <div className="p-8 bg-surface rounded-sm shadow-premium border border-divider relative z-10 group-hover:-translate-y-1 hover:shadow-premium active:scale-95 transition-transform duration-500">
               <QRCodeSVG
@@ -145,7 +145,7 @@ export function PublishingCenter({ property, dishes, amenities, categories }: an
               {/* Mock Guest View */}
               <div className="h-64 bg-surface-hover relative">
                 <div className="absolute bottom-4 left-4 right-4 bg-surface/90 backdrop-blur-md p-8 rounded-sm shadow-premium">
-                  <h3 className="font-serif font-medium text-xl">{property?.name || "Your Restaurant"}</h3>
+                  <h3 className="font-serif font-medium text-xl">{property?.name || "Your Property"}</h3>
                   <p className="text-sm text-text-secondary opacity-80 truncate">{property?.description || "Location details"}</p>
                 </div>
               </div>
@@ -284,9 +284,9 @@ export function PublishingCenter({ property, dishes, amenities, categories }: an
           </div>
         </div>
 
-        {/* SECTION 7: RESTAURANT READINESS & BRAND ASSETS */}
+        {/* SECTION 7: PROPERTY READINESS & BRAND ASSETS */}
         <div className="lg:col-span-2 space-y-6">
-          <h2 className="text-2xl font-serif font-medium text-text-primary">Restaurant Readiness</h2>
+          <h2 className="text-2xl font-serif font-medium text-text-primary">Property Readiness</h2>
           <Card className="p-8 flex flex-col sm:flex-row items-center sm:items-start gap-10">
             {/* Progress Circle */}
             <div className="relative w-32 h-32 shrink-0">
@@ -311,7 +311,7 @@ export function PublishingCenter({ property, dishes, amenities, categories }: an
               </h3>
               <p className="text-text-secondary opacity-60 mb-12 text-sm">
                 {readinessScore === 100 
-                  ? "Your restaurant is fully configured. Start sharing your QR code!" 
+                  ? "Your property is fully configured. Start sharing your QR code!" 
                   : "Complete these steps to ensure the best guest experience."}
               </p>
               

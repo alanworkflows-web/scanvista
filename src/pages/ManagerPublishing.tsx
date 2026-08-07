@@ -12,6 +12,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
 import { Button } from "../components/ui/Button";
+import { buildGuestUrl } from "../lib/utils";
 
 export function ManagerPublishing() {
   const { property, status, checklist: serverChecklist, amenities, categories, dishes, loading, refreshProperty } = useManagerProperty();
@@ -137,7 +138,7 @@ export function ManagerPublishing() {
   };
 
   const copyLink = () => {
-    const url = `${window.location.origin}/g/${property.slug}`;
+    const url = buildGuestUrl(property.slug);
     navigator.clipboard.writeText(url);
     setCopied(true);
     toast.success("Guest link copied to clipboard");
@@ -309,7 +310,7 @@ export function ManagerPublishing() {
               <div className="bg-surface p-6 rounded-xl shadow-md border border-divider mb-6 hover:shadow-lg transition-all">
                 <QRCodeSVG 
                   id="guest-qr-code" 
-                  value={`${window.location.origin}/g/${property.slug}`}
+                  value={buildGuestUrl(property.slug)}
                   size={180}
                   level="H"
                   includeMargin={false}
@@ -317,7 +318,7 @@ export function ManagerPublishing() {
                 />
               </div>
               <p className="text-xs font-mono font-medium text-text-primary text-center bg-background border border-divider px-4 py-2 rounded-lg truncate max-w-full">
-                {window.location.origin}/g/{property.slug}
+                {buildGuestUrl(property.slug)}
               </p>
             </div>
 
@@ -333,7 +334,7 @@ export function ManagerPublishing() {
             
             <div className="mt-3">
               <a 
-                href={`/g/${property.slug}`} 
+                href={buildGuestUrl(property.slug)} 
                 target="_blank" 
                 rel="noreferrer"
                 className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-medium text-text-primary bg-background border border-divider hover:border-primary rounded-lg transition"

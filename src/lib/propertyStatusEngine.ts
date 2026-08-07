@@ -70,11 +70,11 @@ function safeParseJson(val: any): any {
  * Single definitive source of truth for property status, launch readiness, and checklist.
  */
 export function calculatePropertyStatus(input: any): PropertyStatusResult {
-  const isInputWrapped = input && (input.property !== undefined || input.snapshots !== undefined || input.draftData !== undefined);
+  const isInputWrapped = Boolean(input && typeof input === 'object' && 'property' in input && input.property !== undefined);
   const prop = isInputWrapped ? (input.property || null) : (input || null);
-  const snapshots = Array.isArray(isInputWrapped ? input.snapshots : prop?.snapshots) 
-    ? (isInputWrapped ? input.snapshots : prop?.snapshots) 
-    : [];
+  const snapshots = Array.isArray(input?.snapshots) 
+    ? input.snapshots 
+    : (Array.isArray(prop?.snapshots) ? prop.snapshots : []);
   const draftData = isInputWrapped ? input.draftData : undefined;
   const localDraftData = isInputWrapped ? input.localDraftData : undefined;
 

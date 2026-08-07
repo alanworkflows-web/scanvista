@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Dish } from "../types";
-import { ChevronDown, Leaf, WheatOff, Info, AlertTriangle, Star, ChefHat, Phone, Calendar, X } from "lucide-react";
+import { ChevronDown, Leaf, WheatOff, Info, AlertTriangle, Star, ChefHat, X, Sparkles } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { formatPrice } from "../lib/currency";
@@ -30,139 +30,166 @@ export const DishCard: React.FC<DishCardProps> = ({ item, propertyType, currency
     <>
       {isZoomed && item.imageUrl && (
         <div 
-          className="fixed inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center p-8"
+          className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-8 animate-in fade-in duration-200"
           onClick={() => setIsZoomed(false)}
         >
           <button 
-            className="absolute top-8 right-6 p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
+            className="absolute top-6 right-6 p-3 bg-white/10 text-white rounded-full hover:bg-white/20 transition-colors"
             onClick={() => setIsZoomed(false)}
           >
-            <X size={24} />
+            <X size={20} />
           </button>
           <img 
             src={item.imageUrl} 
             alt={item.name} 
-            className="max-w-full max-h-[80vh] object-contain rounded-sm shadow-premium-hover"
+            className="max-w-full max-h-[75vh] object-contain rounded-2xl shadow-2xl"
           />
-          <h3 className="text-white text-xl font-serif font-medium mt-6 text-center">{item.name}</h3>
+          <div className="mt-4 text-center">
+            <h3 className="text-white text-xl sm:text-2xl font-serif font-medium">{item.name}</h3>
+            <p className="text-emerald-400 font-semibold text-lg mt-1">{formatPrice(item.price, currency)}</p>
+          </div>
         </div>
       )}
       <div className={cn(
-        "py-4 flex items-start gap-10 transition-opacity text-left w-full border-b border-divider last:border-0",
-      item.isOutOfStock && "opacity-50 grayscale-[0.8]"
-    )}>
-      {/* Dish Image as bullet */}
-      {item.imageUrl && (
-        <button 
-          onClick={() => setIsZoomed(true)}
-          className="w-20 h-20 shrink-0 rounded-sm overflow-hidden bg-background border border-divider relative mt-1 block cursor-zoom-in group"
-        >
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors z-10" />
-          <img 
-            src={item.imageUrl} 
-            alt={item.name} 
-            className="w-full h-full object-cover"
-            loading="lazy"
-          />
-          {item.isOutOfStock && (
-            <div className="absolute inset-0 bg-surface/60 flex items-center justify-center">
-              <span className="text-[10px] font-medium uppercase tracking-wider text-text-primary bg-surface/80 px-1 py-0.5 rounded">Out</span>
-            </div>
-          )}
-        </button>
-      )}
-
-      {/* Content */}
-      <div className="flex-1 flex flex-col gap-1.5 min-w-0">
-        {/* Title & Price Row */}
-        <div className="flex justify-between items-start gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-2 mb-0.5">
-              <h3 className="font-serif font-semibold text-[17px] text-text-primary leading-snug truncate">{item.name}</h3>
-              {item.isOutOfStock && !item.imageUrl && (
-                <span className="bg-surface-hover text-text-secondary opacity-80 px-2 py-0.5 rounded-none text-[11px] font-medium uppercase tracking-wider">Sold Out</span>
-              )}
-            </div>
-            {item.description && (
-              <p className="font-sans text-sm text-text-secondary opacity-80 leading-relaxed line-clamp-2">
-                {item.description}
-              </p>
-            )}
-          </div>
-          <span className="font-semibold text-text-primary whitespace-nowrap mt-0.5">
-            {formatPrice(item.price, currency)}
-          </span>
-        </div>
-
-        {/* Dietary and Status Text Line */}
-        <div className="flex flex-wrap items-center justify-between gap-y-1.5 mt-0.5">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-sans text-xs font-medium text-text-secondary opacity-60 uppercase tracking-wide">
-            {item.isPopular && <span className="flex items-center gap-1 text-amber-700"><Star size={10} className="fill-amber-500 text-amber-500" /> Popular</span>}
-            {item.isChefRec && <span className="flex items-center gap-1 text-blue-700"><ChefHat size={10} /> Chef's Choice</span>}
-            {item.dietaryCategory === "Vegan" && <span className="flex items-center gap-1 text-text-primary"><Leaf size={10} /> Vegan</span>}
-            {item.dietaryCategory === "Vegetarian" && <span className="flex items-center gap-1 text-green-700"><Leaf size={10} /> Vegetarian</span>}
-            {item.dietaryCategory === "Gluten-Free" && <span className="flex items-center gap-1 text-amber-700"><WheatOff size={10} /> GF</span>}
-          </div>
-          
-          {/* Collapsible Trigger */}
+        "py-4 flex items-start gap-4 sm:gap-6 transition-opacity text-left w-full border-b border-divider/60 last:border-0",
+        item.isOutOfStock && "opacity-50 grayscale-[0.8]"
+      )}>
+        {/* Dish Image */}
+        {item.imageUrl && (
           <button 
-            onClick={() => setIsExpanded(!isExpanded)}
-            aria-expanded={isExpanded}
-            aria-controls={`dish-info-${item.id}`}
-            className="flex items-center gap-1 text-text-muted hover:text-text-secondary transition-colors py-1 text-[11px] font-medium"
+            onClick={() => setIsZoomed(true)}
+            className="w-20 h-20 sm:w-24 sm:h-24 shrink-0 rounded-xl overflow-hidden bg-background border border-divider relative mt-0.5 block cursor-zoom-in group shadow-sm"
           >
-            <Info size={12} />
-            {isExpanded ? 'Hide Info' : 'EU Allergen & Health Info'}
-            <ChevronDown 
-              size={12} 
-              className={cn("transition-transform duration-300", isExpanded && "rotate-180")}
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors z-10" />
+            <img 
+              src={item.imageUrl} 
+              alt={item.name} 
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              loading="lazy"
             />
+            {item.isOutOfStock && (
+              <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-20">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-white bg-black/80 px-2 py-0.5 rounded">Sold Out</span>
+              </div>
+            )}
           </button>
-        </div>
+        )}
 
-        {/* Collapsible Health Info */}
-        <div 
-          id={`dish-info-${item.id}`}
-          className={cn(
-            "grid transition-all duration-300 ease-in-out",
-            isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-          )}
-        >
-          <div className="overflow-hidden">
-            <div className="bg-slate-50 rounded-sm p-8 space-y-4 text-sm border border-slate-100 mt-1">
-              {/* EU Allergens */}
-              <div>
-                <h4 className="flex items-center gap-1.5 font-semibold text-slate-700 mb-2">
-                  <AlertTriangle size={14} className="text-amber-500" /> 
-                  Allergens (EU 1169/2011)
-                </h4>
-                {allergensList.length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5">
-                    {allergensList.map(allergen => (
-                      <span key={allergen} className="px-2 py-0.5 rounded-none text-[11px] font-medium uppercase tracking-wider bg-surface text-text-secondary opacity-80 border border-divider">
-                        {allergen}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-slate-500 italic text-xs">No mandatory allergens.</p>
+        {/* Content */}
+        <div className="flex-1 flex flex-col gap-1.5 min-w-0">
+          {/* Title & Price Row */}
+          <div className="flex justify-between items-start gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2 mb-1">
+                <h3 className="font-serif font-semibold text-base sm:text-lg text-text-primary leading-snug truncate">
+                  {item.name}
+                </h3>
+                {item.isOutOfStock && !item.imageUrl && (
+                  <span className="bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                    Sold Out
+                  </span>
                 )}
               </div>
-
-              {/* Nutritional Info */}
-              {item.healthTips && (
-                <div className="pt-3 border-t border-slate-200/60">
-                  <h4 className="font-semibold text-slate-700 mb-1.5 text-xs uppercase tracking-wider">Health Tips</h4>
-                  <p className="text-slate-600 text-xs leading-relaxed">
-                    {item.healthTips}
-                  </p>
-                </div>
+              {item.description && (
+                <p className="font-sans text-xs sm:text-sm text-text-secondary opacity-80 leading-relaxed line-clamp-2">
+                  {item.description}
+                </p>
               )}
+            </div>
+            <span className="font-serif font-semibold text-text-primary whitespace-nowrap text-sm sm:text-base">
+              {formatPrice(item.price, currency)}
+            </span>
+          </div>
+
+          {/* Dietary and Status Text Line */}
+          <div className="flex flex-wrap items-center justify-between gap-y-1.5 pt-1">
+            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
+              {item.isPopular && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-[11px]">
+                  <Star size={11} className="fill-amber-500 text-amber-500" /> Popular
+                </span>
+              )}
+              {item.isChefRec && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px]">
+                  <ChefHat size={11} /> Chef's Rec
+                </span>
+              )}
+              {item.dietaryCategory === "Vegan" && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px]">
+                  <Leaf size={11} /> Vegan
+                </span>
+              )}
+              {item.dietaryCategory === "Vegetarian" && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px]">
+                  <Leaf size={11} /> Vegetarian
+                </span>
+              )}
+              {item.dietaryCategory === "Gluten-Free" && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-[11px]">
+                  <WheatOff size={11} /> Gluten-Free
+                </span>
+              )}
+            </div>
+            
+            {/* Collapsible Trigger */}
+            <button 
+              onClick={() => setIsExpanded(!isExpanded)}
+              aria-expanded={isExpanded}
+              aria-controls={`dish-info-${item.id}`}
+              className="flex items-center gap-1 text-text-muted hover:text-text-primary transition-colors py-1 text-xs font-medium"
+            >
+              <Info size={12} />
+              <span>{isExpanded ? 'Hide Info' : 'Allergens & Info'}</span>
+              <ChevronDown 
+                size={13} 
+                className={cn("transition-transform duration-300", isExpanded && "rotate-180")}
+              />
+            </button>
+          </div>
+
+          {/* Collapsible Health Info */}
+          <div 
+            id={`dish-info-${item.id}`}
+            className={cn(
+              "grid transition-all duration-300 ease-in-out",
+              isExpanded ? "grid-rows-[1fr] opacity-100 mt-2" : "grid-rows-[0fr] opacity-0"
+            )}
+          >
+            <div className="overflow-hidden">
+              <div className="bg-background rounded-xl p-4 space-y-3 text-xs border border-divider">
+                {/* EU Allergens */}
+                <div>
+                  <h4 className="flex items-center gap-1.5 font-semibold text-text-primary mb-1.5">
+                    <AlertTriangle size={13} className="text-amber-500" /> 
+                    Allergens (EU Standard)
+                  </h4>
+                  {allergensList.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {allergensList.map(allergen => (
+                        <span key={allergen} className="px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-surface text-text-secondary border border-divider">
+                          {allergen}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-text-muted italic">No allergens declared.</p>
+                  )}
+                </div>
+
+                {/* Nutritional Info */}
+                {item.healthTips && (
+                  <div className="pt-2 border-t border-divider">
+                    <h4 className="font-semibold text-text-primary mb-1 text-[11px] uppercase tracking-wider">Chef's Note & Tips</h4>
+                    <p className="text-text-secondary leading-relaxed">
+                      {item.healthTips}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
     </>
   );
 }

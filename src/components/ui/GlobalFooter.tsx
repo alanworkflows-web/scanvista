@@ -27,15 +27,15 @@ export function GlobalFooter({ variant = 'full' }: GlobalFooterProps) {
             ScanVista
           </div>
           <p className="text-text-secondary opacity-60 max-w-sm mb-4">
-            Digital Hospitality Platform
+            The QR-powered Guest Experience Platform
           </p>
         </div>
         <div>
           <h4 className="text-white font-medium mb-4">Product</h4>
           <ul className="space-y-2">
             <li><Link to="/manager" className="hover:text-white transition-colors">Manager Login</Link></li>
-            <li><Link to="/#pricing" className="hover:text-white transition-colors">Pricing</Link></li>
-            <li><Link to="/#contact" className="hover:text-white transition-colors">Contact</Link></li>
+            <li><a href="/#how-it-works" className="hover:text-white transition-colors">How It Works</a></li>
+            <li><a href="/#outcomes" className="hover:text-white transition-colors">Outcomes</a></li>
           </ul>
         </div>
         <div>

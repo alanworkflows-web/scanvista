@@ -2,7 +2,7 @@ import React, { Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from 'sonner';
 import { lazyWithPreload } from "./lib/lazyWithPreload";
-import { PropertyPage } from "./pages/PropertyPage";
+import { GuestPageLoader } from "./pages/GuestPageLoader";
 import { ManagerLanding } from "./ManagerLanding";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { GlobalErrorBoundary } from "./components/GlobalErrorBoundary";
@@ -16,7 +16,7 @@ const ManagerHelp = lazyWithPreload(() => import('./pages/ManagerHelp').then(m =
 const ManagerExperience = lazyWithPreload(() => import('./pages/ManagerExperience').then(m => ({ default: m.ManagerExperience })));
 const AdminCRM = lazyWithPreload(() => import('./pages/AdminCRM').then(m => ({ default: m.AdminCRM })));
 const ManagerGuests = lazyWithPreload(() => import('./pages/ManagerGuests').then(m => ({ default: m.ManagerGuests })));
-const GuestWelcome = lazyWithPreload(() => import('./pages/GuestWelcome').then(m => ({ default: m.GuestWelcome })));
+const LegacyGuestWelcome = lazyWithPreload(() => import('./pages/GuestWelcome.legacy').then(m => ({ default: m.GuestWelcome })));
 const ManagerProperty = lazyWithPreload(() => import('./pages/ManagerProperty').then(m => ({ default: m.ManagerProperty })));
 const OperationsPlaybook = lazyWithPreload(() => import('./pages/OperationsPlaybook').then(m => ({ default: m.OperationsPlaybook })));
 const ManagerLaunchChecklist = lazyWithPreload(() => import('./pages/ManagerLaunchChecklist').then(m => ({ default: m.ManagerLaunchChecklist })));
@@ -73,7 +73,7 @@ export default function App() {
         {/* Public Marketing Routes */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/manager" element={<ManagerLanding />} />
-        <Route path="/p/:propertySlug" element={<PropertyPage />} />
+        <Route path="/p/:propertySlug" element={<GuestPageLoader mode="property" />} />
         <Route path="/legal" element={<LegalCenter />} />
         <Route path="/legal/privacy" element={<PrivacyPolicy />} />
         <Route path="/legal/terms" element={<TermsOfService />} />
@@ -84,8 +84,9 @@ export default function App() {
         <Route path="/legal/support" element={<SupportPolicy />} />
         <Route path="/legal/hotel-partner" element={<HotelPartnerAgreement />} />
         <Route path="/legal/copyright" element={<CopyrightNotice />} />
-        <Route path="/g/:token" element={<GuestWelcome />} />
-        <Route path="/preview/:token" element={<GuestWelcome />} />
+        <Route path="/g/:token" element={<GuestPageLoader mode="guest" />} />
+        <Route path="/preview/:token" element={<GuestPageLoader mode="preview" />} />
+        <Route path="/legacy/g/:token" element={<LegacyGuestWelcome />} />
 
         {/* Authenticated Manager Routes */}
         <Route path="/manager/onboarding" element={<ManagerOnboarding />} />

@@ -5,6 +5,9 @@ export interface Property {
   description: string;
   bannerUrl: string;
   heroImage?: string;
+  logoUrl?: string;
+  tagline?: string;
+  welcomeMessage?: string;
   currency?: string;
   propertyType: 'HOTEL' | 'HOMESTAY' | 'RESORT' | 'RETREAT';
   wifiNetwork?: string;
@@ -13,6 +16,10 @@ export interface Property {
   hotelRules?: any;
   houseRules?: string;
   experiences?: string;
+  checkInTime?: string;
+  checkOutTime?: string;
+  contacts?: any;
+  gallery?: string[];
   receptionPhone?: string;
   housekeepingPhone?: string;
   emergencyPhone?: string;
@@ -52,10 +59,19 @@ export interface Amenity {
   requiresReservation: boolean;
 }
 
+export interface GuestInfo {
+  name?: string;
+  roomNumber?: string;
+  arrivalDate?: string;
+  departureDate?: string;
+  status?: string;
+}
+
 export interface PropertyData {
   property: Property;
   categories: MenuCategory[];
   dishes: Dish[];
   amenities: Amenity[];
+  guest?: GuestInfo;
 }
 

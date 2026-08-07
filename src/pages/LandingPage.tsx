@@ -1,31 +1,54 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Hotel, ArrowRight, CheckCircle2, Shield, LifeBuoy } from "lucide-react";
+import { 
+  Hotel, 
+  ArrowRight, 
+  QrCode, 
+  Sparkles, 
+  RefreshCw, 
+  BarChart3, 
+  Building2, 
+  HelpCircle,
+  Layers
+} from "lucide-react";
 import { GlobalFooter } from "../components/ui/GlobalFooter";
-import { PRICING_CONFIG } from "../lib/pricingConstants";
 
 export function LandingPage() {
   return (
-    <div className="min-h-screen bg-background flex flex-col font-sans">
+    <div className="min-h-screen bg-background flex flex-col font-sans selection:bg-amber-100 selection:text-gray-900">
       {/* Navigation */}
-      <nav className="bg-surface border-b border-divider sticky top-0 z-50">
+      <nav aria-label="Main Navigation" className="bg-white/95 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center gap-2 font-serif font-medium text-2xl text-text-primary">
-              <Hotel className="text-primary" />
-              ScanVista
-            </div>
-            <div className="flex items-center gap-10">
-              <a href="#pricing" className="text-sm font-medium text-text-secondary opacity-80 hover:text-text-primary transition-colors hidden md:block">Pricing</a>
-              <a href="#contact" className="text-sm font-medium text-text-secondary opacity-80 hover:text-text-primary transition-colors hidden md:block">Contact</a>
-              <Link to="/manager" className="text-sm font-medium text-text-secondary opacity-80 hover:text-text-primary transition-colors">
-                Login
+          <div className="flex justify-between h-20 items-center">
+            <Link to="/" className="flex items-center gap-3 group focus:outline-none focus:ring-2 focus:ring-amber-600 rounded-lg p-1">
+              <div className="w-10 h-10 rounded-lg bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-800 group-hover:scale-105 transition-transform">
+                <Hotel className="w-5 h-5" aria-hidden="true" />
+              </div>
+              <span className="font-serif font-semibold text-2xl tracking-tight text-gray-900">
+                ScanVista
+              </span>
+            </Link>
+            
+            <div className="flex items-center gap-4 sm:gap-8">
+              <a href="#how-it-works" className="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors hidden md:block">
+                How It Works
+              </a>
+              <a href="#outcomes" className="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors hidden md:block">
+                Outcomes
+              </a>
+              <Link 
+                to="/manager" 
+                className="text-sm font-semibold text-gray-700 hover:text-gray-900 transition-colors px-2 py-2"
+              >
+                Sign In
               </Link>
               <Link 
                 to="/manager" 
-                className="bg-primary hover:bg-primary-hover text-white shadow-premium-hover transition-all hover:bg-emerald-700 text-white text-sm font-medium py-2 px-5 rounded-full shadow-premium transition-all"
+                id="hero-nav-cta"
+                className="bg-amber-700 hover:bg-amber-800 text-white shadow-md hover:shadow-lg text-xs sm:text-sm font-medium py-2.5 px-4 sm:px-6 rounded-full transition-all flex items-center gap-2 transform hover:-translate-y-0.5 active:translate-y-0"
               >
-                Get Started
+                <span>Start Free for a Few Weeks</span>
+                <ArrowRight className="w-4 h-4" aria-hidden="true" />
               </Link>
             </div>
           </div>
@@ -34,91 +57,154 @@ export function LandingPage() {
 
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="pt-24 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto text-center">
-          <h1 className="text-5xl md:text-7xl font-serif font-medium text-text-primary tracking-tight mb-12">
-            The Digital Front Desk,<br className="hidden md:block"/> No App Required.
+        <section className="pt-20 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto text-center relative overflow-hidden">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-100 border border-amber-300 text-xs sm:text-sm font-semibold text-amber-900 mb-8">
+            <QrCode className="w-4 h-4 text-amber-800" aria-hidden="true" />
+            <span>The QR-powered Guest Experience Platform</span>
+          </div>
+
+          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-serif font-medium text-gray-900 tracking-tight max-w-5xl mx-auto leading-[1.12] mb-10">
+            The QR-powered Guest Experience Platform
           </h1>
-          <p className="text-lg md:text-2xl text-text-secondary opacity-80 max-w-3xl mx-auto mb-12">
-            Give your hotel guests instant QR access to menus, amenities, and concierge services. Beautifully designed for the hospitality industry.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-10 justify-center">
+
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center max-w-md mx-auto sm:max-w-none mb-12">
             <Link 
               to="/manager" 
-              className="bg-gray-900 hover:bg-gray-800 text-white font-medium py-4 px-8 rounded-full shadow-premium hover:shadow-premium transition-all flex items-center justify-center gap-2 text-lg"
+              id="hero-primary-cta"
+              className="w-full sm:w-auto bg-amber-700 hover:bg-amber-800 text-white font-semibold py-4 px-8 rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3 text-lg transform hover:-translate-y-0.5"
             >
-              Start 14-Day Free Trial <ArrowRight size={20} />
+              <span>Start Free for a Few Weeks</span>
+              <ArrowRight className="w-5 h-5" aria-hidden="true" />
             </Link>
             <a 
-              href="#contact" 
-              className="bg-surface hover:bg-background border border-divider text-text-primary font-medium py-4 px-8 rounded-full shadow-premium hover:shadow-premium-hover transition-all flex items-center justify-center gap-2 text-lg"
+              href="#how-it-works" 
+              className="w-full sm:w-auto bg-white hover:bg-gray-50 border border-gray-300 text-gray-900 font-semibold py-4 px-8 rounded-full shadow-sm hover:shadow transition-all flex items-center justify-center gap-2 text-lg"
             >
-              Request a Demo
+              See How It Works
             </a>
           </div>
         </section>
 
-        {/* Pricing Section */}
-        <section id="pricing" className="py-20 bg-surface">
+        {/* 3-Step Workflow Section */}
+        <section id="how-it-works" className="py-20 bg-gray-50 border-y border-gray-200 scroll-mt-20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-16">
-              <h2 className="text-4xl font-serif font-medium text-text-primary mb-4">Simple Pricing That Grows With Your Hotel</h2>
-              <p className="text-xl text-text-secondary opacity-80">Start free. Upgrade to Pro anytime for just ${PRICING_CONFIG.PRO_PLAN_PRICE}/month.</p>
+            <div className="text-center max-w-3xl mx-auto mb-16">
+              <span className="text-xs uppercase tracking-widest text-amber-800 font-bold mb-3 block">Three-Step Workflow</span>
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-serif font-medium text-gray-900 mb-4">
+                How It Works
+              </h2>
             </div>
-            
-            <div className="grid md:grid-cols-2 gap-10 max-w-4xl mx-auto">
-              <div className="border border-divider rounded-sm p-8 bg-surface shadow-premium flex flex-col">
-                <h3 className="text-3xl font-serif text-text-primary mb-2">Free Plan</h3>
-                <p className="text-text-secondary opacity-60 mb-12">Perfect for getting started</p>
-                <div className="text-4xl font-medium text-text-primary mb-12">Free</div>
-                <ul className="space-y-4 mb-12 flex-1">
-                  <li className="flex items-center gap-3"><CheckCircle2 className="text-primary" size={20} /> 1 Property</li>
-                  <li className="flex items-center gap-3"><CheckCircle2 className="text-primary" size={20} /> 1 Digital Menu</li>
-                  <li className="flex items-center gap-3"><CheckCircle2 className="text-primary" size={20} /> Basic Amenities</li>
-                  <li className="flex items-center gap-3"><CheckCircle2 className="text-primary" size={20} /> QR Code</li>
-                  <li className="flex items-center gap-3"><CheckCircle2 className="text-primary" size={20} /> {PRICING_CONFIG.FREE_PLAN_GUEST_VIEWS_PER_DAY} Guest Views per Day</li>
-                  <li className="flex items-center gap-3"><CheckCircle2 className="text-primary" size={20} /> Community Support</li>
-                </ul>
-                <Link to="/manager" className="w-full py-3 px-4 border border-emerald-600 text-primary font-medium rounded-sm text-center hover:bg-primary/5">Start Free</Link>
+
+            <div className="grid md:grid-cols-3 gap-8 relative">
+              {/* Step 1 */}
+              <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center group">
+                <div className="w-14 h-14 rounded-2xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-900 font-serif font-bold text-2xl mb-6 group-hover:scale-110 transition-transform">
+                  1
+                </div>
+                <h3 className="text-2xl font-serif font-medium text-gray-900">
+                  Set up your property
+                </h3>
               </div>
 
-              <div className="border-2 border-emerald-600 rounded-sm p-8 bg-primary/5/30 shadow-premium-hover relative flex flex-col transform scale-105">
-                <h3 className="text-3xl font-serif text-text-primary mb-2">Pro Plan</h3>
-                <p className="text-text-secondary opacity-60 mb-12">For full-service properties</p>
-                <div className="text-4xl font-medium text-text-primary mb-12">${PRICING_CONFIG.PRO_PLAN_PRICE}<span className="text-lg text-text-secondary opacity-60 font-normal">/month</span></div>
-                <ul className="space-y-4 mb-12 flex-1">
-                  <li className="flex items-center gap-3"><CheckCircle2 className="text-primary" size={20} /> Everything in Free</li>
-                  <li className="flex items-center gap-3"><CheckCircle2 className="text-primary" size={20} /> Unlimited Guest Views</li>
-                  <li className="flex items-center gap-3"><CheckCircle2 className="text-primary" size={20} /> Unlimited Menus</li>
-                  <li className="flex items-center gap-3"><CheckCircle2 className="text-primary" size={20} /> Unlimited Amenities</li>
-                  <li className="flex items-center gap-3"><CheckCircle2 className="text-primary" size={20} /> Custom Branding</li>
-                  <li className="flex items-center gap-3"><CheckCircle2 className="text-primary" size={20} /> Priority Support</li>
-                  <li className="flex items-center gap-3"><CheckCircle2 className="text-primary" size={20} /> Future Premium Features</li>
-                  <li className="flex items-center gap-3"><CheckCircle2 className="text-primary" size={20} /> Early Access Features</li>
-                </ul>
-                <Link to="/manager" className="w-full py-3 px-4 bg-primary hover:bg-primary-hover text-white shadow-premium-hover transition-all font-medium rounded-sm text-center">Upgrade to Pro</Link>
+              {/* Step 2 */}
+              <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center group">
+                <div className="w-14 h-14 rounded-2xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-900 font-serif font-bold text-2xl mb-6 group-hover:scale-110 transition-transform">
+                  2
+                </div>
+                <h3 className="text-2xl font-serif font-medium text-gray-900">
+                  Publish your QR
+                </h3>
+              </div>
+
+              {/* Step 3 */}
+              <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center group">
+                <div className="w-14 h-14 rounded-2xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-900 font-serif font-bold text-2xl mb-6 group-hover:scale-110 transition-transform">
+                  3
+                </div>
+                <h3 className="text-2xl font-serif font-medium text-gray-900">
+                  Delight your guests
+                </h3>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Contact & Support */}
-        <section id="contact" className="py-20 bg-background border-t border-divider">
-          <div className="max-w-3xl mx-auto px-4 text-center">
-            <h2 className="text-3xl font-serif font-medium text-text-primary mb-12">Get in Touch</h2>
-            <div className="grid md:grid-cols-2 gap-10">
-              <div className="bg-surface p-8 rounded-sm border border-divider shadow-premium flex flex-col items-center">
-                <div className="w-12 h-12 bg-primary-light/20 text-primary rounded-full flex items-center justify-center mb-4"><LifeBuoy /></div>
-                <h3 className="text-xl font-medium mb-2">Support</h3>
-                <p className="text-text-secondary opacity-80 mb-4">Need help with your property? Our hospitality experts are available 24/7.</p>
-                <a href="mailto:support@scanvista.com" className="text-primary font-medium hover:underline">support@scanvista.com</a>
+        {/* Outcome-Driven Section */}
+        <section id="outcomes" className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 scroll-mt-20">
+          <div className="text-center max-w-3xl mx-auto mb-16">
+            <span className="text-xs uppercase tracking-widest text-amber-800 font-bold mb-3 block">Outcomes</span>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-serif font-medium text-gray-900 mb-4">
+              Built for Guest Satisfaction
+            </h2>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {/* Outcome 1 */}
+            <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm hover:shadow-md transition-all flex flex-col items-start">
+              <div className="w-12 h-12 rounded-xl bg-amber-100 text-amber-900 flex items-center justify-center mb-6">
+                <HelpCircle className="w-6 h-6" aria-hidden="true" />
               </div>
-              <div className="bg-surface p-8 rounded-sm border border-divider shadow-premium flex flex-col items-center">
-                <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4"><Shield /></div>
-                <h3 className="text-xl font-medium mb-2">Sales & Demos</h3>
-                <p className="text-text-secondary opacity-80 mb-4">Managing a large portfolio? Let's discuss an Enterprise pilot.</p>
-                <a href="mailto:sales@scanvista.com" className="text-blue-600 font-medium hover:underline">sales@scanvista.com</a>
-              </div>
+              <h3 className="text-2xl font-serif font-medium text-gray-900">
+                Reduce repetitive guest questions
+              </h3>
             </div>
+
+            {/* Outcome 2 */}
+            <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm hover:shadow-md transition-all flex flex-col items-start">
+              <div className="w-12 h-12 rounded-xl bg-amber-100 text-amber-900 flex items-center justify-center mb-6">
+                <QrCode className="w-6 h-6" aria-hidden="true" />
+              </div>
+              <h3 className="text-2xl font-serif font-medium text-gray-900">
+                One QR for everything guests need
+              </h3>
+            </div>
+
+            {/* Outcome 3 */}
+            <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm hover:shadow-md transition-all flex flex-col items-start">
+              <div className="w-12 h-12 rounded-xl bg-amber-100 text-amber-900 flex items-center justify-center mb-6">
+                <RefreshCw className="w-6 h-6" aria-hidden="true" />
+              </div>
+              <h3 className="text-2xl font-serif font-medium text-gray-900">
+                Update once, publish everywhere
+              </h3>
+            </div>
+
+            {/* Outcome 4 */}
+            <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm hover:shadow-md transition-all flex flex-col items-start">
+              <div className="w-12 h-12 rounded-xl bg-amber-100 text-amber-900 flex items-center justify-center mb-6">
+                <Building2 className="w-6 h-6" aria-hidden="true" />
+              </div>
+              <h3 className="text-2xl font-serif font-medium text-gray-900">
+                Works for all hospitality properties
+              </h3>
+            </div>
+
+            {/* Outcome 5 */}
+            <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm hover:shadow-md transition-all flex flex-col items-start md:col-span-2 lg:col-span-2">
+              <div className="w-12 h-12 rounded-xl bg-amber-100 text-amber-900 flex items-center justify-center mb-6">
+                <BarChart3 className="w-6 h-6" aria-hidden="true" />
+              </div>
+              <h3 className="text-2xl font-serif font-medium text-gray-900">
+                Understand guest engagement
+              </h3>
+            </div>
+          </div>
+        </section>
+
+        {/* Bottom CTA Banner */}
+        <section className="py-20 bg-gray-900 text-white relative overflow-hidden">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
+            <h2 className="text-3xl sm:text-5xl font-serif font-medium mb-8 tracking-tight">
+              The QR-powered Guest Experience Platform
+            </h2>
+            <Link 
+              to="/manager" 
+              id="footer-banner-cta"
+              className="inline-flex items-center gap-3 bg-amber-700 hover:bg-amber-800 text-white font-semibold py-4 px-8 rounded-full shadow-lg hover:shadow-xl transition-all text-lg transform hover:-translate-y-0.5"
+            >
+              <span>Start Free for a Few Weeks</span>
+              <ArrowRight className="w-5 h-5" aria-hidden="true" />
+            </Link>
           </div>
         </section>
       </main>

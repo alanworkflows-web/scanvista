@@ -1,9 +1,16 @@
+require('dotenv').config();
 const puppeteer = require('puppeteer');
 const path = require('path');
 const fs = require('fs');
 const { PrismaClient } = require('@prisma/client');
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DIRECT_URL || process.env.DATABASE_URL
+    }
+  }
+});
 const ARTIFACT_DIR = path.resolve('C:/Users/alok anand magada/.gemini/antigravity/brain/44f6329e-f5a4-4d6c-b171-cd287adbbb97');
 fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
 

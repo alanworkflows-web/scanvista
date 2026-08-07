@@ -16,7 +16,6 @@ const ManagerHelp = lazyWithPreload(() => import('./pages/ManagerHelp').then(m =
 const ManagerExperience = lazyWithPreload(() => import('./pages/ManagerExperience').then(m => ({ default: m.ManagerExperience })));
 const AdminCRM = lazyWithPreload(() => import('./pages/AdminCRM').then(m => ({ default: m.AdminCRM })));
 const ManagerGuests = lazyWithPreload(() => import('./pages/ManagerGuests').then(m => ({ default: m.ManagerGuests })));
-const LegacyGuestWelcome = lazyWithPreload(() => import('./pages/GuestWelcome.legacy').then(m => ({ default: m.GuestWelcome })));
 const ManagerProperty = lazyWithPreload(() => import('./pages/ManagerProperty').then(m => ({ default: m.ManagerProperty })));
 const OperationsPlaybook = lazyWithPreload(() => import('./pages/OperationsPlaybook').then(m => ({ default: m.OperationsPlaybook })));
 const ManagerLaunchChecklist = lazyWithPreload(() => import('./pages/ManagerLaunchChecklist').then(m => ({ default: m.ManagerLaunchChecklist })));
@@ -86,7 +85,7 @@ export default function App() {
         <Route path="/legal/copyright" element={<CopyrightNotice />} />
         <Route path="/g/:token" element={<GuestPageLoader mode="guest" />} />
         <Route path="/preview/:token" element={<GuestPageLoader mode="preview" />} />
-        <Route path="/legacy/g/:token" element={<LegacyGuestWelcome />} />
+        <Route path="/legacy/g/:token" element={<GuestPageLoader mode="guest" />} />
 
         {/* Authenticated Manager Routes */}
         <Route path="/manager/onboarding" element={<ManagerOnboarding />} />

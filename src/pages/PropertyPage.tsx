@@ -311,7 +311,7 @@ export function PropertyPage({ initialData, isPreview = false, isScanned: propIs
         <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-gray-950/50 to-black/20 z-10" />
 
         {/* Floating Top Pill Header with optional subtle guest greeting */}
-        <div className="absolute top-6 left-4 right-4 z-20 max-w-4xl mx-auto flex items-center justify-between gap-2">
+        <div className="absolute top-6 left-4 right-4 z-20 max-w-4xl mx-auto flex flex-wrap items-center justify-between gap-2">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/15 text-white/90 text-xs font-medium uppercase tracking-wider">
             <TypeIcon size={13} className="text-emerald-400" />
             <span>{typeMeta.label}</span>
@@ -319,10 +319,10 @@ export function PropertyPage({ initialData, isPreview = false, isScanned: propIs
 
           <div className="flex items-center gap-2">
             {guest?.name && (
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white text-xs font-medium">
-                <Sparkles size={12} className="text-amber-400" />
-                <span>{getTimeGreeting()}, {guest.name}</span>
-                {guest.roomNumber && <span className="text-white/60 text-[10px]">Rm {guest.roomNumber}</span>}
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white text-xs font-medium max-w-full">
+                <Sparkles size={12} className="shrink-0 text-amber-400" />
+                <span className="truncate">{getTimeGreeting()}, {guest.name}</span>
+                {guest.roomNumber && <span className="shrink-0 text-white/60 text-[10px]">Rm {guest.roomNumber}</span>}
               </div>
             )}
             <div className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-950/60 backdrop-blur-md border border-emerald-500/30 text-emerald-300 text-xs font-medium">
@@ -343,7 +343,7 @@ export function PropertyPage({ initialData, isPreview = false, isScanned: propIs
               />
             )}
             <div>
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-serif font-medium text-white tracking-tight leading-tight drop-shadow-md">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-serif font-medium text-white tracking-tight leading-tight drop-shadow-md break-words">
                 {property.name}
               </h1>
               {property.tagline && (
@@ -388,7 +388,6 @@ export function PropertyPage({ initialData, isPreview = false, isScanned: propIs
             <div className="sticky top-14 sm:top-16 z-40 bg-background/95 backdrop-blur-xl py-3 -mx-4 px-4 sm:mx-0 sm:px-0 border-b border-divider/60">
               <div 
                 className="flex overflow-x-auto hide-scrollbar gap-2 mb-3 pb-1"
-                style={{ maskImage: "linear-gradient(to right, black 90%, transparent 100%)", WebkitMaskImage: "linear-gradient(to right, black 90%, transparent 100%)" }}
               >
                 {(categories || []).map((cat) => {
                   const hasItems = filteredItems.some(i => i.categoryId === cat.id);
@@ -612,42 +611,42 @@ export function PropertyPage({ initialData, isPreview = false, isScanned: propIs
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Network Box */}
-                  <div className="bg-white/5 backdrop-blur-md p-4 rounded-xl border border-white/10 flex items-center justify-between">
-                    <div>
+                  <div className="bg-white/5 backdrop-blur-md p-4 rounded-xl border border-white/10 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
                       <p className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold mb-1">
                         Network (SSID)
                       </p>
-                      <p className="text-base font-semibold text-white font-mono">
+                      <p className="text-base font-semibold text-white font-mono truncate">
                         {property.wifiNetwork || `${property.name}_Guest`}
                       </p>
                     </div>
                     <button
                       onClick={() => handleCopy(property.wifiNetwork || `${property.name}_Guest`, 'network')}
-                      className="p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors flex items-center gap-1.5 text-xs"
+                      className="p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors flex items-center gap-1.5 text-xs shrink-0"
                       title="Copy Network Name"
                     >
                       {copiedField === 'network' ? <Check size={15} className="text-emerald-400" /> : <Copy size={15} />}
-                      <span>{copiedField === 'network' ? 'Copied' : 'Copy'}</span>
+                      <span className="hidden xs:inline">{copiedField === 'network' ? 'Copied' : 'Copy'}</span>
                     </button>
                   </div>
 
                   {/* Password Box */}
-                  <div className="bg-white/5 backdrop-blur-md p-4 rounded-xl border border-white/10 flex items-center justify-between">
-                    <div>
+                  <div className="bg-white/5 backdrop-blur-md p-4 rounded-xl border border-white/10 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
                       <p className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold mb-1">
                         Password
                       </p>
-                      <p className="text-base font-semibold text-white font-mono">
+                      <p className="text-base font-semibold text-white font-mono truncate">
                         {property.wifiPassword || "Welcome2026"}
                       </p>
                     </div>
                     <button
                       onClick={() => handleCopy(property.wifiPassword || "Welcome2026", 'password')}
-                      className="p-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-colors flex items-center gap-1.5 text-xs font-medium shadow-sm"
+                      className="p-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-colors flex items-center gap-1.5 text-xs font-medium shadow-sm shrink-0"
                       title="Copy Password"
                     >
                       {copiedField === 'password' ? <Check size={15} /> : <Copy size={15} />}
-                      <span>{copiedField === 'password' ? 'Copied!' : 'Copy Password'}</span>
+                      <span className="hidden xs:inline">{copiedField === 'password' ? 'Copied!' : 'Copy Password'}</span>
                     </button>
                   </div>
                 </div>

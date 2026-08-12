@@ -24,11 +24,17 @@ import { cn } from "./ui/Button";
 import { theme } from "../design/theme";
 import { SyncStatus } from "./ui/SyncStatus";
 import { GlobalFooter } from "./ui/GlobalFooter";
-import { useManagerProperty } from "../hooks/useManagerProperty";
+import { useManagerProperty, clearManagerCache } from "../hooks/useManagerProperty";
 
 export function ManagerLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
+
+  if (typeof window !== "undefined" && sessionStorage.getItem("loggedOut") === "true") {
+    window.location.replace("/manager");
+    return null;
+  }
+
   const { property, properties, activePropertyId, activePropertySlug, switchProperty } = useManagerProperty();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [hoveredPath, setHoveredPath] = useState<string | null>(null);
@@ -42,7 +48,28 @@ export function ManagerLayout({ children }: { children: React.ReactNode }) {
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        if (sessionStorage.getItem("loggedOut") === "true") {
+          window.location.replace("/manager");
+        } else {
+          // Force a revalidation if restored from bfcache
+          fetch("/api/me").then(res => {
+            if (res.status === 401) {
+              sessionStorage.setItem("loggedOut", "true");
+              window.location.replace("/manager");
+            }
+          });
+        }
+      }
+    };
+    window.addEventListener("pageshow", handlePageShow);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("pageshow", handlePageShow);
+    };
   }, []);
 
   const navigation = [
@@ -59,7 +86,11 @@ export function ManagerLayout({ children }: { children: React.ReactNode }) {
   ];
 
   const handleLogout = () => {
-    fetch("/api/logout", { method: "POST" }).then(() => navigate("/manager"));
+    fetch("/api/logout", { method: "POST" }).then(() => {
+      clearManagerCache();
+      sessionStorage.setItem("loggedOut", "true");
+      window.location.href = "/manager";
+    });
   };
 
   const isActivePath = (href: string) => {

@@ -15,6 +15,11 @@ function notifyListeners() {
   listeners.forEach(l => l(cachedData));
 }
 
+export function clearManagerCache() {
+  cachedData = null;
+  fetchPromise = null;
+}
+
 export function useManagerProperty() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -31,23 +36,32 @@ export function useManagerProperty() {
     }
 
     if (!fetchPromise) {
+      console.log("useManagerProperty: CREATING NEW FETCH PROMISE");
       fetchPromise = fetch("/api/me")
         .then((res) => {
+          console.log("useManagerProperty: /api/me returned", res.status);
           if (!res.ok) throw new Error("Not authorized");
+          if (typeof window !== "undefined") {
+            sessionStorage.removeItem("loggedOut");
+          }
           return res.json();
         })
         .then((userData) => {
+          console.log("useManagerProperty: userData loaded");
           const savedId = typeof window !== "undefined" 
             ? (localStorage.getItem(ACTIVE_PROPERTY_ID_KEY) || localStorage.getItem(ACTIVE_PROPERTY_KEY) || "") 
             : "";
           const queryParam = savedId ? `?propertyId=${encodeURIComponent(savedId)}` : "";
 
+          console.log("useManagerProperty: fetching current-property", queryParam);
           return fetch(`/api/manager/current-property${queryParam}`)
             .then((res) => {
+              console.log("useManagerProperty: current-property returned", res.status);
               if (!res.ok) throw new Error("Failed to fetch property");
               return res.json();
             })
             .then((managerData) => {
+              console.log("useManagerProperty: managerData loaded");
               const activeSlug = managerData.property?.slug || null;
               const activeId = managerData.property?.id || null;
 
@@ -92,9 +106,11 @@ export function useManagerProperty() {
       .then((resData) => {
         cachedData = resData;
         setData(resData);
+        console.log("useManagerProperty resolved, setting loading to false. resData:", resData);
         setLoading(false);
       })
       .catch((err) => {
+        console.log("useManagerProperty caught error:", err.message);
         if (err.message === "Not authorized") {
           navigate(`/manager?returnTo=${encodeURIComponent(location.pathname)}`);
         } else {

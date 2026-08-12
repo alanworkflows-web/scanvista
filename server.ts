@@ -15,6 +15,7 @@ import { OAuth2Client } from "google-auth-library";
 import { z } from "zod";
 import crypto from "crypto";
 import { Paddle, Environment } from "@paddle/paddle-node-sdk";
+import jwt from "jsonwebtoken";
 import { detectSensitiveContent } from "./src/lib/sensitiveContent";
 import { validateForPublish } from "./src/lib/validationFramework";
 import { calculatePropertyStatus } from "./src/lib/propertyStatusEngine";
@@ -114,9 +115,14 @@ const app = express();
 
   // Shared Webhook Handler
   const handlePaddleWebhook = async (req: express.Request, res: express.Response) => {
+    let rawBody = '';
+    let parsedBody: any = null;
+    let eventId = 'unknown';
+    let eventType = 'unknown';
+
     try {
       const signature = req.headers['paddle-signature'] as string;
-      const rawBody = req.body ? req.body.toString('utf8') : '';
+      rawBody = req.body ? req.body.toString('utf8') : '';
       const secretKey = process.env.PADDLE_WEBHOOK_SECRET || (process.env.NODE_ENV === 'test' ? 'test_webhook_secret' : undefined);
 
       if (!secretKey) {
@@ -124,7 +130,31 @@ const app = express();
         return res.status(500).send("Webhook configuration error");
       }
 
-      // 1. Signature Verification
+      // 1. Parse payload safely
+      try {
+        parsedBody = JSON.parse(rawBody);
+      } catch (parseErr) {
+        return res.status(400).send("Invalid JSON");
+      }
+
+      eventId = parsedBody?.event_id || parsedBody?.eventId || parsedBody?.id || 'unknown';
+      eventType = parsedBody?.event_type || parsedBody?.eventType || parsedBody?.type || 'unknown';
+
+      // 2. Initial Idempotency check via WebhookEvent table (upsert allows recording errors later)
+      if (eventId !== 'unknown') {
+        const existingEvent = await prisma.webhookEvent.findUnique({ where: { id: eventId } });
+        if (existingEvent && existingEvent.status === 'processed') {
+           console.log(`Webhook event ${eventId} already processed (idempotent 200).`);
+           return res.status(200).send("OK");
+        }
+        await prisma.webhookEvent.upsert({
+          where: { id: eventId },
+          update: { payload: parsedBody },
+          create: { id: eventId, type: eventType, payload: parsedBody }
+        });
+      }
+
+      // 3. Signature Verification
       let isValid = false;
       if (signature === 'valid' && (process.env.NODE_ENV === 'test' || process.env.TEST_MODE === 'true')) {
         isValid = true;
@@ -138,45 +168,64 @@ const app = express();
       }
 
       if (!isValid) {
-        console.warn("Invalid Paddle webhook signature rejected");
-        return res.status(400).send("Invalid signature");
-      }
-
-      // 2. Parse payload safely
-      let parsedBody: any;
-      try {
-        parsedBody = JSON.parse(rawBody);
-      } catch (parseErr) {
-        return res.status(400).send("Invalid JSON");
-      }
-
-      const eventId = parsedBody?.event_id || parsedBody?.eventId || parsedBody?.id;
-      const eventType = parsedBody?.event_type || parsedBody?.eventType || parsedBody?.type || 'unknown';
-
-      // 3. Idempotency check via WebhookEvent table
-      if (eventId) {
-        try {
-          await prisma.webhookEvent.create({ data: { id: eventId, type: eventType } });
-        } catch (e: any) {
-          if (e.code === 'P2002') {
-            console.log(`Webhook event ${eventId} already processed (idempotent 200).`);
-            return res.status(200).send("OK");
-          }
-          throw e;
+        if (eventId !== 'unknown') {
+          await prisma.webhookEvent.update({
+            where: { id: eventId },
+            data: { status: 'error', error: 'Invalid Paddle webhook signature rejected' }
+          });
         }
+        return res.status(400).send("Invalid signature");
       }
 
       // 4. Process Subscription & Entitlement Updates
       const payload = (parsedBody?.data || parsedBody) as any;
       const customData = payload?.custom_data || payload?.customData;
-      const slug = customData?.slug;
+      const token = customData?.checkoutToken;
+
+      if (!token) {
+        if (eventId !== 'unknown') {
+          await prisma.webhookEvent.update({
+            where: { id: eventId },
+            data: { status: 'error', error: 'Missing checkoutToken' }
+          });
+        }
+        return res.status(403).send("Missing checkout token");
+      }
+
+      let slug = undefined;
+      try {
+        const decoded = jwt.verify(token, secretKey);
+        slug = (decoded as any).slug;
+      } catch (err: any) {
+        if (eventId !== 'unknown') {
+          await prisma.webhookEvent.update({
+            where: { id: eventId },
+            data: { status: 'error', error: `JWT verification failed: ${err.message}` }
+          });
+        }
+        return res.status(403).send("Invalid checkout token");
+      }
 
       if (payload && slug) {
         const rawStatus = payload.status;
         const validStatuses = ['active', 'trialing', 'canceled', 'past_due', 'paused'];
+        
         if (rawStatus && validStatuses.includes(rawStatus)) {
           const customerId = payload.customer_id || payload.customerId;
           const subscriptionId = payload.id || payload.subscription_id || payload.subscriptionId;
+
+          if (!customerId || !subscriptionId) {
+             const errorMsg = "Missing paddle customer ID or subscription ID in webhook payload";
+             if (eventId !== 'unknown') {
+               await prisma.webhookEvent.update({
+                 where: { id: eventId },
+                 data: { status: 'error', error: errorMsg }
+               });
+             }
+             // Returning 200 so Paddle doesn't retry invalid payloads indefinitely, but logging the error
+             console.error(`[PADDLE WEBHOOK] ${errorMsg}`);
+             return res.status(200).send("OK - Ignored due to missing IDs");
+          }
 
           const property = await prisma.property.findUnique({ where: { slug } });
           if (property) {
@@ -184,19 +233,39 @@ const app = express();
               where: { propertyId: property.id },
               update: {
                 status: rawStatus,
-                paddleCustomerId: customerId || undefined,
-                paddleSubscriptionId: subscriptionId || undefined
+                paddleCustomerId: customerId,
+                paddleSubscriptionId: subscriptionId
               },
               create: {
                 propertyId: property.id,
                 status: rawStatus,
-                paddleCustomerId: customerId || undefined,
-                paddleSubscriptionId: subscriptionId || undefined
+                paddleCustomerId: customerId,
+                paddleSubscriptionId: subscriptionId
               }
             });
             console.log(`[PADDLE WEBHOOK] Successfully synced subscription for property '${slug}' (${property.id}): status=${rawStatus}, subId=${subscriptionId}`);
+            
+            if (eventId !== 'unknown') {
+               await prisma.webhookEvent.update({
+                 where: { id: eventId },
+                 data: { status: 'processed', error: null }
+               });
+            }
           } else {
-            console.warn(`[PADDLE WEBHOOK] Property with slug '${slug}' not found.`);
+            const errorMsg = `Property with slug '${slug}' not found.`;
+            if (eventId !== 'unknown') {
+               await prisma.webhookEvent.update({
+                 where: { id: eventId },
+                 data: { status: 'error', error: errorMsg }
+               });
+            }
+          }
+        } else {
+          if (eventId !== 'unknown') {
+             await prisma.webhookEvent.update({
+               where: { id: eventId },
+               data: { status: 'ignored', error: `Unhandled or invalid status: ${rawStatus}` }
+             });
           }
         }
       }
@@ -204,6 +273,12 @@ const app = express();
       return res.status(200).send("OK");
     } catch (err: any) {
       console.error("Webhook Error:", err);
+      if (eventId !== 'unknown') {
+         await prisma.webhookEvent.update({
+           where: { id: eventId },
+           data: { status: 'error', error: err.message || "Unknown server error" }
+         }).catch(console.error); // Catch DB update errors silently here
+      }
       return res.status(400).send("Webhook Error");
     }
   };
@@ -649,18 +724,27 @@ const app = express();
     res.json(user);
   });
 
-  // Properties API
-  const publicPropertyCache = new Map<string, { data: any, timestamp: number }>();
+  // Diagnostic Endpoint
+  app.get("/api/diagnostic/deployment", (req, res) => {
+    let dbHost = "unknown";
+    if (process.env.DATABASE_URL) {
+      try {
+        dbHost = new URL(process.env.DATABASE_URL).hostname;
+      } catch (e) {
+        dbHost = "invalid_url";
+      }
+    }
+    res.json({
+      deployment_url: process.env.VERCEL_URL || 'local',
+      git_commit: process.env.VERCEL_GIT_COMMIT_SHA || 'unknown',
+      database: dbHost
+    });
+  });
 
+  // Properties API
   app.get("/api/properties/:slug", async (req, res) => {
     try {
       const slug = req.params.slug.toLowerCase();
-
-      // Basic memory cache (TTL: 30s)
-      const cached = publicPropertyCache.get(slug);
-      if (cached && Date.now() - cached.timestamp < 30000) {
-        return res.json(cached.data);
-      }
 
       const property = await prisma.property.findUnique({
         where: { slug },
@@ -674,8 +758,7 @@ const app = express();
           subscription: true,
           snapshots: {
             orderBy: { publishedAt: 'desc' },
-            take: 1,
-            select: { id: true, publishedAt: true }
+            take: 1
           }
         }
       });
@@ -684,54 +767,76 @@ const app = express();
         return res.status(404).json({ error: "Property not found" });
       }
 
-      const categories = property.categories;
-      const dishes = property.categories.flatMap(c => c.dishes);
-      const amenities = property.amenities;
-      const entitlement = resolveEntitlement(property.subscription);
+      let responseData: any;
 
-      const safeProperty = {
-        id: property.id,
-        slug: property.slug,
-        currency: property.org?.currency || 'USD',
-        name: property.name,
-        description: property.description,
-        bannerUrl: property.bannerUrl || property.heroImage,
-        heroImage: property.heroImage || property.bannerUrl,
-        logoUrl: property.logoUrl,
-        previewToken: property.previewToken,
-        propertyType: property.propertyType,
-        wifiNetwork: property.wifiNetwork,
-        wifiPassword: property.wifiPassword,
-        hostInfo: property.hostInfo,
-        houseRules: property.houseRules,
-        hotelRules: property.hotelRules,
-        contacts: property.contacts,
-        experiences: property.experiences,
-        receptionPhone: property.receptionPhone,
-        housekeepingPhone: property.housekeepingPhone,
-        emergencyPhone: property.emergencyPhone,
-        roomServicePhone: property.roomServicePhone,
-        tagline: property.tagline,
-        welcomeMessage: property.welcomeMessage,
-        checkInTime: property.checkInTime,
-        checkOutTime: property.checkOutTime,
-        // Published state – used by frontend to gate QR distribution
-        isPublished: property.snapshots.length > 0,
-        snapshotCount: property.snapshots.length,
-        lastPublishedAt: property.snapshots[0]?.publishedAt ?? null,
-        snapshots: property.snapshots,
-        entitlement
-      };
+      if (property.snapshots && property.snapshots.length > 0) {
+        const snapshotData = property.snapshots[0].data as any;
+        
+        const safeProperty = {
+          ...snapshotData.property,
+          currency: property.org?.currency || snapshotData.property?.currency || 'USD',
+          heroImage: snapshotData.property?.heroImage || snapshotData.property?.bannerUrl,
+          bannerUrl: snapshotData.property?.bannerUrl || snapshotData.property?.heroImage,
+          isPublished: true,
+          snapshotCount: property.snapshots.length,
+          lastPublishedAt: property.snapshots[0].publishedAt,
+          entitlement: resolveEntitlement(property.subscription)
+        };
+        
+        responseData = {
+          property: safeProperty,
+          categories: snapshotData.categories || [],
+          dishes: snapshotData.dishes || snapshotData.categories?.flatMap((c: any) => c.dishes || []) || [],
+          amenities: snapshotData.amenities || [],
+          grievances: []
+        };
+      } else {
+        const categories = property.categories;
+        const dishes = property.categories.flatMap(c => c.dishes);
+        const amenities = property.amenities;
+        const entitlement = resolveEntitlement(property.subscription);
 
-      const responseData = {
-        property: safeProperty,
-        categories,
-        dishes,
-        amenities,
-        grievances: []
-      };
+        const safeProperty = {
+          id: property.id,
+          slug: property.slug,
+          currency: property.org?.currency || 'USD',
+          name: property.name,
+          description: property.description,
+          bannerUrl: property.bannerUrl || property.heroImage,
+          heroImage: property.heroImage || property.bannerUrl,
+          logoUrl: property.logoUrl,
+          previewToken: property.previewToken,
+          propertyType: property.propertyType,
+          wifiNetwork: property.wifiNetwork,
+          wifiPassword: property.wifiPassword,
+          hostInfo: property.hostInfo,
+          houseRules: property.houseRules,
+          hotelRules: property.hotelRules,
+          contacts: property.contacts,
+          experiences: property.experiences,
+          receptionPhone: property.receptionPhone,
+          housekeepingPhone: property.housekeepingPhone,
+          emergencyPhone: property.emergencyPhone,
+          roomServicePhone: property.roomServicePhone,
+          tagline: property.tagline,
+          welcomeMessage: property.welcomeMessage,
+          checkInTime: property.checkInTime,
+          checkOutTime: property.checkOutTime,
+          isPublished: false,
+          snapshotCount: 0,
+          lastPublishedAt: null,
+          snapshots: [],
+          entitlement
+        };
 
-      publicPropertyCache.set(slug, { data: responseData, timestamp: Date.now() });
+        responseData = {
+          property: safeProperty,
+          categories,
+          dishes,
+          amenities,
+          grievances: []
+        };
+      }
       res.json(responseData);
     } catch (err) {
       console.error(err);
@@ -752,6 +857,10 @@ const app = express();
               org: { select: { currency: true } },
               amenities: true,
               categories: { include: { dishes: true } },
+              snapshots: {
+                orderBy: { publishedAt: 'desc' },
+                take: 1
+              }
             }
           }
         }
@@ -775,6 +884,25 @@ const app = express();
           }
         }).catch(() => {});
 
+        let finalProperty: any = {
+          ...guest.property,
+          currency: guest.property.org?.currency || 'USD',
+          heroImage: guest.property.heroImage || guest.property.bannerUrl,
+          bannerUrl: guest.property.bannerUrl || guest.property.heroImage
+        };
+
+        if (guest.property.snapshots && guest.property.snapshots.length > 0) {
+          const snapshotData = guest.property.snapshots[0].data as any;
+          finalProperty = {
+            ...snapshotData.property,
+            currency: guest.property.org?.currency || snapshotData.property?.currency || 'USD',
+            heroImage: snapshotData.property?.heroImage || snapshotData.property?.bannerUrl,
+            bannerUrl: snapshotData.property?.bannerUrl || snapshotData.property?.heroImage,
+            categories: snapshotData.categories || [],
+            amenities: snapshotData.amenities || []
+          };
+        }
+
         const safeGuest = {
           token: guest.token,
           name: guest.name,
@@ -786,12 +914,7 @@ const app = express();
           preferences: guest.preferences,
           communication: guest.communication,
           status: guest.status,
-          property: {
-            ...guest.property,
-            currency: guest.property.org?.currency || 'USD',
-            heroImage: guest.property.heroImage || guest.property.bannerUrl,
-            bannerUrl: guest.property.bannerUrl || guest.property.heroImage
-          }
+          property: finalProperty
         };
 
         return res.json(safeGuest);
@@ -1379,7 +1502,44 @@ const app = express();
     }
   });
 
-  // Customer Portal Session API
+  // Secure Paddle Checkout Identity Endpoint
+  app.get("/api/manager/properties/:slug/checkout-identity", requireAuth, async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.session.userId as string;
+      const { slug } = req.params;
+
+      const property = await getAuthorizedProperty(slug, userId, false);
+
+      if (!property) {
+        return res.status(403).json({ error: "Unauthorized or property not found" });
+      }
+
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      const jwt = require('jsonwebtoken');
+      const secret = process.env.PADDLE_WEBHOOK_SECRET || 'test_webhook_secret';
+      const checkoutToken = jwt.sign({ slug: property.slug, userId: user.id }, secret, { expiresIn: '2h' });
+
+      if (property.subscription?.paddleCustomerId) {
+        return res.json({ 
+          customer: { id: property.subscription.paddleCustomerId },
+          checkoutToken
+        });
+      }
+
+      return res.json({ 
+        customer: { email: user.email },
+        checkoutToken
+      });
+    } catch (err: any) {
+      console.error("Checkout identity error:", err);
+      res.status(500).json({ error: "Failed to generate checkout identity" });
+    }
+  });
+
+  // Generate Customer Portal LinkSession API
   app.post("/api/manager/properties/:slug/portal", requireAuth, async (req, res) => {
     try {
       // @ts-ignore
@@ -1503,7 +1663,6 @@ const app = express();
 
       // @ts-ignore
       req.session.currentPropertyId = property.id;
-      publicPropertyCache.delete(slug);
 
       res.status(200).json(property);
     } catch (err: any) {
@@ -1708,9 +1867,7 @@ const app = express();
         }
       });
 
-      publicPropertyCache.delete(property.slug);
       if (updatedProperty.slug !== property.slug) {
-        publicPropertyCache.delete(updatedProperty.slug);
       }
 
       try {
@@ -1794,7 +1951,6 @@ const app = express();
         }
       });
 
-      publicPropertyCache.delete(property.slug);
 
       try {
         await prisma.activityEvent.create({
@@ -1840,7 +1996,6 @@ const app = express();
       }
 
       const amenity = await prisma.amenity.create({ data: { ...validatedData, propertyId: property.id } });
-      publicPropertyCache.delete(property.slug);
       res.json(amenity);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -1874,7 +2029,6 @@ const app = express();
     if (!entitlement.canEdit) return res.status(403).json({ error: "Account is read-only." });
 
     const updated = await prisma.amenity.update({ where: { id }, data: req.body });
-    publicPropertyCache.delete(property.slug);
     res.json(updated);
   });
 
@@ -1893,7 +2047,6 @@ const app = express();
     if (!entitlement.canEdit) return res.status(403).json({ error: "Account is read-only." });
 
     await prisma.amenity.delete({ where: { id } });
-    publicPropertyCache.delete(property.slug);
     res.json({ success: true });
   });
 
@@ -1948,7 +2101,6 @@ const app = express();
           categoryId
         }
       });
-      publicPropertyCache.delete(property.slug);
       res.json(dish);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -1986,7 +2138,6 @@ const app = express();
     if (!entitlement.canEdit) return res.status(403).json({ error: "Account is read-only." });
 
     const updated = await prisma.dish.update({ where: { id }, data: req.body });
-    publicPropertyCache.delete(property.slug);
     res.json(updated);
   });
 
@@ -2008,7 +2159,6 @@ const app = express();
     if (!entitlement.canEdit) return res.status(403).json({ error: "Account is read-only." });
 
     await prisma.dish.delete({ where: { id } });
-    publicPropertyCache.delete(property.slug);
     res.json({ success: true });
   });
 
@@ -2048,7 +2198,6 @@ const app = express();
         }
       });
 
-      publicPropertyCache.delete(property.slug);
       res.json(category);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -2092,7 +2241,6 @@ const app = express();
           displayOrder: validatedData.displayOrder ?? category.displayOrder
         }
       });
-      publicPropertyCache.delete(property.slug);
       res.json(updated);
     } catch (err) {
       res.status(500).json({ error: "Failed to update category" });
@@ -2121,7 +2269,6 @@ const app = express();
     }
 
     await prisma.menuCategory.delete({ where: { id } });
-    publicPropertyCache.delete(property.slug);
     res.json({ success: true });
   });
 
@@ -2384,7 +2531,6 @@ const app = express();
       }
 
       // 6. Invalidate the public property cache so guests see fresh data
-      publicPropertyCache.delete(property.slug);
 
       // 7. Build QR URL
       const baseUrl = req.headers.origin || `https://${req.headers.host}`;

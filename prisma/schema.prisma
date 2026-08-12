@@ -246,6 +246,9 @@ model Session {
 model WebhookEvent {
   id        String   @id
   type      String
+  payload   Json?
+  status    String   @default("unprocessed")
+  error     String?
   createdAt DateTime @default(now())
 }
 

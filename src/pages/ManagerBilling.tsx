@@ -13,6 +13,7 @@ import { Button } from "../components/ui/Button";
 
 export function ManagerBilling() {
   const { property, loading, error: multiPropertyError, refreshProperty } = useManagerProperty();
+  console.log("ManagerBilling render -> loading:", loading, "property:", property ? property.id : null, "error:", multiPropertyError);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [billingError, setBillingError] = useState<string | null>(null);
 
@@ -50,11 +51,10 @@ export function ManagerBilling() {
     setBillingError(null);
     setCheckoutLoading(true);
     try {
-      // 1. Ensure user is loaded
-      const userRes = await fetch("/api/me");
-      if (!userRes.ok) throw new Error("Not authenticated");
-      const { user } = await userRes.json();
-      const userEmail = user?.email;
+      // 1. Fetch secure billing identity
+      const identityRes = await fetch(`/api/manager/properties/${property.slug}/checkout-identity`);
+      if (!identityRes.ok) throw new Error("Could not verify billing identity");
+      const { customer, checkoutToken } = await identityRes.json();
 
       // 2. Fetch active prices
       const pricesRes = await fetch("/api/manager/prices");
@@ -72,11 +72,10 @@ export function ManagerBilling() {
           priceId: premiumPrice.id,
           quantity: 1
         }],
-        customer: {
-          email: userEmail
-        },
+        customer,
         customData: {
-          slug: property.slug
+          slug: property.slug,
+          checkoutToken: checkoutToken || ""
         },
         settings: {
           displayMode: "overlay",
@@ -84,6 +83,8 @@ export function ManagerBilling() {
           locale: "en"
         }
       };
+
+      console.log("PADDLE PAYLOAD READY:", JSON.stringify(checkoutPayload, null, 2));
 
       if (typeof window !== "undefined" && (window as any).Paddle && (window as any).Paddle.Checkout) {
         (window as any).Paddle.Checkout.open(checkoutPayload);

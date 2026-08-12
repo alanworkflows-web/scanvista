@@ -25,6 +25,7 @@ interface Task {
 
 export function ManagerHome() {
   const { property, status, checklist: serverChecklist, loading, refreshProperty } = useManagerProperty();
+  console.log("ManagerHome render -> loading:", loading, "property:", property ? property.id : null);
   const [publishing, setPublishing] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [sensitiveSamples, setSensitiveSamples] = useState<string[]>([]);
@@ -214,7 +215,6 @@ export function ManagerHome() {
             <h1 className="text-3xl font-serif font-medium text-text-primary mb-2">
               {property.owner?.name ? `Good Morning, ${property.owner.name.split(' ')[0]}` : 'Welcome Back'}
             </h1>
-            <p className="text-text-secondary text-lg">Welcome back to ScanVista.</p>
             <div className="flex items-center gap-4 mt-6">
               <span className="text-sm font-medium px-3 py-1 bg-background border border-divider rounded-md flex items-center gap-2">
                 <MapPin size={14} className="text-primary" /> {property.name}

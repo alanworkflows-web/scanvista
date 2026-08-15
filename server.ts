@@ -1815,6 +1815,142 @@ const app = express();
     }
   });
 
+  app.post("/api/manager/properties/:slug/guests", requireAuth, async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.session.userId as string;
+      const { slug } = req.params;
+
+      const property = await getAuthorizedProperty(slug, userId, false);
+      if (!property) {
+        return res.status(403).json({ error: "Forbidden: You do not have access to this property" });
+      }
+
+      const entitlement = resolveEntitlement(property.subscription);
+      if (!entitlement.canEdit) {
+        return res.status(403).json({ error: "Subscription expired. Workspace is locked in Read-Only mode." });
+      }
+
+      const { name, phone, roomNumber, arrivalDate, arrivalTime, notes, status } = req.body || {};
+
+      if (!name || typeof name !== "string" || !name.trim()) {
+        return res.status(400).json({ error: "Guest name is required" });
+      }
+
+      const parsedArrivalDate = arrivalDate ? new Date(arrivalDate) : null;
+      const parsedArrivalTime = arrivalTime ? new Date(arrivalTime) : null;
+
+      const validStatuses = ["BOOKED", "ARRIVING", "CHECKED_IN", "STAYING", "CHECKED_OUT"];
+      const guestStatus = validStatuses.includes(status) ? status : "BOOKED";
+
+      const guest = await prisma.guest.create({
+        data: {
+          propertyId: property.id,
+          name: name.trim(),
+          phone: (phone && typeof phone === "string") ? phone.trim() : "",
+          roomNumber: (roomNumber && typeof roomNumber === "string") ? roomNumber.trim() : null,
+          arrivalDate: (parsedArrivalDate && !isNaN(parsedArrivalDate.getTime())) ? parsedArrivalDate : null,
+          arrivalTime: (parsedArrivalTime && !isNaN(parsedArrivalTime.getTime())) ? parsedArrivalTime : null,
+          notes: (notes && typeof notes === "string") ? notes.trim() : null,
+          status: guestStatus
+        }
+      });
+
+      res.status(201).json(guest);
+    } catch (err) {
+      console.error("[Create Guest] Error:", err);
+      res.status(500).json({ error: "Failed to create guest" });
+    }
+  });
+
+  app.patch("/api/manager/guests/:id", requireAuth, async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.session.userId as string;
+      const { id } = req.params;
+
+      const existingGuest = await prisma.guest.findUnique({ where: { id } });
+      if (!existingGuest) {
+        return res.status(404).json({ error: "Guest not found" });
+      }
+
+      const property = await getAuthorizedProperty(existingGuest.propertyId, userId, false);
+      if (!property) {
+        return res.status(403).json({ error: "Forbidden: You do not have access to this property" });
+      }
+
+      const entitlement = resolveEntitlement(property.subscription);
+      if (!entitlement.canEdit) {
+        return res.status(403).json({ error: "Subscription expired. Workspace is locked in Read-Only mode." });
+      }
+
+      const { name, phone, roomNumber, arrivalDate, arrivalTime, notes, status } = req.body || {};
+
+      const updateData: any = {};
+      if (name !== undefined) {
+        if (!name || typeof name !== "string" || !name.trim()) {
+          return res.status(400).json({ error: "Guest name cannot be empty" });
+        }
+        updateData.name = name.trim();
+      }
+      if (phone !== undefined) updateData.phone = typeof phone === "string" ? phone.trim() : "";
+      if (roomNumber !== undefined) updateData.roomNumber = typeof roomNumber === "string" ? roomNumber.trim() : null;
+      if (arrivalDate !== undefined) {
+        const parsed = arrivalDate ? new Date(arrivalDate) : null;
+        updateData.arrivalDate = (parsed && !isNaN(parsed.getTime())) ? parsed : null;
+      }
+      if (arrivalTime !== undefined) {
+        const parsed = arrivalTime ? new Date(arrivalTime) : null;
+        updateData.arrivalTime = (parsed && !isNaN(parsed.getTime())) ? parsed : null;
+      }
+      if (notes !== undefined) updateData.notes = typeof notes === "string" ? notes.trim() : null;
+      if (status !== undefined) {
+        const validStatuses = ["BOOKED", "ARRIVING", "CHECKED_IN", "STAYING", "CHECKED_OUT"];
+        if (validStatuses.includes(status)) updateData.status = status;
+      }
+
+      const updatedGuest = await prisma.guest.update({
+        where: { id },
+        data: updateData
+      });
+
+      res.json(updatedGuest);
+    } catch (err) {
+      console.error("[Update Guest] Error:", err);
+      res.status(500).json({ error: "Failed to update guest" });
+    }
+  });
+
+  app.delete("/api/manager/guests/:id", requireAuth, async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.session.userId as string;
+      const { id } = req.params;
+
+      const existingGuest = await prisma.guest.findUnique({ where: { id } });
+      if (!existingGuest) {
+        return res.status(404).json({ error: "Guest not found" });
+      }
+
+      const property = await getAuthorizedProperty(existingGuest.propertyId, userId, false);
+      if (!property) {
+        return res.status(403).json({ error: "Forbidden: You do not have access to this property" });
+      }
+
+      const entitlement = resolveEntitlement(property.subscription);
+      if (!entitlement.canEdit) {
+        return res.status(403).json({ error: "Subscription expired. Workspace is locked in Read-Only mode." });
+      }
+
+      await prisma.guest.delete({ where: { id } });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("[Delete Guest] Error:", err);
+      res.status(500).json({ error: "Failed to delete guest" });
+    }
+  });
+
+
   app.put("/api/manager/properties/:slug", requireAuth, async (req, res) => {
     try {
       // @ts-ignore

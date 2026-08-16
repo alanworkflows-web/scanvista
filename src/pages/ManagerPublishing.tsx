@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ManagerLayout } from "../components/ManagerLayout";
 import { useManagerProperty } from "../hooks/useManagerProperty";
-import { QrCode, Download, Copy, ExternalLink, CheckCircle2, AlertTriangle, FileDiff, Send, Sparkles } from "lucide-react";
+import { QrCode, Download, Copy, ExternalLink, CheckCircle2, AlertTriangle, FileDiff, Send, Sparkles, Eye } from "lucide-react";
 import { calculatePropertyStatus } from "../lib/propertyStatusEngine";
 import { detectSensitiveContent } from "../lib/sensitiveContent";
 import { PublishConfirmationModal } from "../components/PublishConfirmationModal";
@@ -258,26 +258,39 @@ export function ManagerPublishing() {
               </div>
             </div>
             
-            {/* Actions */}
-            <div className="pt-6 mt-6 border-t border-divider flex flex-col sm:flex-row gap-3">
-              <Button 
-                onClick={handleReviewAndPublish} 
-                disabled={publishing} 
-                className={`flex-1 ${
-                  statusResult.hasUnpublishedChanges
-                    ? "bg-text-primary text-white hover:bg-text-primary/90 shadow-md cursor-pointer" 
-                    : "bg-surface-hover text-text-muted border border-divider cursor-not-allowed"
-                }`}
-              >
-                {publishing ? "Publishing..." : statusResult.hasUnpublishedChanges ? "Publish Live" : "Up to Date"}
-              </Button>
-              <Link
-                to="/manager/checklist"
-                className="px-4 py-2 text-xs font-medium text-text-primary bg-surface hover:bg-surface-hover border border-divider rounded-md flex items-center justify-center gap-1.5 transition-colors"
-              >
-                <span>Launch Checklist</span>
-                <span className="text-text-muted">&rarr;</span>
-              </Link>
+            {/* Actions & Distinction */}
+            <div className="pt-6 mt-6 border-t border-divider space-y-4">
+              <div className="flex flex-col sm:flex-row items-stretch gap-3">
+                {property.previewToken && (
+                  <a
+                    href={`/preview/${property.previewToken}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex-1 px-4 py-2.5 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 border border-primary/30 rounded-lg flex items-center justify-center gap-2 transition-all shadow-sm"
+                  >
+                    <Eye size={16} />
+                    <span>Preview Guest Experience (Always Available)</span>
+                  </a>
+                )}
+                <Button 
+                  onClick={handleReviewAndPublish} 
+                  disabled={publishing} 
+                  className={`flex-1 text-xs font-semibold ${
+                    statusResult.hasUnpublishedChanges
+                      ? "bg-text-primary text-white hover:bg-text-primary/90 shadow-md cursor-pointer" 
+                      : "bg-surface-hover text-text-muted border border-divider cursor-not-allowed"
+                  }`}
+                >
+                  {publishing ? "Publishing..." : statusResult.hasUnpublishedChanges ? "Publish Live (Requires 100% Readiness)" : "Up to Date"}
+                </Button>
+              </div>
+
+              <div className="flex justify-between items-center text-[11px] text-text-muted">
+                <span>• Preview is always accessible for draft reviews regardless of completion.</span>
+                <Link to="/manager/checklist" className="hover:text-text-primary underline flex items-center gap-1 font-medium">
+                  Launch Checklist &rarr;
+                </Link>
+              </div>
             </div>
           </div>
 

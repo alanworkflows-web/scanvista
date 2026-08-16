@@ -213,8 +213,13 @@ export function ManagerHome() {
         <div className="mb-10 bg-surface border border-divider rounded-xl p-8 shadow-premium relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div className="relative z-10">
             <h1 className="text-3xl font-serif font-medium text-text-primary mb-2">
-              {property.owner?.name ? `Good Morning, ${property.owner.name.split(' ')[0]}` : 'Welcome Back'}
+              {property.owner?.name ? `Good Morning, ${property.owner.name.split(' ')[0]}` : 'Manager Dashboard'}
             </h1>
+            <p className="text-sm text-text-secondary opacity-70">
+              {property.owner?.name 
+                ? "Here's what's happening with your property today." 
+                : "Manage your property, guest experience, and publishing from one place."}
+            </p>
             <div className="flex items-center gap-4 mt-6">
               <span className="text-sm font-medium px-3 py-1 bg-background border border-divider rounded-md flex items-center gap-2">
                 <MapPin size={14} className="text-primary" /> {property.name}

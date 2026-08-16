@@ -973,8 +973,8 @@ export function PropertyPage({ initialData, isPreview = false, isScanned: propIs
       </div>
 
       {/* Floating Bottom Quick Action Bar on Mobile / Scanned Devices */}
-      {property && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 z-40 bg-gradient-to-t from-background via-background/90 to-transparent pointer-events-none pb-safe">
+      {property && activeTab !== "wifi" && activeTab !== "host" && (
+        <div className="md:hidden fixed bottom-0 left-0 right-0 p-4 z-40 bg-gradient-to-t from-background via-background/90 to-transparent pointer-events-none pb-safe">
           <div className="max-w-md mx-auto w-full pointer-events-auto">
             {(property.roomServicePhone || property.receptionPhone) ? (
               <a 

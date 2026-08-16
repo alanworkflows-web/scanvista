@@ -41,7 +41,7 @@ export function useMenuStudio(propertySlug: string) {
   const fetchMenu = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/properties/${propertySlug}`);
+      const res = await fetch(`/api/manager/current-property?propertyId=${encodeURIComponent(propertySlug)}`);
       if (!res.ok) {
         throw new Error("Failed to load menu data");
       }
@@ -268,7 +268,13 @@ export function useMenuStudio(propertySlug: string) {
       setDeletedCategoryIds(new Set());
       setDeletedDishIds(new Set());
       
-      // Fetch fresh data after publishing
+      // Publish snapshot so guest portal is updated as well
+      await fetch(`/api/manager/properties/${propertySlug}/publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      }).catch(err => console.error("Snapshot publish warning:", err));
+
+      // Fetch fresh live data after publishing
       await fetchMenu();
       toast.success("Menu updated successfully!");
       return true;

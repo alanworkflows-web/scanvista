@@ -2256,33 +2256,67 @@ const app = express();
   });
 
   app.put("/api/manager/dishes/:id", requireAuth, async (req, res) => {
-    const sensitiveCheck = detectSensitiveContent(req.body);
-    if (sensitiveCheck.detected) {
-      return res.status(422).json({
-        error: "Sensitive content detected. Please remove credentials, passwords, or API keys before saving.",
-        reason: sensitiveCheck.reason,
-        samples: sensitiveCheck.samples
+    try {
+      const sensitiveCheck = detectSensitiveContent(req.body);
+      if (sensitiveCheck.detected) {
+        return res.status(422).json({
+          error: "Sensitive content detected. Please remove credentials, passwords, or API keys before saving.",
+          reason: sensitiveCheck.reason,
+          samples: sensitiveCheck.samples
+        });
+      }
+
+      // @ts-ignore
+      const { userId } = req.session;
+      const { id } = req.params;
+
+      const dish = await prisma.dish.findUnique({
+        where: { id },
+        include: { category: true }
       });
+      if (!dish) return res.status(404).json({ error: "Dish not found" });
+
+      const property = await getAuthorizedProperty(dish.category.propertyId, userId, false);
+      if (!property) return res.status(403).json({ error: "Access denied" });
+
+      const entitlement = resolveEntitlement(property.subscription);
+      if (!entitlement.canEdit) return res.status(403).json({ error: "Account is read-only." });
+
+      const {
+        name, price, categoryId, allergens, healthTips,
+        isOutOfStock, isVeg, isPopular, spiceLevel, preparationTime, imageUrl
+      } = req.body || {};
+
+      const updateData: any = {};
+      if (name !== undefined) {
+        if (!name || typeof name !== "string" || !name.trim()) {
+          return res.status(400).json({ error: "Dish name cannot be empty" });
+        }
+        updateData.name = name.trim();
+      }
+      if (price !== undefined) {
+        const numPrice = Number(price);
+        if (isNaN(numPrice) || numPrice < 0) {
+          return res.status(400).json({ error: "Price must be a valid non-negative number" });
+        }
+        updateData.price = numPrice;
+      }
+      if (categoryId !== undefined && typeof categoryId === "string") updateData.categoryId = categoryId;
+      if (allergens !== undefined && typeof allergens === "string") updateData.allergens = allergens;
+      if (healthTips !== undefined) updateData.healthTips = typeof healthTips === "string" ? healthTips.trim() : "";
+      if (isOutOfStock !== undefined) updateData.isOutOfStock = Boolean(isOutOfStock);
+      if (isVeg !== undefined) updateData.isVeg = Boolean(isVeg);
+      if (isPopular !== undefined) updateData.isPopular = Boolean(isPopular);
+      if (spiceLevel !== undefined && typeof spiceLevel === "string") updateData.spiceLevel = spiceLevel;
+      if (preparationTime !== undefined && typeof preparationTime === "string") updateData.preparationTime = preparationTime;
+      if (imageUrl !== undefined && typeof imageUrl === "string") updateData.imageUrl = imageUrl;
+
+      const updated = await prisma.dish.update({ where: { id }, data: updateData });
+      res.json(updated);
+    } catch (err: any) {
+      console.error("[Update Dish] Error:", err);
+      res.status(500).json({ error: "Failed to update dish" });
     }
-
-    // @ts-ignore
-    const { userId } = req.session;
-    const { id } = req.params;
-
-    const dish = await prisma.dish.findUnique({
-      where: { id },
-      include: { category: true }
-    });
-    if (!dish) return res.status(404).json({ error: "Dish not found" });
-
-    const property = await getAuthorizedProperty(dish.category.propertyId, userId, false);
-    if (!property) return res.status(403).json({ error: "Access denied" });
-
-    const entitlement = resolveEntitlement(property.subscription);
-    if (!entitlement.canEdit) return res.status(403).json({ error: "Account is read-only." });
-
-    const updated = await prisma.dish.update({ where: { id }, data: req.body });
-    res.json(updated);
   });
 
   app.delete("/api/manager/dishes/:id", requireAuth, async (req, res) => {

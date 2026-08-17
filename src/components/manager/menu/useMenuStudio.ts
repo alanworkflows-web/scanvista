@@ -127,27 +127,30 @@ export function useMenuStudio(propertySlug: string) {
 
   // Dish Actions
   const saveDish = (dishData: Partial<Dish> & { name: string; price: number; categoryId: string }) => {
-    if (dishData.id) {
-      // Update existing
-      setDishes(prev => prev.map(d => d.id === dishData.id ? { ...d, ...dishData } as Dish : d));
-    } else {
-      // Create new
-      const newDish: Dish = {
-        id: `temp-dish-${crypto.randomUUID()}`,
-        name: dishData.name,
-        price: dishData.price,
-        categoryId: dishData.categoryId,
-        allergens: dishData.allergens || '[]',
-        healthTips: dishData.healthTips || '',
-        isOutOfStock: dishData.isOutOfStock || false,
-        isVeg: dishData.isVeg,
-        isPopular: dishData.isPopular,
-        spiceLevel: dishData.spiceLevel,
-        preparationTime: dishData.preparationTime,
-        imageUrl: dishData.imageUrl
-      };
-      setDishes(prev => [...prev, newDish]);
-    }
+    setDishes(prev => {
+      const exists = prev.some(d => d.id === dishData.id);
+      if (exists) {
+        // Update existing dish in draft
+        return prev.map(d => d.id === dishData.id ? { ...d, ...dishData } as Dish : d);
+      } else {
+        // Append newly created dish to draft
+        const newDish: Dish = {
+          id: dishData.id || `temp-dish-${crypto.randomUUID()}`,
+          name: dishData.name,
+          price: Number(dishData.price) || 0,
+          categoryId: dishData.categoryId,
+          allergens: dishData.allergens || '[]',
+          healthTips: dishData.healthTips || '',
+          isOutOfStock: dishData.isOutOfStock || false,
+          isVeg: dishData.isVeg,
+          isPopular: dishData.isPopular,
+          spiceLevel: dishData.spiceLevel,
+          preparationTime: dishData.preparationTime,
+          imageUrl: dishData.imageUrl
+        };
+        return [...prev, newDish];
+      }
+    });
   };
 
   const deleteDish = (id: string) => {

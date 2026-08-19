@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
@@ -26,6 +26,12 @@ const PROPERTY_TYPES = [
 export function ManagerOnboarding() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1); // 1 = Setup (Name + Type), 2 = Instant Win / Launch
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("loggedOut");
+    }
+  }, []);
   const [formData, setFormData] = useState({
     name: "",
     propertyType: "HOTEL"
@@ -252,7 +258,7 @@ export function ManagerOnboarding() {
               {/* Pure Focused Actions */}
               <div className="w-full space-y-3">
                 <Button 
-                  size="default" 
+                  size="md" 
                   onClick={() => window.open(guestUrl, '_blank')} 
                   className="w-full rounded-full flex items-center justify-center gap-2 py-3.5 shadow-premium"
                 >
@@ -282,7 +288,7 @@ export function ManagerOnboarding() {
 
             <Button 
               size="lg" 
-              variant="outline"
+              variant="secondary"
               onClick={() => navigate("/manager/home")} 
               className="w-full py-4 rounded-full border-gray-300 text-text-primary hover:bg-background transition-all flex items-center justify-center gap-2"
             >

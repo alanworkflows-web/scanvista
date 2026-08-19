@@ -58,7 +58,7 @@ export function ManagerLanding() {
           <div className="mb-8">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 text-emerald-800 rounded-full text-xs font-semibold uppercase tracking-wider mb-4">
               <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-              Start Free for a Few Weeks
+              Join Free Validation Program
             </div>
             <h2 className="text-3xl font-serif text-text-primary mb-2">Create your property account</h2>
             <p className="text-text-secondary opacity-70 text-sm">

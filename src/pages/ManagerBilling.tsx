@@ -201,8 +201,10 @@ export function ManagerBilling() {
       <Card className="p-8">
         <div className="flex items-start justify-between mb-12">
           <div>
-            <h2 className="text-2xl font-serif text-text-primary mb-2">Current Subscription</h2>
-            <p className="text-text-secondary opacity-60">Manage your billing plan and features.</p>
+            <h2 className="text-2xl font-serif text-text-primary mb-2">Free Validation Program</h2>
+            <p className="text-text-secondary opacity-80 max-w-2xl">
+              ScanVista is currently free while we validate the product with hospitality properties and refine the experience.
+            </p>
           </div>
           <div>
             {isPremium ? (
@@ -210,8 +212,8 @@ export function ManagerBilling() {
                 Premium Active
               </Badge>
             ) : (
-              <Badge variant="neutral">
-                Free Plan
+              <Badge variant="success">
+                Validation Access
               </Badge>
             )}
           </div>
@@ -261,7 +263,10 @@ export function ManagerBilling() {
             )}
             <div>
               <h3 className="text-lg font-medium text-text-primary mb-1">Premium Plan</h3>
-              <div className="text-4xl font-serif text-text-primary mb-4">$10 <span className="text-base font-normal text-text-secondary opacity-60">/mo</span></div>
+              <div className="text-4xl font-serif text-text-primary mb-2">$10 <span className="text-base font-normal text-text-secondary opacity-60">/mo</span></div>
+              <div className="inline-block px-3 py-1 bg-amber-100 text-amber-800 text-xs font-semibold rounded-full mb-4">
+                Coming after validation
+              </div>
 
               <ul className="space-y-3 mb-8">
                 <li className="flex items-center gap-2 text-text-secondary font-medium"><CheckCircle2 className="w-5 h-5 text-emerald-600" /> Dynamic Digital Menu</li>
@@ -293,25 +298,10 @@ export function ManagerBilling() {
                   )}
                 </Button>
               ) : (
-                <Button
-                  id="checkout-btn"
-                  variant="primary"
-                  className="w-full justify-center gap-2 py-3 text-base font-semibold"
-                  onClick={handlePaddleCheckout}
-                  disabled={checkoutLoading}
-                >
-                  {checkoutLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Opening Checkout...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4" />
-                      Upgrade to Premium
-                    </>
-                  )}
-                </Button>
+                <div className="w-full bg-gray-100 text-gray-500 border border-gray-200 py-3 rounded text-center text-sm font-semibold flex items-center justify-center gap-2 cursor-not-allowed">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  Unlocked for Early Validation
+                </div>
               )}
             </div>
           </div>

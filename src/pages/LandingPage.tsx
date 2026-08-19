@@ -47,7 +47,7 @@ export function LandingPage() {
                 id="hero-nav-cta"
                 className="bg-[#C1984B] hover:bg-[#B38A3F] text-[#FAF9F6] shadow-md hover:shadow-lg text-xs sm:text-sm font-medium py-2.5 px-4 sm:px-6 rounded-full transition-all flex items-center gap-2 transform hover:-translate-y-0.5 active:translate-y-0"
               >
-                <span>Start Free for a Few Weeks</span>
+                <span>Join Free Validation Program</span>
                 <ArrowRight className="w-4 h-4" aria-hidden="true" />
               </Link>
             </div>
@@ -73,7 +73,7 @@ export function LandingPage() {
               id="hero-primary-cta"
               className="w-full sm:w-auto bg-[#C1984B] hover:bg-[#B38A3F] text-[#FAF9F6] font-semibold py-4 px-8 rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3 text-lg transform hover:-translate-y-0.5"
             >
-              <span>Start Free for a Few Weeks</span>
+              <span>Join Free Validation Program</span>
               <ArrowRight className="w-5 h-5" aria-hidden="true" />
             </Link>
             <a 
@@ -202,7 +202,7 @@ export function LandingPage() {
               id="footer-banner-cta"
               className="inline-flex items-center gap-3 bg-[#C1984B] hover:bg-[#B38A3F] text-[#FAF9F6] font-semibold py-4 px-8 rounded-full shadow-lg hover:shadow-xl transition-all text-lg transform hover:-translate-y-0.5"
             >
-              <span>Start Free for a Few Weeks</span>
+              <span>Join Free Validation Program</span>
               <ArrowRight className="w-5 h-5" aria-hidden="true" />
             </Link>
           </div>

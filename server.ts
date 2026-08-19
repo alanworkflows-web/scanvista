@@ -513,6 +513,16 @@ const app = express();
          safeReturnTo = rawReturnTo;
       }
 
+      // Enforce zero arbitrary behavior based on server-side property count
+      const propertyCount = await prisma.property.count({
+        where: { org: { memberships: { some: { userId: user.id } } } }
+      });
+      if (propertyCount === 0) {
+        safeReturnTo = '/manager/onboarding';
+      } else if (safeReturnTo === '/manager/onboarding') {
+        safeReturnTo = '/manager/home';
+      }
+
       // @ts-ignore
       req.session.regenerate((err) => {
         if (err) return res.status(500).send("Session error");
@@ -665,6 +675,17 @@ const app = express();
       }
 
       // Safe returnTo retrieved from state data
+      let finalReturnTo = returnTo;
+      
+      // Enforce zero arbitrary behavior based on server-side property count
+      const propertyCount = await prisma.property.count({
+        where: { org: { memberships: { some: { userId: user.id } } } }
+      });
+      if (propertyCount === 0) {
+        finalReturnTo = '/manager/onboarding';
+      } else if (finalReturnTo === '/manager/onboarding') {
+        finalReturnTo = '/manager/home';
+      }
 
       // @ts-ignore
       req.session.regenerate((err) => {
@@ -674,7 +695,7 @@ const app = express();
         // @ts-ignore
         req.session.save((saveErr) => {
           if (saveErr) return res.status(500).send("Session save error");
-          return res.redirect(returnTo);
+          return res.redirect(finalReturnTo);
         });
       });
     } catch (err: any) {
@@ -715,10 +736,21 @@ const app = express();
         req.session.currentPropertyId = property.id;
       }
       // @ts-ignore
-      req.session.save((err) => {
+      req.session.save(async (err) => {
         if (err) return res.status(500).json({ error: "Session save failed" });
-        const returnTo = (req.query.returnTo as string) || "/manager/home";
-        return res.redirect(returnTo);
+        
+        let finalReturnTo = (req.query.returnTo as string) || "/manager/home";
+        const propertyCount = await prisma.property.count({
+          where: { org: { memberships: { some: { userId: user.id } } } }
+        });
+        
+        if (propertyCount === 0) {
+          finalReturnTo = "/manager/onboarding";
+        } else if (finalReturnTo === "/manager/onboarding") {
+          finalReturnTo = "/manager/home";
+        }
+        
+        return res.redirect(finalReturnTo);
       });
     } catch (e: any) {
       res.status(500).json({ error: e?.message });

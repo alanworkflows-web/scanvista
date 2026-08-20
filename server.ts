@@ -334,6 +334,8 @@ const app = express();
 
   // Auth middleware
   const requireAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    res.setHeader('Cache-Control', 'no-store');
+    
     if (process.env.TEST_MODE === "true") {
       // @ts-ignore
       req.session.userId = "test-user-id";

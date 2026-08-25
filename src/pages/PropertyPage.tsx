@@ -237,6 +237,7 @@ export function PropertyPage({ initialData, isPreview = false, isScanned: propIs
         { id: "menu", label: "🍽️ Dining Menu" },
         { id: "amenities", label: "🛎️ Amenities" },
         { id: "wifi", label: "📶 Wi-Fi & Support" },
+        { id: "rules", label: "🗺️ Stay Guide" },
       ]
     : [
         { id: "menu", label: "🍳 Dining & Meals" },
@@ -931,10 +932,36 @@ export function PropertyPage({ initialData, isPreview = false, isScanned: propIs
               {openAccordion === 'rules' && (
                 <div className="px-6 pb-6 pt-2 text-sm text-text-secondary opacity-80 leading-relaxed border-t border-divider/60 whitespace-pre-wrap">
                   {(() => {
-                    const rules = property.hotelRules || property.houseRules;
-                    if (!rules) return "• Quiet hours observed after 10:00 PM for guest relaxation.\n• Non-smoking inside all rooms and indoor facilities.\n• Please keep room keys and valuables secured in room safes.\n• Guests are kindly requested to notify front desk of visitors.";
+                    const rawRules = property.hotelRules || property.houseRules;
+                    if (!rawRules) return "• Quiet hours observed after 10:00 PM for guest relaxation.\n• Non-smoking inside all rooms and indoor facilities.\n• Please keep room keys and valuables secured in room safes.\n• Guests are kindly requested to notify front desk of visitors.";
+                    
+                    let rules = rawRules;
+                    if (typeof rules === 'string') {
+                      try {
+                        const parsed = JSON.parse(rules);
+                        if (typeof parsed === 'object' && parsed !== null) {
+                          rules = parsed;
+                        }
+                      } catch (e) {
+                        return rules;
+                      }
+                    }
+
                     if (typeof rules === 'string') return rules;
                     if (Array.isArray(rules)) return rules.map((r: any) => typeof r === 'string' ? r : r.text || JSON.stringify(r)).join('\n');
+                    
+                    if (typeof rules === 'object' && rules !== null) {
+                      const lines = [];
+                      if (rules.quietHours) lines.push(`• Quiet Hours: ${rules.quietHours}`);
+                      if (rules.smokingPolicy) lines.push(`• Smoking Policy: ${rules.smokingPolicy}`);
+                      if (rules.petPolicy) lines.push(`• Pet Policy: ${rules.petPolicy}`);
+                      if (rules.poolRules) lines.push(`• Pool Rules: ${rules.poolRules}`);
+                      if (rules.childrenPolicy) lines.push(`• Children Policy: ${rules.childrenPolicy}`);
+                      if (rules.customRules) lines.push(`• Additional Guidelines:\n  ${rules.customRules}`);
+                      
+                      if (lines.length > 0) return lines.join('\n');
+                    }
+
                     return JSON.stringify(rules);
                   })()}
                 </div>
